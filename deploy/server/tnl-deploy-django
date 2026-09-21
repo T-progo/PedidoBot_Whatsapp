@@ -88,7 +88,7 @@ rollback() {
     tar -xzf "$CODE_BACKUP" -C "$rb"
     chgrp -R "$APP_USER" "$rb"
     chmod -R g+rX "$rb"
-    sync_code "$rb" || log "ATENCION: no se pudo restaurar el código"
+    sync_code "$rb" || log "ATENCION: rsync reportó errores al restaurar el código; revisar este log"
     systemctl restart "$SERVICE"
     if healthy; then
         log "Versión anterior restaurada y respondiendo"
@@ -137,7 +137,9 @@ if [ "$REQ_HASH" != "$(cat "$STATE/requirements.sha256" 2>/dev/null || true)" ];
     echo "$REQ_HASH" > "$STATE/requirements.sha256"
 fi
 
-# 4. Verificar el código nuevo antes de tocar producción
+# 4. Verificar antes de tocar producción: permisos y código nuevo
+AJENO="$(find "$LIVE" -path "$LIVE/.venv" -prune -o ! -user "$APP_USER" ! -path '*/__pycache__*' -print | head -1)"
+[ -z "$AJENO" ] || fail "Hay archivos en $LIVE que no son de $APP_USER (p. ej. $AJENO); producción no se tocó. Corregir con: chown -R $APP_USER:$APP_USER $LIVE"
 log "Verificando el código nuevo (manage.py check)"
 (cd "$REL" && as_app python manage.py check --database default) \
     || fail "manage.py check falló; producción no se tocó"
