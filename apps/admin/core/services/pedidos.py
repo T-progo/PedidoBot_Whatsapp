@@ -1584,6 +1584,160 @@ def cancelar_pedido_administrativo(
         }
 
 
+# =============================================================================
+# TNL-CANCELACION-CLIENTE-V1
+#
+# Cancelación solicitada por el CLIENTE desde WhatsApp
+# (botón de Typebot o texto explícito atendido por la IA).
+#
+# Es la única regla autorizada para ambos caminos:
+# - carrito / confirmado  -> cancelado + PedidoEstadoEvento;
+# - cancelado             -> idempotente, sin evento nuevo;
+# - cualquier otro estado -> ValidationError, sin modificar el pedido.
+#
+# Garantías:
+# - transaction.atomic + select_for_update;
+# - el estado se vuelve a leer después del bloqueo;
+# - no modifica inventario, Pago ni reembolsos.
+# =============================================================================
+
+
+def cancelar_pedido_cliente(
+    *,
+    pedido_id,
+) -> dict:
+    """
+    Cancela un pedido a petición del cliente.
+
+    Lanza ValidationError si el estado actual del
+    pedido ya no permite la cancelación.
+    """
+
+    from django.core.exceptions import (
+        ValidationError,
+    )
+
+    from django.db import (
+        transaction,
+    )
+
+    from core.models import (
+        Pedido,
+        PedidoEstadoEvento,
+    )
+
+    try:
+        pedido_id = int(
+            pedido_id
+        )
+    except (
+        TypeError,
+        ValueError,
+    ):
+        raise ValidationError(
+            "El pedido no es válido."
+        )
+
+    if pedido_id <= 0:
+        raise ValidationError(
+            "El pedido no es válido."
+        )
+
+    estados_cancelables = {
+        "carrito",
+        "confirmado",
+    }
+
+    with transaction.atomic():
+
+        pedido = (
+            Pedido.objects
+            .select_for_update(
+                of=("self",)
+            )
+            .get(
+                pk=pedido_id
+            )
+        )
+
+        estado_anterior = str(
+            pedido.estado
+            or ""
+        ).strip().lower()
+
+        # Reintento / webhook duplicado.
+        if estado_anterior == "cancelado":
+            return {
+                "pedido":
+                    pedido,
+
+                "cambio_real":
+                    False,
+
+                "estado_anterior":
+                    estado_anterior,
+
+                "estado_nuevo":
+                    "cancelado",
+
+                "evento":
+                    None,
+            }
+
+        if estado_anterior not in estados_cancelables:
+            raise ValidationError(
+                (
+                    f"El pedido {pedido.numero} está en estado "
+                    f"{pedido.get_estado_display()} y ya no se puede "
+                    "cancelar desde WhatsApp. Si necesitas ayuda, "
+                    "comunícate con el restaurante."
+                )
+            )
+
+        pedido.estado = "cancelado"
+
+        pedido.save(
+            update_fields=[
+                "estado",
+                "actualizado_en",
+            ]
+        )
+
+        evento = (
+            PedidoEstadoEvento.objects.create(
+                pedido=pedido,
+
+                estado_anterior=
+                    estado_anterior,
+
+                estado_nuevo=
+                    "cancelado",
+
+                usuario_id=
+                    None,
+            )
+        )
+
+        pedido.refresh_from_db()
+
+        return {
+            "pedido":
+                pedido,
+
+            "cambio_real":
+                True,
+
+            "estado_anterior":
+                estado_anterior,
+
+            "estado_nuevo":
+                "cancelado",
+
+            "evento":
+                evento,
+        }
+
+
 
 
 # =============================================================================

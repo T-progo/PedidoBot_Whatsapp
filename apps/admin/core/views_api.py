@@ -1337,12 +1337,13 @@ def carrito_confirmar(request):
 # === CANCELACION DE PEDIDO PARA TYPEBOT ===
 @csrf_exempt
 def carrito_cancelar(request):
-    """Cancela un carrito de Typebot sin modificar inventario."""
+    """Cancela un pedido de Typebot sin modificar inventario."""
     import json
 
-    from django.db import transaction
+    from django.core.exceptions import ValidationError
 
     from .models import Pedido
+    from .services.pedidos import cancelar_pedido_cliente
 
     if request.method != "POST":
         return JsonResponse(
@@ -1430,57 +1431,55 @@ def carrito_cancelar(request):
         return lifecycle_error
 
 
-    with transaction.atomic():
-        pedido = (
-            Pedido.objects.select_for_update()
-            .filter(
-                empresa=bot.empresa,
-                identificador_externo=f"typebot:{carrito_token}",
-            )
-            .first()
+    pedido = (
+        Pedido.objects.filter(
+            empresa=bot.empresa,
+            identificador_externo=f"typebot:{carrito_token}",
         )
-        if not pedido:
-            return JsonResponse(
-                {"ok": False, "error": "Pedido no encontrado."},
-                status=404,
-            )
+        .first()
+    )
+    if not pedido:
+        return JsonResponse(
+            {"ok": False, "error": "Pedido no encontrado."},
+            status=404,
+        )
 
-        if pedido.estado == "confirmado":
-            return JsonResponse(
-                {
-                    "ok": False,
-                    "error": "Un pedido confirmado no se puede cancelar desde Typebot.",
-                    "pedido_numero": pedido.numero,
-                    "estado": pedido.estado,
-                },
-                status=409,
-            )
+    # TNL-CANCELACION-CLIENTE-V1
+    # La regla de cancelación vive únicamente en
+    # services.pedidos.cancelar_pedido_cliente, que bloquea
+    # el pedido y vuelve a leer su estado.
+    try:
+        resultado = cancelar_pedido_cliente(pedido_id=pedido.id)
+    except Pedido.DoesNotExist:
+        return JsonResponse(
+            {"ok": False, "error": "Pedido no encontrado."},
+            status=404,
+        )
+    except ValidationError as exc:
+        pedido.refresh_from_db(fields=["estado"])
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": exc.messages[0],
+                "pedido_numero": pedido.numero,
+                "estado": pedido.estado,
+            },
+            status=409,
+        )
 
-        if pedido.estado == "cancelado":
-            return JsonResponse(
-                {
-                    "ok": True,
-                    "pedido_cancelado": True,
-                    "pedido_id": pedido.id,
-                    "pedido_numero": pedido.numero,
-                    "estado": pedido.estado,
-                    "mensaje": f"El pedido {pedido.numero} ya estaba cancelado.",
-                }
-            )
+    pedido = resultado["pedido"]
 
-        if pedido.estado != "carrito":
-            return JsonResponse(
-                {
-                    "ok": False,
-                    "error": "El pedido ya no está disponible para cancelar.",
-                    "pedido_numero": pedido.numero,
-                    "estado": pedido.estado,
-                },
-                status=409,
-            )
-
-        pedido.estado = "cancelado"
-        pedido.save(update_fields=["estado", "actualizado_en"])
+    if not resultado["cambio_real"]:
+        return JsonResponse(
+            {
+                "ok": True,
+                "pedido_cancelado": True,
+                "pedido_id": pedido.id,
+                "pedido_numero": pedido.numero,
+                "estado": pedido.estado,
+                "mensaje": f"El pedido {pedido.numero} ya estaba cancelado.",
+            }
+        )
 
     return JsonResponse(
         {
@@ -8139,6 +8138,281 @@ def _ia_continuacion_compra_multiturno_restaurante(
 
     return cantidad_actual == 1
 
+
+# =============================================================================
+# TNL-IA-CANCELACION-CLIENTE-V1
+#
+# Cancelación EXPLÍCITA del pedido actual escrita como texto libre.
+#
+# Es determinista: sólo mensajes completos de una lista cerrada,
+# nunca similitud ni criterio del modelo. Usa la misma regla que el
+# botón de Typebot (cancelar_pedido_cliente) y responde con el
+# resultado real de la base de datos.
+# =============================================================================
+
+_IA_FRASES_CANCELACION_EXPLICITA = frozenset(
+    {
+        "cancelar",
+        "cancela",
+        "cancelar pedido",
+        "cancelar el pedido",
+        "cancelar mi pedido",
+        "cancela el pedido",
+        "cancela mi pedido",
+        "quiero cancelar",
+        "quiero cancelar el pedido",
+        "quiero cancelar mi pedido",
+    }
+)
+
+_IA_CORTESIAS_CANCELACION = (
+    "por favor",
+    "porfavor",
+    "porfa",
+)
+
+
+def _ia_es_cancelacion_explicita(
+    mensaje,
+):
+    """
+    True sólo si el mensaje completo es una petición
+    explícita de cancelación (mayúsculas, acentos,
+    espacios, signos y emojis no importan).
+    """
+
+    import re
+    import unicodedata
+
+    texto = unicodedata.normalize(
+        "NFD",
+        str(
+            mensaje
+            or
+            ""
+        ).casefold(),
+    )
+
+    texto = "".join(
+        char
+        for char
+        in texto
+        if not unicodedata.combining(
+            char
+        )
+    )
+
+    # "❌ Cancelar pedido", "¡Cancelar!" -> "cancelar ..."
+    texto = re.sub(
+        r"[^a-z0-9 ]+",
+        " ",
+        texto,
+    )
+
+    texto = " ".join(
+        texto.split()
+    )
+
+    for cortesia in _IA_CORTESIAS_CANCELACION:
+
+        if texto.startswith(
+            cortesia + " "
+        ):
+            texto = texto[
+                len(cortesia) + 1:
+            ]
+
+        if texto.endswith(
+            " " + cortesia
+        ):
+            texto = texto[
+                :-(len(cortesia) + 1)
+            ]
+
+    return (
+        texto
+        in
+        _IA_FRASES_CANCELACION_EXPLICITA
+    )
+
+
+def _ia_cancelacion_explicita_pedido_actual(
+    *,
+    bot,
+    mensaje,
+    carrito_token,
+):
+    """
+    Devuelve la respuesta HTTP de una cancelación explícita
+    del pedido ACTUAL, o None para seguir el flujo IA normal.
+
+    Sólo actúa con un carrito_token válido de este Bot
+    Restaurante; nunca busca pedidos por teléfono ni historial.
+    """
+
+    from django.core.exceptions import (
+        ValidationError,
+    )
+
+    from core.models import (
+        Pedido,
+    )
+
+    from core.services.pedidos import (
+        cancelar_pedido_cliente,
+    )
+
+    plantilla_tipo = str(
+        getattr(
+            getattr(
+                bot,
+                "plantilla",
+                None,
+            ),
+            "tipo",
+            "",
+        )
+        or ""
+    ).strip()
+
+    if plantilla_tipo != "restaurante":
+        return None
+
+    token = str(
+        carrito_token
+        or
+        ""
+    ).strip()
+
+    if not token:
+        return None
+
+    if not _ia_es_cancelacion_explicita(
+        mensaje
+    ):
+        return None
+
+    # Mismas reglas de formato, alcance del Bot y
+    # ambigüedad que el botón "Cancelar pedido".
+    pedido, pedido_error = (
+        _restaurante_api_resolver_pedido(
+            bot=bot,
+            carrito_token=token,
+            solo_carrito=False,
+        )
+    )
+
+    if pedido_error is not None:
+        return None
+
+    try:
+
+        resultado = cancelar_pedido_cliente(
+            pedido_id=pedido.id,
+        )
+
+    except Pedido.DoesNotExist:
+        return None
+
+    except ValidationError as exc:
+
+        pedido.refresh_from_db(
+            fields=["estado"]
+        )
+
+        pedido_cancelado = False
+
+        respuesta = exc.messages[0]
+
+    else:
+
+        pedido = resultado["pedido"]
+
+        pedido_cancelado = True
+
+        if resultado["cambio_real"]:
+            respuesta = (
+                f"Listo, tu pedido {pedido.numero} "
+                "fue cancelado."
+            )
+        else:
+            respuesta = (
+                f"Tu pedido {pedido.numero} "
+                "ya estaba cancelado."
+            )
+
+    productos_vacios = {
+        "productos_cantidad": 0,
+        "producto_ids": [],
+        "producto_nombres": [],
+        "producto_precios": [],
+        "imagenes_principales": [],
+    }
+
+    texto_bool = {
+        True: "true",
+        False: "false",
+    }
+
+    return JsonResponse(
+        {
+            "ok": True,
+
+            "ia_disponible": True,
+
+            "respuesta": respuesta,
+            "ia_mensaje": "",
+            "modelo": "",
+            "palabras_salida": 0,
+            "palabras_disponibles": 0,
+
+            "ia_accion": "",
+
+            "pedido_cancelado":
+                pedido_cancelado,
+
+            "pedido_numero":
+                pedido.numero,
+
+            "estado":
+                pedido.estado,
+
+            # Typebot sólo debe olvidar el carrito cuando
+            # el pedido quedó realmente cancelado.
+            "clear_carrito_token":
+                pedido_cancelado,
+
+            **productos_vacios,
+
+            "data": {
+                "ia_disponible":
+                    "true",
+
+                "respuesta":
+                    respuesta,
+
+                "ia_mensaje":
+                    "",
+
+                "palabras_disponibles":
+                    0,
+
+                "ia_accion":
+                    "",
+
+                "pedido_cancelado":
+                    texto_bool[pedido_cancelado],
+
+                "clear_carrito_token":
+                    texto_bool[pedido_cancelado],
+
+                **productos_vacios,
+            },
+        },
+        status=200,
+    )
+
+
 @csrf_exempt
 def typebot_ia_responder(request):
     """
@@ -8383,6 +8657,26 @@ def typebot_ia_responder(request):
         or
         ""
     ).strip()
+
+
+    # --------------------------------------------------------------
+    # TNL-IA-CANCELACION-CLIENTE-V1
+    #
+    # Antes de cualquier respuesta IA: una cancelación explícita
+    # del carrito ACTUAL se ejecuta con la regla autorizada y se
+    # responde con el resultado real. Todo lo demás sigue igual.
+    # --------------------------------------------------------------
+
+    respuesta_cancelacion = (
+        _ia_cancelacion_explicita_pedido_actual(
+            bot=bot,
+            mensaje=mensaje,
+            carrito_token=carrito_token_ia,
+        )
+    )
+
+    if respuesta_cancelacion is not None:
+        return respuesta_cancelacion
 
 
     # --------------------------------------------------------------
@@ -14212,8 +14506,9 @@ def restaurante_pedido_cancelar(
     if pedido_error is not None:
         return pedido_error
 
-    # Se conserva exactamente la semántica
-    # certificada de cancelación legacy.
+    # TNL-CANCELACION-CLIENTE-V1
+    # El alcance del Bot ya se validó arriba; la regla de
+    # cancelación vive en cancelar_pedido_cliente.
     return carrito_cancelar(
         request
     )
