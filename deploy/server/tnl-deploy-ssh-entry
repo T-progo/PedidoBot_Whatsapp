@@ -1,0 +1,17 @@
+#!/bin/sh
+# Comando forzado de la llave de GitHub Actions (authorized_keys del usuario deploy).
+# Solo acepta "deploy <sha de 40 caracteres>" y lo pasa al script de despliegue.
+# Instalado por deploy/server/install.sh en /usr/local/bin/tnl-deploy-ssh-entry.
+set -eu
+
+CMD="${SSH_ORIGINAL_COMMAND:-}"
+case "$CMD" in
+    "deploy "*) SHA="${CMD#deploy }" ;;
+    *) echo "Comando no permitido" >&2; exit 1 ;;
+esac
+case "$SHA" in
+    *[!0-9a-f]*) echo "SHA inválido" >&2; exit 1 ;;
+esac
+[ "${#SHA}" -eq 40 ] || { echo "SHA inválido" >&2; exit 1; }
+
+exec sudo -n /usr/local/sbin/tnl-deploy-django "$SHA"

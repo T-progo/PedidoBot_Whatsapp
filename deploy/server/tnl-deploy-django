@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# Despliega apps/admin (Django) a partir de un commit de la rama main en GitHub.
+# Lo ejecuta root via sudo desde tnl-deploy-ssh-entry (llave de GitHub Actions).
+# Instalado por deploy/server/install.sh en /usr/local/sbin/tnl-deploy-django.
+#
+# Pasos: validar commit -> verificar código nuevo -> respaldar código y base ->
+# publicar -> migrar -> collectstatic -> recargar gunicorn -> health check.
+# Si algo falla después de publicar, restaura el código anterior.
+set -Eeuo pipefail
+umask 027
+
+SHA="${1:-}"
+REPO_URL="git@github.com:T-progo/PedidoBot_Whatsapp.git"
+BRANCH="main"
+STATE="/var/lib/tnl-deploy"
+MIRROR="$STATE/repo.git"
+WORK="$STATE/work"
+BACKUPS="/var/backups/tnl-deploy"
+LOGS="/var/log/tnl-deploy"
+LIVE="/opt/tunegociolisto/apps/admin"
+VENV="$LIVE/.venv"
+APP_USER="tnl"
+SERVICE="negociolisto-django.service"
+TIMER="negociolisto-client-lifecycle.timer"
+HEALTH_URL="http://127.0.0.1:8000/login/"
+HEALTH_HOST="admin.negociolisto.com.mx"
+KEEP=10
+
+export GIT_SSH_COMMAND="ssh -i $STATE/ssh/github_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$STATE/ssh/known_hosts"
+
+log()  { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
+fail() { log "ERROR: $*"; exit 1; }
+trap 'log "ERROR inesperado en la línea $LINENO"' ERR
+
+# Ejecuta un comando como el usuario de la app, con el mismo entorno que el servicio systemd.
+as_app() {
+    runuser -u "$APP_USER" -- env -i \
+        HOME=/opt/tunegociolisto PATH="$VENV/bin:/usr/local/bin:/usr/bin:/bin" \
+        DJANGO_SETTINGS_MODULE=config.settings PYTHONUNBUFFERED=1 "$@"
+}
+
+# Copia un árbol a producción como usuario de la app: root nunca escribe dentro de /opt/tunegociolisto.
+sync_code() {
+    as_app rsync -a --delete --chmod=D750,Fg-w,Fo-rwx \
+        --exclude=/.venv/ --exclude=__pycache__/ --exclude='*.log' \
+        "$1"/ "$LIVE"/
+}
+
+healthy() {
+    local code
+    for _ in $(seq 1 20); do
+        sleep 2
+        code="$(curl -s -o /dev/null -m 5 -w '%{http_code}' -H "Host: $HEALTH_HOST" "$HEALTH_URL" || true)"
+        if [ "$code" = "200" ] && systemctl is-active -q "$SERVICE"; then
+            return 0
+        fi
+    done
+    log "health check sin respuesta 200 (último código: ${code:-ninguno})"
+    return 1
+}
+
+# Recarga gunicorn sin cortar peticiones y espera a que todos los workers sean nuevos.
+reload_app() {
+    local main old now
+    main="$(systemctl show -p MainPID --value "$SERVICE")"
+    if [ "$main" = "0" ]; then
+        systemctl restart "$SERVICE"
+        return
+    fi
+    old="$(pgrep -P "$main" | sort || true)"
+    systemctl reload "$SERVICE"
+    for _ in $(seq 1 45); do
+        sleep 1
+        now="$(pgrep -P "$main" | sort || true)"
+        if [ -n "$now" ] && [ -z "$(comm -12 <(echo "$old") <(echo "$now"))" ]; then
+            return 0
+        fi
+    done
+    log "los workers no se renovaron con reload; reiniciando el servicio"
+    systemctl restart "$SERVICE"
+}
+
+rollback() {
+    local rb="$WORK/rollback-$TS"
+    log "Restaurando la versión anterior desde $CODE_BACKUP"
+    rm -rf "$rb"
+    mkdir -p "$rb"
+    tar -xzf "$CODE_BACKUP" -C "$rb"
+    chgrp -R "$APP_USER" "$rb"
+    chmod -R g+rX "$rb"
+    sync_code "$rb" || log "ATENCION: no se pudo restaurar el código"
+    systemctl restart "$SERVICE"
+    if healthy; then
+        log "Versión anterior restaurada y respondiendo"
+    else
+        log "ATENCION: la versión anterior tampoco responde; revisar a mano"
+    fi
+    log "Las migraciones no se revierten solas. Respaldo de la base previo al despliegue: $DB_BACKUP"
+    rm -rf "$rb"
+}
+
+[[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || fail "SHA inválido"
+TS="$(date +%Y%m%d-%H%M%S)"
+exec > >(tee -a "$LOGS/deploy-$TS.log") 2>&1
+exec 9>/run/lock/tnl-deploy.lock
+flock -w 900 9 || fail "Otro despliegue sigue en curso"
+log "Despliegue de $SHA"
+
+# 1. Obtener el commit y validar que está en main
+if [ ! -d "$MIRROR" ]; then
+    log "Clonando el repositorio (primera vez)"
+    git clone -q --mirror "$REPO_URL" "$MIRROR"
+fi
+git -C "$MIRROR" fetch -q --prune origin
+git -C "$MIRROR" cat-file -e "$SHA^{commit}" 2>/dev/null || fail "El commit no existe en GitHub"
+git -C "$MIRROR" merge-base --is-ancestor "$SHA" "$BRANCH" || fail "El commit no está en la rama $BRANCH"
+CURRENT="$(cat "$STATE/CURRENT" 2>/dev/null || true)"
+if [ -n "$CURRENT" ] && [ "$CURRENT" != "$SHA" ] \
+    && git -C "$MIRROR" merge-base --is-ancestor "$SHA" "$CURRENT" 2>/dev/null; then
+    log "Ya está desplegado un commit más nuevo ($CURRENT); no se hace nada"
+    exit 0
+fi
+
+# 2. Preparar la versión nueva fuera de producción
+REL="$WORK/$SHA"
+rm -rf "$REL"
+mkdir -p "$REL"
+git -C "$MIRROR" archive "$SHA" apps/admin | tar -x -C "$REL" --strip-components=2
+chgrp -R "$APP_USER" "$REL"
+chmod -R g+rX "$REL"
+
+# 3. Dependencias, solo si cambió requirements.txt
+REQ_HASH="$(sha256sum "$REL/requirements.txt" | cut -d' ' -f1)"
+if [ "$REQ_HASH" != "$(cat "$STATE/requirements.sha256" 2>/dev/null || true)" ]; then
+    log "requirements.txt cambió: instalando dependencias"
+    (cd "$REL" && as_app pip install -q --disable-pip-version-check -r requirements.txt)
+    echo "$REQ_HASH" > "$STATE/requirements.sha256"
+fi
+
+# 4. Verificar el código nuevo antes de tocar producción
+log "Verificando el código nuevo (manage.py check)"
+(cd "$REL" && as_app python manage.py check --database default) \
+    || fail "manage.py check falló; producción no se tocó"
+(cd "$REL" && as_app python manage.py migrate --plan) | sed 's/^/    /'
+
+# 5. Respaldo previo: código actual y base de datos
+CODE_BACKUP="$BACKUPS/$TS-code-${CURRENT:-previo}.tar.gz"
+DB_BACKUP="$BACKUPS/$TS-tnl_admin_db.dump"
+log "Respaldando código y base de datos"
+tar -czf "$CODE_BACKUP" -C "$LIVE" --exclude=./.venv --exclude=__pycache__ --exclude='*.log' .
+docker exec tnl-postgresql pg_dump -U tnl_admin -Fc -d tnl_admin_db > "$DB_BACKUP"
+
+# 6. Publicar (el timer de ciclo de vida se pausa para que no corra con código a medias)
+systemctl stop "$TIMER"
+trap 'systemctl start "$TIMER" || true' EXIT
+log "Publicando, migrando y recargando gunicorn"
+if ! { sync_code "$REL" \
+        && (cd "$LIVE" && as_app python manage.py migrate --noinput) \
+        && (cd "$LIVE" && as_app python manage.py collectstatic --noinput -v 0) \
+        && reload_app \
+        && healthy; }; then
+    rollback
+    fail "Despliegue revertido"
+fi
+echo "$SHA" > "$STATE/CURRENT"
+log "Despliegue OK: $SHA"
+
+# 7. Limpieza: conservar los últimos $KEEP respaldos y 30 logs
+ls -1t "$BACKUPS"/*-code-*.tar.gz 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f || true
+ls -1t "$BACKUPS"/*-tnl_admin_db.dump 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f || true
+ls -1t "$LOGS"/deploy-*.log 2>/dev/null | tail -n +31 | xargs -r rm -f || true
+find "$WORK" -mindepth 1 -maxdepth 1 ! -name "$SHA" -exec rm -rf {} + || true

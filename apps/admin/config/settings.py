@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,7 +21,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '<REDACTED: el valor real solo esta en el servidor>'
+# TNL-SECRETS-ENV-V1
+# En el servidor se lee del archivo; en CI llega por variable de entorno.
+SECRET_KEY_FILE = Path(
+    "/opt/tunegociolisto/configs/django-secrets/secret_key"
+)
+SECRET_KEY = (
+    os.environ.get("DJANGO_SECRET_KEY")
+    or SECRET_KEY_FILE.read_text().strip()
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -85,11 +94,14 @@ ADMIN_DB_PASSWORD_FILE = Path(
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "tnl_admin_db",
-        "USER": "tnl_admin_app",
-        "PASSWORD": ADMIN_DB_PASSWORD_FILE.read_text().strip(),
-        "HOST": "127.0.0.1",
-        "PORT": "5432",
+        "NAME": os.environ.get("DJANGO_DB_NAME", "tnl_admin_db"),
+        "USER": os.environ.get("DJANGO_DB_USER", "tnl_admin_app"),
+        "PASSWORD": (
+            os.environ.get("DJANGO_DB_PASSWORD")
+            or ADMIN_DB_PASSWORD_FILE.read_text().strip()
+        ),
+        "HOST": os.environ.get("DJANGO_DB_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("DJANGO_DB_PORT", "5432"),
     }
 }
 
@@ -136,7 +148,7 @@ STATIC_ROOT = BASE_DIR.parent.parent / "staticfiles"
 # TNL-PRODUCT-MEDIA-V1
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(
-    "/opt/tunegociolisto/media"
+    os.environ.get("DJANGO_MEDIA_ROOT", "/opt/tunegociolisto/media")
 )
 
 
