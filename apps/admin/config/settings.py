@@ -32,7 +32,9 @@ SECRET_KEY = (
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# TNL-DEBUG-ENV-V1
+# Apagado por defecto; solo se enciende con DJANGO_DEBUG=1 (desarrollo local).
+DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "api.negociolisto.com.mx", "admin.negociolisto.com.mx"]
 
@@ -176,3 +178,28 @@ NEGOCIOLISTO_PUBLIC_MEDIA_BASE_URL = (
 
 FILE_UPLOAD_PERMISSIONS = 0o644
 FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
+
+# ============================================================
+# TNL-LOGGING-CONSOLE-V1
+# Con DEBUG=False, el handler "console" por defecto de Django deja
+# de escribir. Este handler mantiene los logs de Django (INFO y
+# superiores, incluidos errores 500 con traceback) en stderr,
+# que gunicorn envía a journald. Sin archivos ni correos.
+# ============================================================
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
