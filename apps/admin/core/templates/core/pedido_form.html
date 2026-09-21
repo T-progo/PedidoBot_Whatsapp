@@ -1,0 +1,224 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ titulo }} | NegocioListo{% endblock %}
+
+{% block content %}
+
+<style>
+    .order-form-shell {
+        max-width: 1320px;
+    }
+
+    .order-eyebrow {
+        margin: 0 0 12px;
+        color: var(--green);
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .order-form-title {
+        margin: 0;
+        font-size: 34px;
+    }
+
+    .order-form-description {
+        margin: 18px 0 34px;
+        font-size: 18px;
+    }
+
+    .order-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px 26px;
+    }
+
+    .order-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 17px;
+    }
+
+    .order-field input,
+    .order-field select,
+    .order-field textarea {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 15px 17px;
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        outline: none;
+        background: var(--input-bg);
+        color: var(--text);
+        font: inherit;
+    }
+
+    .order-field textarea {
+        min-height: 112px;
+        resize: vertical;
+    }
+
+    .order-field input:focus,
+    .order-field select:focus,
+    .order-field textarea:focus {
+        border-color: var(--green);
+    }
+
+    .order-error,
+    .order-form-errors {
+        margin-top: 8px;
+        color: var(--danger);
+        font-size: 14px;
+    }
+
+    .order-form-errors {
+        margin-bottom: 24px;
+        padding: 16px 18px;
+        border: 1px solid var(--danger-border);
+        border-radius: 14px;
+        background: var(--danger-soft);
+    }
+
+    .order-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 16px;
+        margin-top: 34px;
+        padding-top: 28px;
+        border-top: 1px solid var(--border);
+    }
+
+    .order-secondary,
+    .order-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 54px;
+        padding: 0 24px;
+        border-radius: 15px;
+        font: inherit;
+        font-weight: 750;
+        text-decoration: none;
+    }
+
+    .order-secondary {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+    }
+
+    .order-primary {
+        border: 0;
+        background: var(--green);
+        color: var(--accent-contrast);
+        font-weight: 850;
+        cursor: pointer;
+    }
+
+    @media (max-width: 820px) {
+        .order-form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .order-form-actions {
+            flex-direction: column-reverse;
+        }
+
+        .order-primary,
+        .order-secondary {
+            width: 100%;
+        }
+    }
+</style>
+
+<div class="order-form-shell">
+
+    <p class="order-eyebrow">
+        Pedidos
+    </p>
+
+    <h2 class="order-form-title">
+        {{ titulo }}
+    </h2>
+
+    <p class="order-form-description">
+        {{ subtitulo }}
+    </p>
+
+    <form method="post" novalidate>
+
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="order-form-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="order-form-grid">
+
+            {% for field in form %}
+
+                <div class="order-field">
+
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <small>
+                            {{ field.help_text }}
+                        </small>
+                    {% endif %}
+
+                    {% if field.errors %}
+                        <div class="order-error">
+                            {{ field.errors|striptags }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+        <div class="order-form-actions">
+
+            {% if pedido %}
+
+                <a
+                    href="{% url 'core:pedido_detalle' pedido.pk %}"
+                    class="order-secondary"
+                >
+                    Cancelar
+                </a>
+
+            {% else %}
+
+                <a
+                    href="{% url 'core:pedido_lista' %}"
+                    class="order-secondary"
+                >
+                    Cancelar
+                </a>
+
+            {% endif %}
+
+            <button
+                type="submit"
+                class="order-primary"
+            >
+                {{ boton }}
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

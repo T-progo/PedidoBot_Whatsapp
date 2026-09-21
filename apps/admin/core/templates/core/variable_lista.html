@@ -1,0 +1,134 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Variables | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Variables
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Automatización
+        </span>
+
+        <h2>
+            Variables registradas
+        </h2>
+
+        <p>
+            Gestiona las variables configurables de las plantillas de NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:variable_crear' %}"
+        class="primary-link"
+    >
+        + Nueva variable
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if variables %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>EMPRESA</th>
+                    <th>PLANTILLA</th>
+                    <th>CLAVE</th>
+                    <th>VALOR</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for variable in variables %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ variable.plantilla.empresa.nombre }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ variable.plantilla.nombre }}
+                        </td>
+
+                        <td>
+                            {{ variable.clave }}
+                        </td>
+
+                        <td>
+                            {% if variable.valor %}
+                                {{ variable.valor|truncatechars:60 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if variable.activa %}
+                                Activa
+                            {% else %}
+                                Inactiva
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:variable_editar' variable.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>
+                No hay variables registradas
+            </h3>
+
+            <p>
+                Registra la primera variable para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:variable_crear' %}"
+                class="primary-link"
+            >
+                Crear variable
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

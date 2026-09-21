@@ -1,0 +1,391 @@
+{% extends "core/cliente_portal_base.html" %}
+
+{% block cliente_content %}
+
+<div class="cp-container">
+
+    {% if messages %}
+        <div class="nl-client-order-messages">
+            {% for message in messages %}
+                <div class="nl-client-order-message">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+
+    <section class="nl-orders-hero">
+
+        <div>
+            <div class="nl-orders-eyebrow">
+                Comercio
+            </div>
+
+            <h1>
+                Mis pedidos
+            </h1>
+
+            <p>
+                Consulta y administra únicamente los
+                pedidos registrados para tu negocio.
+            </p>
+        </div>
+
+
+        <a
+            class="nl-orders-back"
+            href="{% url 'core:cliente_panel' %}#pedidos"
+        >
+            ← Mi negocio
+        </a>
+
+    </section>
+
+
+    {% if pedidos %}
+
+        <div class="nl-orders-card">
+
+            <div class="nl-orders-scroll">
+
+                <table class="nl-orders-table">
+
+                    <thead>
+                        <tr>
+                            <th>Pedido</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Teléfono</th>
+                            <th>Estado</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for pedido in pedidos %}
+
+                            <tr>
+
+                                <td>
+                                    <strong>
+                                        {{ pedido.numero }}
+
+                                        {% if pedido.tipo_orden %}
+                                            <div class="nl-order-kind-r3">
+                                                🍽 {{ pedido.get_tipo_orden_display }}
+                                                {% if pedido.tiempo_estimado_minutos %}
+                                                    · ~{{ pedido.tiempo_estimado_minutos }} min
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    {{ pedido.creado_en|date:"d/m/Y H:i" }}
+                                </td>
+
+                                <td>
+                                    {{ pedido.cliente_nombre|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ pedido.cliente_telefono|default:"—" }}
+                                </td>
+
+                                <td>
+                                    <span class="nl-order-state {{ pedido.estado }}">
+                                        {{ pedido.get_estado_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ pedido.moneda }}
+                                    ${{ pedido.total|floatformat:2 }}
+                                </td>
+
+                                <td>
+
+                                    <div class="nl-order-actions">
+
+                                        <a
+                                            class="nl-order-btn"
+                                            href="{% url 'core:cliente_pedido_detalle' pedido.pk %}"
+                                        >
+                                            Ver pedido
+                                        </a>
+
+
+                                        {% if pedido.siguiente_estado_operativo_ui %}
+
+                                            <form
+                                                method="post"
+                                                action="{% url 'core:cliente_pedido_estado_rapido' pedido.pk pedido.siguiente_estado_operativo_ui %}"
+                                            >
+                                                {% csrf_token %}
+
+                                                <input
+                                                    type="hidden"
+                                                    name="origen"
+                                                    value="lista"
+                                                >
+
+                                                <button
+                                                    class="nl-order-btn primary"
+                                                    type="submit"
+                                                >
+                                                    {% if pedido.siguiente_estado_operativo_ui == "preparando" %}
+                                                        Preparar
+                                                    {% elif pedido.siguiente_estado_operativo_ui == "listo" %}
+                                                        Marcar listo
+                                                    {% elif pedido.siguiente_estado_operativo_ui == "en_camino" %}
+                                                        En camino
+                                                    {% elif pedido.siguiente_estado_operativo_ui == "enviado" %}
+                                                        Despachar
+                                                    {% elif pedido.siguiente_estado_operativo_ui == "entregado" %}
+                                                        Entregar
+                                                    {% else %}
+                                                        {{ pedido.siguiente_estado_label_ui }}
+                                                    {% endif %}
+                                                </button>
+
+                                            </form>
+
+                                        {% endif %}
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    {% else %}
+
+        <div class="nl-orders-empty">
+
+            <strong>
+                No hay pedidos registrados
+            </strong>
+
+            <span>
+                Los pedidos generados por tu negocio
+                aparecerán aquí automáticamente.
+            </span>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+
+<style>
+
+.nl-client-order-messages {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.nl-client-order-message {
+    padding: 14px 16px;
+    border: 1px solid var(--cp-border);
+    border-radius: 12px;
+    background: var(--cp-surface);
+    font-weight: 700;
+}
+
+.nl-orders-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 22px;
+    padding: 25px;
+    border: 1px solid var(--cp-border);
+    border-radius: 22px;
+    background: var(--cp-surface);
+}
+
+.nl-orders-eyebrow {
+    margin-bottom: 8px;
+    color: var(--cp-green);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+.nl-orders-hero h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 40px);
+}
+
+.nl-orders-hero p {
+    margin: 10px 0 0;
+    color: var(--cp-muted);
+    line-height: 1.6;
+}
+
+.nl-orders-back {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 15px;
+    border: 1px solid var(--cp-border);
+    border-radius: 11px;
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    text-decoration: none;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.nl-orders-card {
+    margin-top: 22px;
+    overflow: hidden;
+    border: 1px solid var(--cp-border);
+    border-radius: 20px;
+    background: var(--cp-surface);
+}
+
+.nl-orders-scroll {
+    overflow-x: auto;
+}
+
+.nl-orders-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+}
+
+.nl-orders-table th {
+    padding: 14px 15px;
+    border-bottom: 1px solid var(--cp-border);
+    background: var(--cp-surface-2);
+    color: var(--cp-muted);
+    font-size: 11px;
+    letter-spacing: .05em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.nl-orders-table td {
+    padding: 17px 15px;
+    border-bottom: 1px solid var(--cp-border);
+    vertical-align: middle;
+}
+
+.nl-orders-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.nl-order-state {
+    display: inline-flex;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--cp-green-soft);
+    color: var(--cp-green-dark);
+    font-size: 12px;
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.nl-order-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.nl-order-actions form {
+    margin: 0;
+}
+
+.nl-order-btn {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 11px;
+    border: 1px solid var(--cp-border);
+    border-radius: 9px;
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    text-decoration: none;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 850;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.nl-order-btn.primary {
+    border-color: var(--cp-green);
+    background: var(--cp-green);
+    color: white;
+}
+
+.nl-orders-empty {
+    display: grid;
+    gap: 7px;
+    margin-top: 22px;
+    padding: 55px 24px;
+    border: 1px solid var(--cp-border);
+    border-radius: 20px;
+    background: var(--cp-surface);
+    text-align: center;
+}
+
+.nl-orders-empty strong {
+    font-size: 20px;
+}
+
+.nl-orders-empty span {
+    color: var(--cp-muted);
+}
+
+@media (max-width: 760px) {
+
+    .nl-orders-hero {
+        flex-direction: column;
+    }
+
+}
+
+
+/* TNL-RESTAURANTE-LISTA-R3-B2B1-V1 */
+
+.nl-order-kind-r3 {
+    margin-top: 5px;
+    color: var(--cp-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.nl-order-state.listo {
+    background: rgba(16,185,129,.12);
+}
+
+.nl-order-state.en_camino {
+    background: rgba(59,130,246,.12);
+}
+
+</style>
+
+{% endblock %}

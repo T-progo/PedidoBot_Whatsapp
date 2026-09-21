@@ -1,0 +1,257 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Mercado Pago | {{ empresa.nombre }} | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Pasarela de pagos
+{% endblock %}
+
+{% block content %}
+
+<!-- TNL-MERCADOPAGO-CONFIG-TEMPLATE-V1 -->
+
+<style>
+
+    .mp-config-shell {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .mp-config-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 24px;
+    }
+
+    .mp-config-summary {
+        display: grid;
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+        gap: 14px;
+        margin-bottom: 24px;
+    }
+
+    .mp-config-box {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 16px;
+    }
+
+    .mp-config-label {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .mp-config-value {
+        margin-top: 7px;
+        font-weight: 700;
+    }
+
+    .mp-config-note {
+        margin: 22px 0;
+        padding: 16px;
+        border-radius: 14px;
+        background: #f8fafc;
+    }
+
+    .mp-config-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+
+    @media (max-width: 720px) {
+
+        .mp-config-summary {
+            grid-template-columns: 1fr;
+        }
+
+    }
+
+</style>
+
+
+<div class="mp-config-shell">
+
+    <div class="mp-config-card">
+
+        <div style="margin-bottom:24px;">
+
+            <div class="cliente-label">
+                Pasarela de pagos
+            </div>
+
+            <h2 style="margin:6px 0;">
+                Mercado Pago
+            </h2>
+
+            <p class="cliente-subtitle">
+                Configura el método digital de cobro
+                para
+                <strong>{{ empresa.nombre }}</strong>.
+            </p>
+
+        </div>
+
+
+        <div class="mp-config-summary">
+
+            <div class="mp-config-box">
+
+                <div class="mp-config-label">
+                    Estado de conexión
+                </div>
+
+                <div class="mp-config-value">
+
+                    {% if configuracion %}
+
+                        {{ configuracion.get_estado_conexion_display }}
+
+                    {% else %}
+
+                        No configurado
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+
+            <div class="mp-config-box">
+
+                <div class="mp-config-label">
+                    Método digital
+                </div>
+
+                <div class="mp-config-value">
+
+                    {% if configuracion.habilitada and configuracion.estado_conexion == "conectada" %}
+
+                        Activo
+
+                    {% else %}
+
+                        Inactivo
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <form
+            method="post"
+            novalidate
+        >
+
+            {% csrf_token %}
+
+
+            {% if form.non_field_errors %}
+
+                <div class="field-error">
+                    {{ form.non_field_errors }}
+                </div>
+
+            {% endif %}
+
+
+            {% for field in form %}
+
+                <div
+                    class="field"
+                    style="margin-bottom:20px;"
+                >
+
+                    <label
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+
+                    {% if field.help_text %}
+
+                        <small>
+                            {{ field.help_text }}
+                        </small>
+
+                    {% endif %}
+
+
+                    {% if field.errors %}
+
+                        <div class="field-error">
+                            {{ field.errors }}
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+
+            <div class="mp-config-note">
+
+                <strong>
+                    Conexión de cuenta
+                </strong>
+
+                <p
+                    style="
+                        margin:
+                            8px 0 0;
+                    "
+                >
+                    Por ahora únicamente se configura
+                    el ambiente. La conexión segura
+                    con la cuenta Mercado Pago se
+                    habilitará en el siguiente paso.
+                </p>
+
+            </div>
+
+
+            <div class="mp-config-actions">
+
+                <a
+                    href="{% url 'core:empresa_detalle' empresa.pk %}#pasarela-pagos"
+                    class="cliente-btn"
+                >
+                    Cancelar
+                </a>
+
+                <button
+                    type="submit"
+                    class="cliente-btn primary"
+                >
+                    Guardar configuración
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

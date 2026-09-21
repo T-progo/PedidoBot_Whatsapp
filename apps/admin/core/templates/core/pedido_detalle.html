@@ -1,0 +1,1404 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ pedido.numero }} | NegocioListo{% endblock %}
+
+{% block content %}
+
+<style>
+    .pedido-shell {
+        width: 100%;
+    }
+
+    .pedido-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-start;
+        margin-bottom: 30px;
+    }
+
+    .pedido-eyebrow {
+        margin: 0 0 10px;
+        color: var(--green);
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .pedido-title {
+        margin: 0;
+        font-size: 36px;
+    }
+
+    .pedido-state {
+        display: inline-flex;
+        margin-top: 14px;
+        padding: 8px 13px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        font-weight: 800;
+    }
+
+    .pedido-state.confirmado,
+    .pedido-state.pagado,
+    .pedido-state.entregado {
+        color: var(--green);
+        background: var(--green-soft);
+    }
+
+    .pedido-top-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .pedido-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-weight: 750;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .pedido-button.primary {
+        border-color: var(--green);
+        background: var(--green);
+        color: var(--accent-contrast);
+        font-weight: 850;
+    }
+
+    .pedido-grid {
+        display: grid;
+        grid-template-columns: repeat(3,minmax(0,1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .pedido-info {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 17px;
+        background: var(--surface);
+    }
+
+    .pedido-info-label {
+        margin-bottom: 7px;
+        color: var(--label);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .pedido-info-value {
+        font-size: 16px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .pedido-section-title {
+        margin: 38px 0 18px;
+        font-size: 26px;
+    }
+
+    .pedido-lines-card {
+        overflow-x: auto;
+        padding: 26px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: var(--surface);
+    }
+
+    .pedido-table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+    }
+
+    .pedido-table th {
+        padding: 14px 14px 17px;
+        border-bottom: 1px solid var(--border-strong);
+        color: var(--label);
+        font-size: 12px;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .pedido-table td {
+        padding: 20px 14px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .pedido-table tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .pedido-line-actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    .pedido-link {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--green);
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .pedido-link.danger {
+        color: var(--danger);
+    }
+
+    .pedido-totals {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 24px;
+    }
+
+    .pedido-totals-box {
+        width: min(100%, 390px);
+    }
+
+    .pedido-total-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        padding: 10px 0;
+    }
+
+    .pedido-total-row.grand {
+        margin-top: 8px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border-strong);
+        font-size: 22px;
+        font-weight: 850;
+    }
+
+    .pedido-empty {
+        padding: 55px 20px;
+        text-align: center;
+        color: var(--label);
+    }
+
+    .pedido-notes {
+        white-space: pre-wrap;
+    }
+
+    /* TNL-PEDIDO-STATUS-RAPIDO-V1 */
+
+    .pedido-status-quick {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        margin: 0 0 28px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--surface);
+    }
+
+    .pedido-status-quick-copy {
+        min-width: 0;
+    }
+
+    .pedido-status-quick-title {
+        margin: 0 0 5px;
+        font-size: 16px;
+        font-weight: 850;
+    }
+
+    .pedido-status-quick-text {
+        margin: 0;
+        color: var(--label);
+        font-size: 14px;
+    }
+
+    .pedido-status-quick form {
+        margin: 0;
+        flex: 0 0 auto;
+    }
+
+    .pedido-status-quick-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--green);
+        color: var(--accent-contrast);
+        font: inherit;
+        font-weight: 850;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 700px) {
+
+        .pedido-status-quick {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .pedido-status-quick-button {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 1000px) {
+        .pedido-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+        }
+    }
+
+    @media (max-width: 700px) {
+        .pedido-top {
+            flex-direction: column;
+        }
+
+        .pedido-top-actions {
+            justify-content: flex-start;
+        }
+
+        .pedido-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* TNL-RESTAURANTE-DETALLE-R3-B2B2-V1 */
+
+    .pedido-state.listo {
+        background: rgba(16,185,129,.12);
+        color: #047857;
+    }
+
+    .pedido-state.en_camino {
+        background: rgba(59,130,246,.12);
+        color: #1d4ed8;
+    }
+
+    .pedido-config-r3 {
+        display: grid;
+        gap: 7px;
+        margin-top: 9px;
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .pedido-config-group-r3 {
+        color: var(--text-muted, #667085);
+    }
+
+    .pedido-config-option-r3 {
+        display: inline-block;
+        margin: 3px 5px 2px 0;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(148,163,184,.13);
+        color: inherit;
+    }
+
+    .pedido-history-r3 {
+        margin-top: 24px;
+    }
+
+    .pedido-history-list-r3 {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .pedido-history-item-r3 {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) auto;
+        gap: 14px;
+        padding: 13px 15px;
+        border: 1px solid rgba(148,163,184,.24);
+        border-radius: 14px;
+    }
+
+    .pedido-history-meta-r3 {
+        color: var(--text-muted, #667085);
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    @media (max-width: 700px) {
+
+        .pedido-history-item-r3 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+</style>
+
+<div class="pedido-shell">
+
+    <div class="pedido-top">
+
+        <div>
+
+            <p class="pedido-eyebrow">
+                Pedido
+            </p>
+
+            <h2 class="pedido-title">
+                {{ pedido.numero }}
+            </h2>
+
+            <span class="pedido-state {{ pedido.estado }}">
+                {{ pedido.get_estado_display }}
+            </span>
+
+        </div>
+
+        <div class="pedido-top-actions">
+
+            <a
+                href="{% url 'core:pedido_lista' %}"
+                class="pedido-button"
+            >
+                Volver
+            </a>
+
+            {% if editable %}
+
+                <a
+                    href="{% url 'core:pedido_editar' pedido.pk %}"
+                    class="pedido-button"
+                >
+                    Editar datos
+                </a>
+
+                <a
+                    href="{% url 'core:pedido_producto_agregar' pedido.pk %}"
+                    class="pedido-button primary"
+                >
+                    + Agregar producto
+                </a>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    {% if pedido.siguiente_estado_operativo_ui %}
+
+        <div class="pedido-status-quick">
+
+            <div class="pedido-status-quick-copy">
+
+                <p class="pedido-status-quick-title">
+                    Seguimiento rápido
+                </p>
+
+                <p class="pedido-status-quick-text">
+                    Siguiente paso:
+                    {{ pedido.siguiente_estado_label_ui }}.
+                </p>
+
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'core:pedido_estado_rapido' pedido.pk pedido.siguiente_estado_operativo_ui %}"
+            >
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="origen"
+                    value="detalle"
+                >
+
+                <button
+                    type="submit"
+                    class="pedido-status-quick-button"
+                >
+                    {% if pedido.siguiente_estado_operativo_ui == "preparando" %}
+                        🟡 Comenzar preparación
+                    {% elif pedido.siguiente_estado_operativo_ui == "listo" %}
+                        🟢 Marcar pedido listo
+                    {% elif pedido.siguiente_estado_operativo_ui == "en_camino" %}
+                        🚚 Marcar en camino
+                    {% elif pedido.siguiente_estado_operativo_ui == "enviado" %}
+                        🚚 Despachar pedido
+                    {% elif pedido.siguiente_estado_operativo_ui == "entregado" %}
+                        ✅ Marcar entregado
+                    {% else %}
+                        {{ pedido.siguiente_estado_label_ui }}
+                    {% endif %}
+                </button>
+
+            </form>
+
+
+        </div>
+
+    {% elif pedido.estado == "entregado" %}
+
+        <div class="pedido-status-quick">
+
+            <div class="pedido-status-quick-copy">
+
+                <p class="pedido-status-quick-title">
+                    ✅ Pedido entregado
+                </p>
+
+                <p class="pedido-status-quick-text">
+                    El seguimiento operativo de este pedido está completo.
+                </p>
+
+            </div>
+
+        </div>
+
+    {% elif pedido.estado == "cancelado" %}
+
+        <div class="pedido-status-quick">
+
+            <div class="pedido-status-quick-copy">
+
+                <p class="pedido-status-quick-title">
+                    Pedido cancelado
+                </p>
+
+                <p class="pedido-status-quick-text">
+                    Este pedido ya no tiene avances operativos pendientes.
+                </p>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+
+    {% if es_pedido_restaurante and pedido.empresa_id == 7 %}
+
+        {% if pedido.estado == "pendiente" or pedido.estado == "confirmado" or pedido.estado == "pagado" or pedido.estado == "preparando" or pedido.estado == "listo" or pedido.estado == "en_camino" or pedido.estado == "enviado" %}
+
+            <!-- TNL-RESTAURANTE-CANCELACION-PANEL-R6-V2 -->
+            <div class="pedido-status-quick">
+
+                <div class="pedido-status-quick-copy">
+
+                    <p class="pedido-status-quick-title">
+                        Cancelación administrativa
+                    </p>
+
+                    <p class="pedido-status-quick-text">
+                        Cancela el pedido y notifica al cliente por WhatsApp.
+                    </p>
+
+                </div>
+
+                <form
+                    method="post"
+                    action="{% url 'core:pedido_estado_rapido' pedido.pk 'cancelado' %}"
+                    onsubmit="return confirm('¿Confirmas que deseas cancelar este pedido?');"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="origen"
+                        value="detalle"
+                    >
+
+                    <button
+                        type="submit"
+                        class="pedido-button"
+                    >
+                        ❌ Cancelar pedido
+                    </button>
+
+                </form>
+
+            </div>
+
+        {% endif %}
+
+    {% endif %}
+
+
+    <div class="pedido-grid">
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Empresa</div>
+            <div class="pedido-info-value">
+                {{ pedido.empresa.nombre }}
+            </div>
+        </div>
+
+        {% if es_pedido_restaurante %}
+
+            <div class="pedido-info">
+                <div class="pedido-info-label">
+                    Tipo de orden
+                </div>
+
+                <div class="pedido-info-value">
+                    {{ pedido.get_tipo_orden_display }}
+                </div>
+            </div>
+
+            <div class="pedido-info">
+                <div class="pedido-info-label">
+                    Tiempo estimado
+                </div>
+
+                <div class="pedido-info-value">
+                    {% if pedido.tiempo_estimado_minutos %}
+                        ~{{ pedido.tiempo_estimado_minutos }} min
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+            </div>
+
+        {% endif %}
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Cliente</div>
+            <div class="pedido-info-value">
+                {{ pedido.cliente_nombre }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Teléfono</div>
+            <div class="pedido-info-value">
+                {{ pedido.cliente_telefono|default:"—" }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Correo</div>
+            <div class="pedido-info-value">
+                {{ pedido.cliente_email|default:"—" }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Moneda</div>
+            <div class="pedido-info-value">
+                {{ pedido.moneda }}
+            </div>
+        </div>
+
+        {% if es_pedido_restaurante and pedido.empresa_id == 7 %}
+
+            <!-- TNL-PAGO-DIRECTO-P2-V1 -->
+            <div class="pedido-info">
+                <div class="pedido-info-label">
+                    Método de pago
+                </div>
+                <div class="pedido-info-value">
+                    {% if pago_actual %}
+                        {{ pago_actual.metodo_label_ui }}
+                    {% else %}
+                        Sin registro de pago
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="pedido-info">
+                <div class="pedido-info-label">
+                    Estado del pago
+                </div>
+                <div class="pedido-info-value">
+                    {% if pago_actual %}
+                        {{ pago_actual.estado_label_ui }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+            </div>
+
+
+            {% if pago_actual.puede_marcar_pagado_ui %}
+
+                <!-- TNL-PAGO-DIRECTO-P3-V1 -->
+                <div class="pedido-info">
+                    <div class="pedido-info-label">
+                        Acción de pago
+                    </div>
+
+                    <div class="pedido-info-value">
+
+                        <form
+                            method="post"
+                            action="{% url 'core:pedido_pago_marcar_pagado' pedido.pk %}"
+                            onsubmit="return confirm('¿Confirmas que este pago en efectivo o contra entrega ya fue recibido?');"
+                        >
+                            {% csrf_token %}
+
+                            <button
+                                type="submit"
+                                class="pedido-button"
+                            >
+                                ✅ Marcar como pagado
+                            </button>
+                        </form>
+
+                    </div>
+                </div>
+
+            {% endif %}
+
+        {% endif %}
+
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Canal</div>
+            <div class="pedido-info-value">
+                {% if pedido.canal %}
+                    {{ pedido.canal.get_tipo_display }}
+                    {% if pedido.canal.nombre %}
+                        · {{ pedido.canal.nombre }}
+                    {% endif %}
+                {% else %}
+                    Sin canal
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Creado</div>
+            <div class="pedido-info-value">
+                {{ pedido.creado_en|date:"d/m/Y H:i" }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Confirmado</div>
+            <div class="pedido-info-value">
+                {% if pedido.confirmado_en %}
+                    {{ pedido.confirmado_en|date:"d/m/Y H:i" }}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Identificador externo</div>
+            <div class="pedido-info-value">
+                {{ pedido.identificador_externo|default:"—" }}
+            </div>
+        </div>
+
+    </div>
+
+
+    {% if pedido.direccion_entrega %}
+
+        <div class="pedido-info" style="margin-bottom:16px;">
+            <div class="pedido-info-label">
+                Dirección de entrega
+            </div>
+
+            <div class="pedido-info-value">
+                {{ pedido.direccion_entrega }}
+            </div>
+        </div>
+
+    {% endif %}
+
+
+    {% if pedido.notas %}
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">
+                Notas
+            </div>
+
+            <div class="pedido-info-value pedido-notes">
+                {{ pedido.notas }}
+            </div>
+        </div>
+
+    {% endif %}
+
+
+    <h3 class="pedido-section-title">
+        Productos
+    </h3>
+
+    <div class="pedido-lines-card">
+
+        {% if detalles %}
+
+            <table class="pedido-table">
+
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio unitario</th>
+                        <th>Descuento</th>
+                        <th>Importe</th>
+
+                        {% if editable %}
+                            <th>Acciones</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for detalle in detalles %}
+
+                        <tr>
+
+                            <td>
+                                {{ detalle.sku }}
+                            </td>
+
+                            <td>
+                                {{ detalle.nombre_producto }}
+
+                                {% if es_pedido_restaurante %}
+
+                                    {% if detalle.modificadores_snapshot or detalle.extras_snapshot %}
+
+                                        <div class="pedido-config-r3">
+
+                                            {% for grupo in detalle.modificadores_snapshot %}
+
+                                                <div class="pedido-config-group-r3">
+
+                                                    <strong>
+                                                        {{ grupo.grupo_nombre }}:
+                                                    </strong>
+
+                                                    {% for opcion in grupo.opciones %}
+
+                                                        <span class="pedido-config-option-r3">
+                                                            {{ opcion.nombre }}
+
+                                                            {% if opcion.precio_adicional != "0.0000" %}
+                                                                · +{{ pedido.moneda }}
+                                                                {{ opcion.precio_adicional|floatformat:2 }}
+                                                            {% endif %}
+                                                        </span>
+
+                                                    {% endfor %}
+
+                                                </div>
+
+                                            {% endfor %}
+
+
+                                            {% for grupo in detalle.extras_snapshot %}
+
+                                                <div class="pedido-config-group-r3">
+
+                                                    <strong>
+                                                        {{ grupo.grupo_nombre }}:
+                                                    </strong>
+
+                                                    {% for opcion in grupo.opciones %}
+
+                                                        <span class="pedido-config-option-r3">
+                                                            {{ opcion.nombre }}
+
+                                                            {% if opcion.precio_adicional != "0.0000" %}
+                                                                · +{{ pedido.moneda }}
+                                                                {{ opcion.precio_adicional|floatformat:2 }}
+                                                            {% endif %}
+                                                        </span>
+
+                                                    {% endfor %}
+
+                                                </div>
+
+                                            {% endfor %}
+
+                                        </div>
+
+                                    {% endif %}
+
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{ detalle.cantidad }}
+                            </td>
+
+                            <td>
+                                {{ pedido.moneda }}
+                                {{ detalle.precio_unitario }}
+                            </td>
+
+                            <td>
+                                {{ pedido.moneda }}
+                                {{ detalle.descuento }}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ pedido.moneda }}
+                                    {{ detalle.importe }}
+                                </strong>
+                            </td>
+
+                            {% if editable %}
+
+                                <td>
+                                    <div class="pedido-line-actions">
+
+                                        <a
+                                            href="{% url 'core:pedido_producto_editar' detalle.pk %}"
+                                            class="pedido-link"
+                                        >
+                                            Editar
+                                        </a>
+
+                                        <form
+                                            method="post"
+                                            action="{% url 'core:pedido_producto_eliminar' detalle.pk %}"
+                                            onsubmit="return confirm('¿Eliminar este producto del pedido?');"
+                                        >
+
+                                            {% csrf_token %}
+
+                                            <button
+                                                type="submit"
+                                                class="pedido-link danger"
+                                            >
+                                                Eliminar
+                                            </button>
+
+                                        </form>
+
+                                    </div>
+                                </td>
+
+                            {% endif %}
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <div class="pedido-empty">
+
+                Este pedido todavía no contiene productos.
+
+                {% if editable %}
+                    <br><br>
+
+                    <a
+                        href="{% url 'core:pedido_producto_agregar' pedido.pk %}"
+                        class="pedido-button primary"
+                    >
+                        Agregar primer producto
+                    </a>
+                {% endif %}
+
+            </div>
+
+        {% endif %}
+
+
+        <div class="pedido-totals">
+
+            <div class="pedido-totals-box">
+
+                {% if es_pedido_restaurante %}
+
+                    <div class="pedido-total-row">
+                        <span>Productos</span>
+                        <strong>
+                            {{ pedido.moneda }}
+                            {{ pedido.subtotal_productos|floatformat:2 }}
+                        </strong>
+                    </div>
+
+                    <div class="pedido-total-row">
+                        <span>Modificadores</span>
+                        <strong>
+                            {{ pedido.moneda }}
+                            {{ pedido.subtotal_modificadores|floatformat:2 }}
+                        </strong>
+                    </div>
+
+                    <div class="pedido-total-row">
+                        <span>Extras</span>
+                        <strong>
+                            {{ pedido.moneda }}
+                            {{ pedido.subtotal_extras|floatformat:2 }}
+                        </strong>
+                    </div>
+
+                    <div class="pedido-total-row">
+                        <span>Envío</span>
+                        <strong>
+                            {{ pedido.moneda }}
+                            {{ pedido.costo_envio|floatformat:2 }}
+                        </strong>
+                    </div>
+
+                {% else %}
+
+                    <div class="pedido-total-row">
+                        <span>Subtotal</span>
+                        <strong>
+                            {{ pedido.moneda }}
+                            {{ pedido.subtotal|floatformat:2 }}
+                        </strong>
+                    </div>
+
+                {% endif %}
+
+                <div class="pedido-total-row">
+                    <span>Descuento</span>
+                    <strong>
+                        {{ pedido.moneda }}
+                        {{ pedido.descuento|floatformat:2 }}
+                    </strong>
+                </div>
+
+                <div class="pedido-total-row grand">
+                    <span>Total</span>
+                    <span>
+                        {{ pedido.moneda }}
+                        {{ pedido.total|floatformat:2 }}
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <section class="pedido-history-r3">
+
+        <h3 class="pedido-section-title">
+            Historial de estados
+        </h3>
+
+        <div class="pedido-history-list-r3">
+
+            {% if pedido.confirmado_en %}
+
+                <div class="pedido-history-item-r3">
+
+                    <div>
+                        <strong>
+                            Confirmado
+                        </strong>
+
+                        <div class="pedido-history-meta-r3">
+                            Pedido confirmado
+                        </div>
+                    </div>
+
+                    <div class="pedido-history-meta-r3">
+                        {{ pedido.confirmado_en|date:"d/m/Y H:i" }}
+                    </div>
+
+                </div>
+
+            {% endif %}
+
+
+            {% for evento in eventos_estado %}
+
+                <div class="pedido-history-item-r3">
+
+                    <div>
+
+                        <strong>
+                            {{ evento.estado_anterior_label_ui }}
+                            →
+                            {{ evento.estado_nuevo_label_ui }}
+                        </strong>
+
+                        <div class="pedido-history-meta-r3">
+
+                            {% if evento.usuario %}
+
+                                Por
+                                {% if evento.usuario.get_full_name %}
+                                    {{ evento.usuario.get_full_name }}
+                                {% else %}
+                                    {{ evento.usuario.username }}
+                                {% endif %}
+
+                            {% else %}
+
+                                Cambio del sistema
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="pedido-history-meta-r3">
+                        {{ evento.fecha|date:"d/m/Y H:i" }}
+                    </div>
+
+                </div>
+
+            {% empty %}
+
+                {% if not pedido.confirmado_en %}
+
+                    <div class="pedido-history-item-r3">
+
+                        <div class="pedido-history-meta-r3">
+                            Todavía no hay cambios operativos registrados.
+                        </div>
+
+                    </div>
+
+                {% endif %}
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+    {% if editable and detalles %}
+
+        <div
+            style="
+                display:flex;
+                justify-content:flex-end;
+                margin-top:24px;
+            "
+        >
+
+            <form
+    method="post"
+    action="{% url 'core:pedido_confirmar' pedido.pk %}"
+    id="pedido-confirmar-form"
+>
+    {% csrf_token %}
+
+    <button
+        type="submit"
+        class="pedido-button primary"
+        id="pedido-confirmar-button"
+    >
+        Confirmar pedido
+    </button>
+</form>
+
+<!-- PEDIDO-SWEETALERT-V2 -->
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const form =
+            document.getElementById(
+                "pedido-confirmar-form"
+            );
+
+        if (!form) {
+            return;
+        }
+
+        const boton =
+            document.getElementById(
+                "pedido-confirmar-button"
+            );
+
+        let procesando = false;
+
+        form.addEventListener(
+            "submit",
+            async function (event) {
+
+                event.preventDefault();
+
+                if (procesando) {
+                    return;
+                }
+
+                if (typeof Swal === "undefined") {
+                    console.error(
+                        "SweetAlert2 no está cargado."
+                    );
+
+                    alert(
+                        "SweetAlert2 no pudo cargarse."
+                    );
+
+                    return;
+                }
+
+                const confirmacion =
+                    await Swal.fire({
+                        icon: "warning",
+
+                        title:
+                            "¿Confirmar pedido?",
+
+                        html: `
+                            <strong>
+                                {{ pedido.numero|escapejs }}
+                            </strong>
+
+                            <br><br>
+
+                            Esta operación descontará
+                            inventario y no puede repetirse.
+                        `,
+
+                        background: "#0f1b26",
+                        color: "#f4f7fb",
+
+                        showCancelButton: true,
+
+                        confirmButtonText:
+                            "Sí, confirmar",
+
+                        cancelButtonText:
+                            "Cancelar",
+
+                        confirmButtonColor:
+                            "#43dca0",
+
+                        cancelButtonColor:
+                            "#344255",
+
+                        reverseButtons: true,
+
+                        focusCancel: true
+                    });
+
+                if (!confirmacion.isConfirmed) {
+                    return;
+                }
+
+                procesando = true;
+
+                if (boton) {
+                    boton.disabled = true;
+                }
+
+                Swal.fire({
+                    title:
+                        "Validando pedido",
+
+                    text:
+                        "Comprobando inventario...",
+
+                    background:
+                        "#0f1b26",
+
+                    color:
+                        "#f4f7fb",
+
+                    allowOutsideClick:
+                        false,
+
+                    allowEscapeKey:
+                        false,
+
+                    showConfirmButton:
+                        false,
+
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                try {
+
+                    const response =
+                        await fetch(
+                            form.action,
+                            {
+                                method:
+                                    "POST",
+
+                                body:
+                                    new FormData(form),
+
+                                credentials:
+                                    "same-origin",
+
+                                headers: {
+                                    "X-Requested-With":
+                                        "XMLHttpRequest",
+
+                                    "Accept":
+                                        "application/json"
+                                }
+                            }
+                        );
+
+                    let data;
+
+                    try {
+                        data =
+                            await response.json();
+                    }
+                    catch (jsonError) {
+                        throw new Error(
+                            "El servidor devolvió " +
+                            "una respuesta no válida."
+                        );
+                    }
+
+                    if (
+                        !response.ok ||
+                        data.ok !== true
+                    ) {
+
+                        await Swal.fire({
+                            icon: "error",
+
+                            title:
+                                "No se pudo confirmar",
+
+                            text:
+                                data.message ||
+                                "No fue posible " +
+                                "confirmar el pedido.",
+
+                            background:
+                                "#0f1b26",
+
+                            color:
+                                "#f4f7fb",
+
+                            confirmButtonText:
+                                "Entendido",
+
+                            confirmButtonColor:
+                                "#43dca0"
+                        });
+
+                        return;
+                    }
+
+                    await Swal.fire({
+                        icon:
+                            "success",
+
+                        title:
+                            "Pedido confirmado",
+
+                        text:
+                            data.message ||
+                            "El pedido fue confirmado " +
+                            "correctamente.",
+
+                        background:
+                            "#0f1b26",
+
+                        color:
+                            "#f4f7fb",
+
+                        confirmButtonText:
+                            "Continuar",
+
+                        confirmButtonColor:
+                            "#43dca0",
+
+                        allowOutsideClick:
+                            false,
+
+                        allowEscapeKey:
+                            false
+                    });
+
+                    if (data.redirect_url) {
+                        window.location.href =
+                            data.redirect_url;
+                    }
+                    else {
+                        window.location.reload();
+                    }
+
+                }
+                catch (error) {
+
+                    console.error(
+                        "Error confirmando pedido:",
+                        error
+                    );
+
+                    await Swal.fire({
+                        icon:
+                            "error",
+
+                        title:
+                            "Error de comunicación",
+
+                        text:
+                            error.message ||
+                            "No fue posible " +
+                            "comunicarse con el servidor.",
+
+                        background:
+                            "#0f1b26",
+
+                        color:
+                            "#f4f7fb",
+
+                        confirmButtonText:
+                            "Entendido",
+
+                        confirmButtonColor:
+                            "#43dca0"
+                    });
+                }
+                finally {
+
+                    procesando = false;
+
+                    if (boton) {
+                        boton.disabled = false;
+                    }
+                }
+            }
+        );
+    }
+);
+</script>
+
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

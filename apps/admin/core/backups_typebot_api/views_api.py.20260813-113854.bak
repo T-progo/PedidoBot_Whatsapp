@@ -1,0 +1,940 @@
+from hmac import compare_digest
+from pathlib import Path
+
+from django.db.models import Q
+from django.http import JsonResponse
+
+from .models import Bot, Producto
+
+
+CLAVE_API_PATH = Path(
+    "/opt/tunegociolisto/infrastructure/secrets/typebot_catalog_api_key"
+)
+
+
+def _leer_clave_api():
+    try:
+        return CLAVE_API_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def producto_buscar(request):
+    if request.method != "GET":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."},
+            status=405,
+        )
+
+    clave_esperada = _leer_clave_api()
+
+    if not clave_esperada:
+        return JsonResponse(
+            {"ok": False, "error": "Servicio no configurado."},
+            status=503,
+        )
+
+    autorizacion = request.headers.get("Authorization", "")
+
+    if not compare_digest(
+        autorizacion,
+        f"Bearer {clave_esperada}",
+    ):
+        respuesta = JsonResponse(
+            {"ok": False, "error": "No autorizado."},
+            status=401,
+        )
+        respuesta["WWW-Authenticate"] = "Bearer"
+        return respuesta
+
+    consulta = request.GET.get("q", "").strip()
+    bot_id = request.GET.get("bot_id", "").strip()
+
+    if not bot_id:
+        return JsonResponse(
+            {"ok": False, "error": "El parámetro bot_id es obligatorio."},
+            status=400,
+        )
+
+    if len(consulta) < 2:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "La búsqueda debe contener al menos 2 caracteres.",
+            },
+            status=400,
+        )
+
+    try:
+        bot_id = int(bot_id)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "error": "bot_id no es válido."},
+            status=400,
+        )
+
+    bot = (
+        Bot.objects
+        .select_related("empresa", "plantilla")
+        .filter(id=bot_id, activo=True)
+        .first()
+    )
+
+    if bot is None:
+        return JsonResponse(
+            {"ok": False, "error": "Bot no encontrado o inactivo."},
+            status=404,
+        )
+
+    if bot.plantilla_id is None:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "El bot no tiene una plantilla asociada.",
+            },
+            status=409,
+        )
+
+    productos = list(
+        Producto.objects
+        .select_related("catalogo")
+        .filter(
+            catalogo__empresa_id=bot.empresa_id,
+            catalogo__plantilla_id=bot.plantilla_id,
+            catalogo__activo=True,
+            activo=True,
+            stock__gt=0,
+        )
+        .filter(
+            Q(nombre__icontains=consulta)
+            | Q(descripcion__icontains=consulta)
+            | Q(sku__icontains=consulta)
+        )
+        .order_by("nombre")[:10]
+    )
+
+    resultados = [
+        {
+            "id": producto.id,
+            "sku": producto.sku,
+            "nombre": producto.nombre,
+            "descripcion": producto.descripcion,
+            "precio": str(producto.precio),
+            "stock": str(producto.stock),
+            "unidad": producto.unidad,
+            "moneda": producto.catalogo.moneda,
+        }
+        for producto in productos
+    ]
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "consulta": consulta,
+            "cantidad": len(resultados),
+            "empresa": bot.empresa.nombre,
+            "productos": resultados,
+            "producto_ids": [item["id"] for item in resultados],
+            "skus": [item["sku"] for item in resultados],
+            "nombres": [item["nombre"] for item in resultados],
+            "descripciones": [item["descripcion"] for item in resultados],
+            "precios": [item["precio"] for item in resultados],
+            "stocks": [item["stock"] for item in resultados],
+            "unidades": [item["unidad"] for item in resultados],
+            "monedas": [item["moneda"] for item in resultados],
+        "tarjeta_descripciones": [
+            (
+                f"💰 Precio: {item['moneda']} "
+                f"${item['precio']}\n"
+                f"📦 Disponible: {item['stock']} "
+                f"{item['unidad']}"
+            )
+            for item in resultados
+        ],
+        },
+        json_dumps_params={"ensure_ascii": False},
+    )
+
+
+# === VALIDACION DE PRODUCTO PARA TYPEBOT ===
+def producto_validar(request):
+    """Valida producto, cantidad y stock sin modificar inventario."""
+    from decimal import Decimal, InvalidOperation
+
+    if request.method != "GET":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."},
+            status=405,
+        )
+
+    clave_esperada = _leer_clave_api()
+    if not clave_esperada:
+        return JsonResponse(
+            {"ok": False, "error": "Servicio no configurado."},
+            status=503,
+        )
+
+    autorizacion = request.headers.get("Authorization", "")
+    if not compare_digest(
+        autorizacion,
+        f"Bearer {clave_esperada}",
+    ):
+        respuesta = JsonResponse(
+            {"ok": False, "error": "No autorizado."},
+            status=401,
+        )
+        respuesta["WWW-Authenticate"] = "Bearer"
+        return respuesta
+
+    bot_id_texto = request.GET.get("bot_id", "").strip()
+    producto_id_texto = request.GET.get("producto_id", "").strip()
+    cantidad_texto = request.GET.get("cantidad", "").strip()
+
+    if not bot_id_texto or not producto_id_texto or not cantidad_texto:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": (
+                    "bot_id, producto_id y cantidad son obligatorios."
+                ),
+            },
+            status=400,
+        )
+
+    try:
+        bot_id = int(bot_id_texto)
+        producto_id = int(producto_id_texto)
+        cantidad = Decimal(cantidad_texto)
+    except (TypeError, ValueError, InvalidOperation):
+        return JsonResponse(
+            {"ok": False, "error": "Parámetros no válidos."},
+            status=400,
+        )
+
+    if cantidad <= 0:
+        return JsonResponse(
+            {"ok": False, "error": "La cantidad debe ser mayor que cero."},
+            status=400,
+        )
+
+    bot = (
+        Bot.objects.select_related("empresa", "plantilla")
+        .filter(id=bot_id, activo=True)
+        .first()
+    )
+    if not bot:
+        return JsonResponse(
+            {"ok": False, "error": "Bot no encontrado."},
+            status=404,
+        )
+
+    productos = Producto.objects.select_related("catalogo").filter(
+        id=producto_id,
+        activo=True,
+        catalogo__activo=True,
+        catalogo__empresa=bot.empresa,
+    )
+
+    if bot.plantilla_id:
+        productos = productos.filter(
+            catalogo__plantilla_id=bot.plantilla_id,
+        )
+    else:
+        productos = productos.filter(
+            catalogo__plantilla__isnull=True,
+        )
+
+    producto = productos.first()
+    if not producto:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Producto no encontrado para este bot.",
+            },
+            status=404,
+        )
+
+    disponible = producto.stock >= cantidad
+    subtotal = (producto.precio * cantidad).quantize(Decimal("0.01"))
+    moneda = producto.catalogo.moneda
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "bot_id": bot.id,
+            "empresa": bot.empresa.nombre,
+            "producto_id": producto.id,
+            "sku": producto.sku,
+            "nombre": producto.nombre,
+            "precio": str(producto.precio),
+            "cantidad": str(cantidad),
+            "stock": str(producto.stock),
+            "unidad": producto.unidad,
+            "moneda": moneda,
+            "disponible": disponible,
+            "subtotal": str(subtotal),
+            "resumen": (
+                f"{producto.nombre}\n"
+                f"Cantidad: {cantidad} {producto.unidad}\n"
+                f"Subtotal: {moneda} ${subtotal}"
+            ),
+        }
+    )
+
+
+# === CARRITO DE TYPEBOT ===
+from django.views.decorators.csrf import csrf_exempt
+
+
+@csrf_exempt
+def carrito_producto_agregar(request):
+    """Crea o actualiza un carrito de Typebot sin confirmar inventario."""
+    from decimal import Decimal, InvalidOperation
+    import json
+    from uuid import uuid4
+
+    from django.db import transaction
+
+    from .models import Pedido, PedidoDetalle
+
+    if request.method != "POST":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."},
+            status=405,
+        )
+
+    clave_esperada = _leer_clave_api()
+    if not clave_esperada:
+        return JsonResponse(
+            {"ok": False, "error": "Servicio no configurado."},
+            status=503,
+        )
+
+    autorizacion = request.headers.get("Authorization", "")
+    if not compare_digest(
+        autorizacion,
+        f"Bearer {clave_esperada}",
+    ):
+        respuesta = JsonResponse(
+            {"ok": False, "error": "No autorizado."},
+            status=401,
+        )
+        respuesta["WWW-Authenticate"] = "Bearer"
+        return respuesta
+
+    try:
+        if request.content_type == "application/json":
+            datos = json.loads(request.body.decode("utf-8"))
+        else:
+            datos = request.POST.dict()
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse(
+            {"ok": False, "error": "El cuerpo JSON no es válido."},
+            status=400,
+        )
+
+    if not isinstance(datos, dict):
+        return JsonResponse(
+            {"ok": False, "error": "El cuerpo debe ser un objeto JSON."},
+            status=400,
+        )
+
+    bot_id_texto = str(datos.get("bot_id", "")).strip()
+    producto_id_texto = str(datos.get("producto_id", "")).strip()
+    cantidad_texto = str(datos.get("cantidad", "")).strip()
+    carrito_token = str(datos.get("carrito_token", "")).strip()
+
+    if not bot_id_texto or not producto_id_texto or not cantidad_texto:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "bot_id, producto_id y cantidad son obligatorios.",
+            },
+            status=400,
+        )
+
+    if len(carrito_token) > 64:
+        return JsonResponse(
+            {"ok": False, "error": "carrito_token no es válido."},
+            status=400,
+        )
+
+    try:
+        bot_id = int(bot_id_texto)
+        producto_id = int(producto_id_texto)
+        cantidad = Decimal(cantidad_texto)
+    except (TypeError, ValueError, InvalidOperation):
+        return JsonResponse(
+            {"ok": False, "error": "Parámetros no válidos."},
+            status=400,
+        )
+
+    if cantidad <= 0:
+        return JsonResponse(
+            {"ok": False, "error": "La cantidad debe ser mayor que cero."},
+            status=400,
+        )
+
+    bot = (
+        Bot.objects.select_related("empresa", "plantilla")
+        .filter(id=bot_id, activo=True)
+        .first()
+    )
+    if not bot:
+        return JsonResponse(
+            {"ok": False, "error": "Bot no encontrado."},
+            status=404,
+        )
+
+    try:
+        with transaction.atomic():
+            productos = (
+                Producto.objects.select_for_update()
+                .select_related("catalogo")
+                .filter(
+                    id=producto_id,
+                    activo=True,
+                    catalogo__activo=True,
+                    catalogo__empresa=bot.empresa,
+                )
+            )
+
+            if bot.plantilla_id:
+                productos = productos.filter(
+                    catalogo__plantilla_id=bot.plantilla_id,
+                )
+            else:
+                productos = productos.filter(
+                    catalogo__plantilla__isnull=True,
+                )
+
+            producto = productos.first()
+            if not producto:
+                return JsonResponse(
+                    {
+                        "ok": False,
+                        "error": "Producto no encontrado para este bot.",
+                    },
+                    status=404,
+                )
+
+            moneda = producto.catalogo.moneda
+            carrito_creado = False
+
+            if carrito_token:
+                pedido = (
+                    Pedido.objects.select_for_update()
+                    .filter(
+                        empresa=bot.empresa,
+                        identificador_externo=f"typebot:{carrito_token}",
+                        estado="carrito",
+                    )
+                    .first()
+                )
+                if not pedido:
+                    return JsonResponse(
+                        {
+                            "ok": False,
+                            "error": "El carrito no existe o ya fue procesado.",
+                        },
+                        status=404,
+                    )
+                if pedido.moneda != moneda:
+                    return JsonResponse(
+                        {
+                            "ok": False,
+                            "error": "El producto usa una moneda diferente.",
+                        },
+                        status=400,
+                    )
+            else:
+                carrito_token = uuid4().hex
+                pedido = Pedido.objects.create(
+                    empresa=bot.empresa,
+                    canal=None,
+                    numero=f"TB-{uuid4().hex[:12].upper()}",
+                    estado="carrito",
+                    cliente_nombre="",
+                    cliente_telefono="",
+                    cliente_email="",
+                    direccion_entrega="",
+                    notas="",
+                    moneda=moneda,
+                    subtotal=Decimal("0"),
+                    descuento=Decimal("0"),
+                    total=Decimal("0"),
+                    identificador_externo=f"typebot:{carrito_token}",
+                )
+                carrito_creado = True
+
+            detalle = (
+                PedidoDetalle.objects.select_for_update()
+                .filter(pedido=pedido, producto=producto)
+                .first()
+            )
+            cantidad_total = cantidad
+            if detalle:
+                cantidad_total += detalle.cantidad
+
+            if cantidad_total > producto.stock:
+                return JsonResponse(
+                    {
+                        "ok": False,
+                        "error": "Existencia insuficiente.",
+                        "producto_id": producto.id,
+                        "nombre": producto.nombre,
+                        "solicitado": str(cantidad_total),
+                        "stock": str(producto.stock),
+                        "unidad": producto.unidad,
+                    },
+                    status=409,
+                )
+
+            precio = producto.precio
+            importe = (precio * cantidad_total).quantize(Decimal("0.01"))
+
+            if detalle:
+                detalle.sku = producto.sku
+                detalle.nombre_producto = producto.nombre
+                detalle.cantidad = cantidad_total
+                detalle.precio_unitario = precio
+                detalle.descuento = Decimal("0")
+                detalle.importe = importe
+                detalle.save(
+                    update_fields=[
+                        "sku",
+                        "nombre_producto",
+                        "cantidad",
+                        "precio_unitario",
+                        "descuento",
+                        "importe",
+                    ]
+                )
+            else:
+                PedidoDetalle.objects.create(
+                    pedido=pedido,
+                    producto=producto,
+                    sku=producto.sku,
+                    nombre_producto=producto.nombre,
+                    cantidad=cantidad_total,
+                    precio_unitario=precio,
+                    descuento=Decimal("0"),
+                    importe=importe,
+                )
+
+            detalles = list(
+                PedidoDetalle.objects.filter(pedido=pedido)
+                .select_related("producto")
+                .order_by("id")
+            )
+            subtotal = sum(
+                (item.importe for item in detalles),
+                Decimal("0"),
+            ).quantize(Decimal("0.01"))
+            total = max(
+                subtotal - pedido.descuento,
+                Decimal("0"),
+            ).quantize(Decimal("0.01"))
+
+            pedido.subtotal = subtotal
+            pedido.total = total
+            pedido.save(update_fields=["subtotal", "total", "actualizado_en"])
+
+            lineas = [
+                {
+                    "producto_id": item.producto_id,
+                    "sku": item.sku,
+                    "nombre": item.nombre_producto,
+                    "cantidad": str(item.cantidad),
+                    "precio_unitario": str(item.precio_unitario),
+                    "importe": str(item.importe),
+                }
+                for item in detalles
+            ]
+
+    except Exception:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "No fue posible actualizar el carrito.",
+            },
+            status=500,
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "carrito_creado": carrito_creado,
+            "carrito_token": carrito_token,
+            "pedido_id": pedido.id,
+            "pedido_numero": pedido.numero,
+            "estado": pedido.estado,
+            "empresa": bot.empresa.nombre,
+            "moneda": pedido.moneda,
+            "subtotal": str(pedido.subtotal),
+            "descuento": str(pedido.descuento),
+            "total": str(pedido.total),
+            "cantidad_productos": len(lineas),
+            "lineas": lineas,
+            "mensaje": f"{producto.nombre} fue agregado al pedido.",
+        }
+    )
+
+
+# === DATOS DE CLIENTE PARA CARRITO TYPEBOT ===
+@csrf_exempt
+def carrito_datos_guardar(request):
+    """Guarda datos del cliente en un carrito sin confirmarlo."""
+    import json
+
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_email
+    from django.db import transaction
+
+    from .models import Pedido
+
+    if request.method != "POST":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."},
+            status=405,
+        )
+
+    clave_esperada = _leer_clave_api()
+    if not clave_esperada:
+        return JsonResponse(
+            {"ok": False, "error": "Servicio no configurado."},
+            status=503,
+        )
+
+    autorizacion = request.headers.get("Authorization", "")
+    if not compare_digest(
+        autorizacion,
+        f"Bearer {clave_esperada}",
+    ):
+        respuesta = JsonResponse(
+            {"ok": False, "error": "No autorizado."},
+            status=401,
+        )
+        respuesta["WWW-Authenticate"] = "Bearer"
+        return respuesta
+
+    try:
+        if request.content_type == "application/json":
+            datos = json.loads(request.body.decode("utf-8"))
+        else:
+            datos = request.POST.dict()
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse(
+            {"ok": False, "error": "El cuerpo JSON no es válido."},
+            status=400,
+        )
+
+    if not isinstance(datos, dict):
+        return JsonResponse(
+            {"ok": False, "error": "El cuerpo debe ser un objeto JSON."},
+            status=400,
+        )
+
+    bot_id_texto = str(datos.get("bot_id", "")).strip()
+    carrito_token = str(datos.get("carrito_token", "")).strip()
+    cliente_nombre = str(datos.get("cliente_nombre", "")).strip()
+    cliente_telefono = str(datos.get("cliente_telefono", "")).strip()
+    cliente_email = str(datos.get("cliente_email", "")).strip()
+    direccion_entrega = str(datos.get("direccion_entrega", "")).strip()
+    notas = str(datos.get("notas", "")).strip()
+
+    if cliente_email.casefold() in {"omitir", "ninguno", "ninguna", "no"}:
+        cliente_email = ""
+    if notas.casefold() in {"ninguno", "ninguna", "no"}:
+        notas = ""
+
+    if not bot_id_texto or not carrito_token:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "bot_id y carrito_token son obligatorios.",
+            },
+            status=400,
+        )
+
+    if not cliente_nombre or not cliente_telefono or not direccion_entrega:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": (
+                    "Nombre, teléfono y dirección de entrega son obligatorios."
+                ),
+            },
+            status=400,
+        )
+
+    if len(carrito_token) > 64:
+        return JsonResponse(
+            {"ok": False, "error": "carrito_token no es válido."},
+            status=400,
+        )
+
+    if len(cliente_nombre) > 200:
+        return JsonResponse(
+            {"ok": False, "error": "El nombre es demasiado largo."},
+            status=400,
+        )
+
+    if len(cliente_telefono) > 50:
+        return JsonResponse(
+            {"ok": False, "error": "El teléfono es demasiado largo."},
+            status=400,
+        )
+
+    if cliente_email:
+        try:
+            validate_email(cliente_email)
+        except ValidationError:
+            return JsonResponse(
+                {"ok": False, "error": "El correo electrónico no es válido."},
+                status=400,
+            )
+
+    try:
+        bot_id = int(bot_id_texto)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "error": "bot_id no es válido."},
+            status=400,
+        )
+
+    bot = (
+        Bot.objects.select_related("empresa")
+        .filter(id=bot_id, activo=True)
+        .first()
+    )
+    if not bot:
+        return JsonResponse(
+            {"ok": False, "error": "Bot no encontrado."},
+            status=404,
+        )
+
+    with transaction.atomic():
+        pedido = (
+            Pedido.objects.select_for_update()
+            .filter(
+                empresa=bot.empresa,
+                identificador_externo=f"typebot:{carrito_token}",
+                estado="carrito",
+            )
+            .first()
+        )
+        if not pedido:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "error": "El carrito no existe o ya fue procesado.",
+                },
+                status=404,
+            )
+
+        if not pedido.detalles.exists():
+            return JsonResponse(
+                {"ok": False, "error": "El carrito está vacío."},
+                status=400,
+            )
+
+        pedido.cliente_nombre = cliente_nombre
+        pedido.cliente_telefono = cliente_telefono
+        pedido.cliente_email = cliente_email
+        pedido.direccion_entrega = direccion_entrega
+        pedido.notas = notas
+        pedido.save(
+            update_fields=[
+                "cliente_nombre",
+                "cliente_telefono",
+                "cliente_email",
+                "direccion_entrega",
+                "notas",
+                "actualizado_en",
+            ]
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "datos_guardados": True,
+            "carrito_token": carrito_token,
+            "pedido_id": pedido.id,
+            "pedido_numero": pedido.numero,
+            "estado": pedido.estado,
+            "cliente_nombre": pedido.cliente_nombre,
+            "cliente_telefono": pedido.cliente_telefono,
+            "cliente_email": pedido.cliente_email,
+            "direccion_entrega": pedido.direccion_entrega,
+            "notas": pedido.notas,
+            "moneda": pedido.moneda,
+            "total": str(pedido.total),
+            "mensaje": "Datos del pedido guardados correctamente.",
+        }
+    )
+
+
+# === CONFIRMACION DE PEDIDO PARA TYPEBOT ===
+@csrf_exempt
+def carrito_confirmar(request):
+    """Confirma un carrito usando el motor transaccional existente."""
+    import json
+
+    from django.core.exceptions import ValidationError
+
+    from .models import Pedido
+    from .services.pedidos import confirmar_pedido
+
+    if request.method != "POST":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."},
+            status=405,
+        )
+
+    clave_esperada = _leer_clave_api()
+    if not clave_esperada:
+        return JsonResponse(
+            {"ok": False, "error": "Servicio no configurado."},
+            status=503,
+        )
+
+    autorizacion = request.headers.get("Authorization", "")
+    if not compare_digest(
+        autorizacion,
+        f"Bearer {clave_esperada}",
+    ):
+        respuesta = JsonResponse(
+            {"ok": False, "error": "No autorizado."},
+            status=401,
+        )
+        respuesta["WWW-Authenticate"] = "Bearer"
+        return respuesta
+
+    try:
+        if request.content_type == "application/json":
+            datos = json.loads(request.body.decode("utf-8"))
+        else:
+            datos = request.POST.dict()
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return JsonResponse(
+            {"ok": False, "error": "El cuerpo JSON no es válido."},
+            status=400,
+        )
+
+    if not isinstance(datos, dict):
+        return JsonResponse(
+            {"ok": False, "error": "El cuerpo debe ser un objeto JSON."},
+            status=400,
+        )
+
+    bot_id_texto = str(datos.get("bot_id", "")).strip()
+    carrito_token = str(datos.get("carrito_token", "")).strip()
+
+    if not bot_id_texto or not carrito_token:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "bot_id y carrito_token son obligatorios.",
+            },
+            status=400,
+        )
+
+    if len(carrito_token) > 64:
+        return JsonResponse(
+            {"ok": False, "error": "carrito_token no es válido."},
+            status=400,
+        )
+
+    try:
+        bot_id = int(bot_id_texto)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "error": "bot_id no es válido."},
+            status=400,
+        )
+
+    bot = (
+        Bot.objects.select_related("empresa")
+        .filter(id=bot_id, activo=True)
+        .first()
+    )
+    if not bot:
+        return JsonResponse(
+            {"ok": False, "error": "Bot no encontrado."},
+            status=404,
+        )
+
+    pedido = (
+        Pedido.objects.filter(
+            empresa=bot.empresa,
+            identificador_externo=f"typebot:{carrito_token}",
+        )
+        .first()
+    )
+    if not pedido:
+        return JsonResponse(
+            {"ok": False, "error": "Pedido no encontrado."},
+            status=404,
+        )
+
+    if pedido.estado != "carrito":
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "El pedido ya no está disponible para confirmar.",
+                "pedido_numero": pedido.numero,
+                "estado": pedido.estado,
+            },
+            status=409,
+        )
+
+    if not (
+        pedido.cliente_nombre.strip()
+        and pedido.cliente_telefono.strip()
+        and pedido.direccion_entrega.strip()
+    ):
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "Faltan datos obligatorios del cliente.",
+            },
+            status=400,
+        )
+
+    try:
+        pedido = confirmar_pedido(pedido_id=pedido.id)
+    except ValidationError as error:
+        mensajes = getattr(error, "messages", None) or [str(error)]
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": mensajes[0],
+                "errores": mensajes,
+                "pedido_numero": pedido.numero,
+            },
+            status=409,
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "pedido_confirmado": True,
+            "pedido_id": pedido.id,
+            "pedido_numero": pedido.numero,
+            "estado": pedido.estado,
+            "confirmado_en": (
+                pedido.confirmado_en.isoformat()
+                if pedido.confirmado_en
+                else None
+            ),
+            "empresa": pedido.empresa.nombre,
+            "cliente_nombre": pedido.cliente_nombre,
+            "moneda": pedido.moneda,
+            "subtotal": str(pedido.subtotal),
+            "descuento": str(pedido.descuento),
+            "total": str(pedido.total),
+            "mensaje": f"Pedido {pedido.numero} confirmado correctamente.",
+        }
+    )
+

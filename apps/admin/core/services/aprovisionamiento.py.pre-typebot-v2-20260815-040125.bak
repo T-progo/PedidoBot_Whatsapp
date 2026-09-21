@@ -1,0 +1,595 @@
+from __future__ import annotations
+
+from uuid import UUID
+
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.utils import timezone
+
+from core.models import (
+    Empresa,
+    Licencia,
+    Bot,
+    Catalogo,
+    Plantilla,
+    Variable,
+    PlantillaMaestra,
+    InstalacionPlantilla,
+)
+
+
+def _texto_error(exc):
+    """
+    Convierte una excepción en texto seguro para auditoría.
+    """
+
+    if isinstance(exc, ValidationError):
+        mensajes = getattr(exc, "messages", None)
+
+        if mensajes:
+            return " ".join(
+                str(mensaje)
+                for mensaje in mensajes
+            )[:4000]
+
+    return str(exc)[:4000]
+
+
+def _nombre_limitado(modelo, campo, valor):
+    """
+    Respeta automáticamente el max_length del modelo destino.
+    """
+
+    field = modelo._meta.get_field(campo)
+    max_length = getattr(field, "max_length", None)
+
+    valor = str(valor).strip()
+
+    if max_length:
+        return valor[:max_length]
+
+    return valor
+
+
+def _validar_empresa(empresa):
+    """
+    Impide aprovisionar una empresa deshabilitada.
+    """
+
+    estado = getattr(
+        empresa,
+        "estado",
+        None,
+    )
+
+    if estado is None:
+        return
+
+    estado_normalizado = str(
+        estado
+    ).strip().lower()
+
+    if estado_normalizado not in {
+        "activa",
+        "activo",
+    }:
+        raise ValidationError(
+            (
+                f"La empresa {empresa} no está activa. "
+                f"Estado actual: {estado}."
+            )
+        )
+
+
+def _validar_licencia(
+    licencia,
+    empresa,
+):
+    """
+    Valida propiedad, estado y vigencia de la licencia.
+    """
+
+    if licencia.empresa_id != empresa.id:
+        raise ValidationError(
+            "La licencia no pertenece a la empresa indicada."
+        )
+
+    if licencia.estado != "activa":
+        raise ValidationError(
+            (
+                f"La licencia {licencia.nombre} "
+                f"no está activa. "
+                f"Estado actual: {licencia.estado}."
+            )
+        )
+
+    hoy = timezone.localdate()
+
+    if licencia.fecha_inicio > hoy:
+        raise ValidationError(
+            (
+                f"La licencia {licencia.nombre} "
+                "todavía no inicia. "
+                f"Fecha de inicio: {licencia.fecha_inicio}."
+            )
+        )
+
+    if licencia.fecha_fin < hoy:
+        raise ValidationError(
+            (
+                f"La licencia {licencia.nombre} "
+                "está vencida. "
+                f"Fecha de fin: {licencia.fecha_fin}."
+            )
+        )
+
+
+def _validar_plantilla_maestra(
+    plantilla_maestra,
+):
+    """
+    Solo permite instalar plantillas publicadas y activas.
+    """
+
+    if not plantilla_maestra.activa:
+        raise ValidationError(
+            (
+                f"La plantilla maestra "
+                f"{plantilla_maestra} está inactiva."
+            )
+        )
+
+    if (
+        plantilla_maestra.estado
+        != PlantillaMaestra.Estado.PUBLICADA
+    ):
+        raise ValidationError(
+            (
+                f"La plantilla maestra "
+                f"{plantilla_maestra} "
+                "no está publicada."
+            )
+        )
+
+
+def _moneda_catalogo(
+    configuracion,
+):
+    """
+    Obtiene una moneda válida para Catalogo.
+    """
+
+    moneda = str(
+        configuracion.get(
+            "moneda",
+            "MXN",
+        )
+    ).upper()
+
+    field = Catalogo._meta.get_field(
+        "moneda"
+    )
+
+    monedas_validas = {
+        str(valor)
+        for valor, _etiqueta in field.choices
+    }
+
+    if moneda in monedas_validas:
+        return moneda
+
+    if "MXN" in monedas_validas:
+        return "MXN"
+
+    if monedas_validas:
+        return sorted(
+            monedas_validas
+        )[0]
+
+    return moneda
+
+
+def _crear_recursos_operativos(
+    *,
+    instalacion,
+    empresa,
+    plantilla_maestra,
+):
+    """
+    Crea la instancia privada de la plantilla y sus recursos.
+
+    IMPORTANTE:
+    Esta función debe ejecutarse dentro de transaction.atomic().
+    """
+
+    configuracion = (
+        plantilla_maestra.configuracion
+        if isinstance(
+            plantilla_maestra.configuracion,
+            dict,
+        )
+        else {}
+    )
+
+    nombre_plantilla = _nombre_limitado(
+        Plantilla,
+        "nombre",
+        (
+            f"{plantilla_maestra.nombre} "
+            f"v{plantilla_maestra.version}"
+        ),
+    )
+
+    plantilla = Plantilla.objects.create(
+        empresa=empresa,
+        nombre=nombre_plantilla,
+        tipo=plantilla_maestra.tipo,
+        descripcion=(
+            plantilla_maestra.descripcion
+            or ""
+        ),
+        identificador_externo="",
+        activa=True,
+    )
+
+    variables_maestras = (
+        plantilla_maestra.variables
+        .filter(
+            activa=True,
+        )
+        .order_by(
+            "orden",
+            "id",
+        )
+    )
+
+    for variable_maestra in variables_maestras:
+
+        Variable.objects.create(
+            plantilla=plantilla,
+            clave=variable_maestra.clave,
+            valor=(
+                variable_maestra.valor_default
+                or ""
+            ),
+            descripcion=(
+                variable_maestra.descripcion
+                or ""
+            ),
+            activa=True,
+        )
+
+    crear_bot = configuracion.get(
+        "crear_bot",
+        True,
+    )
+
+    bot = None
+
+    if crear_bot:
+
+        nombre_bot = configuracion.get(
+            "nombre_bot",
+            (
+                f"Bot {plantilla_maestra.nombre}"
+            ),
+        )
+
+        bot = Bot.objects.create(
+            empresa=empresa,
+            plantilla=plantilla,
+            nombre=_nombre_limitado(
+                Bot,
+                "nombre",
+                nombre_bot,
+            ),
+            identificador_externo="",
+            activo=True,
+        )
+
+    crear_catalogo = configuracion.get(
+        "crear_catalogo",
+        True,
+    )
+
+    catalogo = None
+
+    if crear_catalogo:
+
+        nombre_catalogo = (
+            configuracion.get(
+                "nombre_catalogo",
+                (
+                    f"Catálogo "
+                    f"{plantilla_maestra.nombre}"
+                ),
+            )
+        )
+
+        catalogo = Catalogo.objects.create(
+            empresa=empresa,
+            plantilla=plantilla,
+            nombre=_nombre_limitado(
+                Catalogo,
+                "nombre",
+                nombre_catalogo,
+            ),
+            descripcion=(
+                "Catálogo aprovisionado "
+                f"desde {plantilla_maestra}."
+            ),
+            moneda=_moneda_catalogo(
+                configuracion
+            ),
+            identificador_externo="",
+            activo=True,
+        )
+
+    instalacion.plantilla = plantilla
+    instalacion.version_instalada = (
+        plantilla_maestra.version
+    )
+    instalacion.estado = (
+        InstalacionPlantilla.Estado.LISTA
+    )
+    instalacion.ultimo_error = ""
+    instalacion.completada_en = timezone.now()
+
+    instalacion.save(
+        update_fields=[
+            "plantilla",
+            "version_instalada",
+            "estado",
+            "ultimo_error",
+            "completada_en",
+            "actualizado_en",
+        ]
+    )
+
+    return {
+        "instalacion": instalacion,
+        "plantilla": plantilla,
+        "bot": bot,
+        "catalogo": catalogo,
+    }
+
+
+def provisionar_empresa_desde_plantilla(
+    *,
+    empresa_id,
+    licencia_id,
+    plantilla_maestra_id,
+    clave_idempotencia=None,
+):
+    """
+    Aprovisiona una plantilla maestra para una empresa.
+
+    Características:
+    - valida Empresa;
+    - valida Licencia;
+    - valida PlantillaMaestra;
+    - evita instalaciones duplicadas;
+    - permite reintentar instalaciones en ERROR;
+    - crea recursos operativos dentro de una transacción;
+    - ante error hace rollback de recursos;
+    - conserva InstalacionPlantilla en estado ERROR;
+    - no llama todavía Typebot/Evolution API.
+    """
+
+    # ========================================================
+    # FASE 1
+    # Crear/reservar la instalación.
+    # ========================================================
+
+    with transaction.atomic():
+
+        empresa = (
+            Empresa.objects
+            .select_for_update()
+            .get(
+                pk=empresa_id
+            )
+        )
+
+        licencia = (
+            Licencia.objects
+            .select_for_update()
+            .get(
+                pk=licencia_id
+            )
+        )
+
+        plantilla_maestra = (
+            PlantillaMaestra.objects
+            .select_for_update()
+            .get(
+                pk=plantilla_maestra_id
+            )
+        )
+
+        _validar_empresa(
+            empresa
+        )
+
+        _validar_licencia(
+            licencia,
+            empresa,
+        )
+
+        _validar_plantilla_maestra(
+            plantilla_maestra
+        )
+
+        instalacion = (
+            InstalacionPlantilla.objects
+            .select_for_update()
+            .filter(
+                empresa=empresa,
+                plantilla_maestra=(
+                    plantilla_maestra
+                ),
+            )
+            .first()
+        )
+
+        if instalacion:
+
+            if (
+                instalacion.estado
+                == InstalacionPlantilla.Estado.LISTA
+            ):
+                return {
+                    "instalacion": instalacion,
+                    "plantilla": instalacion.plantilla,
+                    "bot": (
+                        instalacion.plantilla.bots.first()
+                        if instalacion.plantilla_id
+                        else None
+                    ),
+                    "catalogo": (
+                        instalacion.plantilla.catalogos.first()
+                        if instalacion.plantilla_id
+                        else None
+                    ),
+                    "idempotente": True,
+                }
+
+            if (
+                instalacion.estado
+                == InstalacionPlantilla.Estado.APROVISIONANDO
+            ):
+                raise ValidationError(
+                    (
+                        "La instalación ya se encuentra "
+                        "en proceso de aprovisionamiento."
+                    )
+                )
+
+            if instalacion.plantilla_id:
+                raise ValidationError(
+                    (
+                        "Existe una instalación incompleta "
+                        "con una plantilla operativa asociada. "
+                        "Debe revisarse manualmente antes "
+                        "de reintentar."
+                    )
+                )
+
+            instalacion.licencia = licencia
+            instalacion.version_instalada = (
+                plantilla_maestra.version
+            )
+            instalacion.estado = (
+                InstalacionPlantilla
+                .Estado
+                .APROVISIONANDO
+            )
+            instalacion.ultimo_error = ""
+            instalacion.completada_en = None
+
+            instalacion.save(
+                update_fields=[
+                    "licencia",
+                    "version_instalada",
+                    "estado",
+                    "ultimo_error",
+                    "completada_en",
+                    "actualizado_en",
+                ]
+            )
+
+        else:
+
+            create_kwargs = {
+                "empresa": empresa,
+                "licencia": licencia,
+                "plantilla_maestra": (
+                    plantilla_maestra
+                ),
+                "version_instalada": (
+                    plantilla_maestra.version
+                ),
+                "estado": (
+                    InstalacionPlantilla
+                    .Estado
+                    .APROVISIONANDO
+                ),
+            }
+
+            if clave_idempotencia is not None:
+                create_kwargs[
+                    "clave_idempotencia"
+                ] = clave_idempotencia
+
+            instalacion = (
+                InstalacionPlantilla.objects.create(
+                    **create_kwargs
+                )
+            )
+
+        instalacion_id = instalacion.id
+
+    # ========================================================
+    # FASE 2
+    # Recursos operativos.
+    #
+    # Si algo falla aquí, esta transacción revierte:
+    # Plantilla + Variables + Bot + Catálogo.
+    # ========================================================
+
+    try:
+
+        with transaction.atomic():
+
+            instalacion = (
+                InstalacionPlantilla.objects
+                .select_for_update()
+                .select_related(
+                    "empresa",
+                    "plantilla_maestra",
+                )
+                .get(
+                    pk=instalacion_id
+                )
+            )
+
+            resultado = (
+                _crear_recursos_operativos(
+                    instalacion=instalacion,
+                    empresa=instalacion.empresa,
+                    plantilla_maestra=(
+                        instalacion
+                        .plantilla_maestra
+                    ),
+                )
+            )
+
+            resultado[
+                "idempotente"
+            ] = False
+
+            return resultado
+
+    except Exception as exc:
+
+        # Esta actualización ocurre FUERA de la transacción
+        # que creó los recursos operativos.
+        # Por eso el rollback puede ser total y, al mismo
+        # tiempo, conservamos el diagnóstico del error.
+
+        InstalacionPlantilla.objects.filter(
+            pk=instalacion_id
+        ).update(
+            estado=(
+                InstalacionPlantilla
+                .Estado
+                .ERROR
+            ),
+            ultimo_error=_texto_error(
+                exc
+            ),
+            completada_en=None,
+            actualizado_en=timezone.now(),
+        )
+
+        raise

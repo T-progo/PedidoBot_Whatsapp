@@ -1,0 +1,314 @@
+{% extends "core/base.html" %}
+
+{% block title %}Pedidos | NegocioListo{% endblock %}
+
+{% block content %}
+
+<style>
+    .orders-shell {
+        width: 100%;
+    }
+
+    .orders-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-end;
+        margin-bottom: 44px;
+    }
+
+    .orders-eyebrow {
+        margin: 0 0 12px;
+        color: #43dfa0;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .orders-title {
+        margin: 0;
+        font-size: clamp(28px, 3vw, 36px);
+        line-height: 1.15;
+    }
+
+    .orders-description {
+        margin: 18px 0 0;
+        font-size: 18px;
+        line-height: 1.55;
+    }
+
+    .order-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 54px;
+        padding: 0 24px;
+        border: 0;
+        border-radius: 15px;
+        background: #43dfa0;
+        color: #06130e;
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .orders-card {
+        overflow-x: auto;
+        margin-top: 28px;
+        padding: 32px;
+        border: 1px solid rgba(148,163,184,.18);
+        border-radius: 24px;
+        background: rgba(15,28,40,.72);
+    }
+
+    .orders-table {
+        width: 100%;
+        min-width: 1050px;
+        border-collapse: collapse;
+    }
+
+    .orders-table th {
+        padding: 16px 18px 20px;
+        border-bottom: 1px solid rgba(148,163,184,.25);
+        color: #91a6c5;
+        font-size: 13px;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .orders-table td {
+        padding: 24px 18px;
+        border-bottom: 1px solid rgba(148,163,184,.10);
+        vertical-align: middle;
+    }
+
+    .orders-table tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .order-number {
+        color: #fff;
+        font-weight: 800;
+    }
+
+    .order-action {
+        color: #43dfa0;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .order-actions {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+    }
+
+    .order-state {
+        display: inline-flex;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 750;
+        white-space: nowrap;
+        background: rgba(148,163,184,.14);
+    }
+
+    .order-state.confirmado,
+    .order-state.pagado,
+    .order-state.entregado {
+        color: #43dfa0;
+        background: rgba(67,223,160,.12);
+    }
+
+    .order-state.cancelado {
+        color: #ff8585;
+        background: rgba(255,92,92,.10);
+    }
+
+    .order-state.pendiente {
+        color: #f5cc6a;
+        background: rgba(245,204,106,.10);
+    }
+
+    .order-state.preparando,
+    .order-state.enviado {
+        color: #80bfff;
+        background: rgba(75,155,255,.10);
+    }
+
+    .orders-empty {
+        padding: 80px 24px;
+        text-align: center;
+    }
+
+    .orders-empty h3 {
+        margin: 0 0 10px;
+        font-size: 24px;
+    }
+
+    .orders-empty p {
+        margin: 0 0 28px;
+        color: #91a6c5;
+        font-size: 17px;
+    }
+
+    @media (max-width: 760px) {
+        .orders-head {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .order-primary {
+            width: 100%;
+        }
+
+        .orders-card {
+            padding: 18px;
+        }
+    }
+</style>
+
+<div class="orders-shell">
+
+    <div class="orders-head">
+
+        <div>
+            <p class="orders-eyebrow">Comercio</p>
+
+            <h2 class="orders-title">
+                Pedidos registrados
+            </h2>
+
+            <p class="orders-description">
+                Administra los pedidos comerciales de las empresas de NegocioListo.
+            </p>
+        </div>
+
+        <a
+            href="{% url 'core:pedido_crear' %}"
+            class="order-primary"
+        >
+            + Nuevo pedido
+        </a>
+
+    </div>
+
+    <div class="orders-card">
+
+        {% if pedidos %}
+
+            <table class="orders-table">
+
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Empresa</th>
+                        <th>Cliente</th>
+                        <th>Estado</th>
+                        <th>Moneda</th>
+                        <th>Total</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for pedido in pedidos %}
+
+                        <tr>
+
+                            <td class="order-number">
+                                {{ pedido.numero }}
+                            </td>
+
+                            <td>
+                                {{ pedido.empresa.nombre }}
+                            </td>
+
+                            <td>
+                                {{ pedido.cliente_nombre }}
+                            </td>
+
+                            <td>
+                                <span class="order-state {{ pedido.estado }}">
+                                    {{ pedido.get_estado_display }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ pedido.moneda }}
+                            </td>
+
+                            <td>
+                                {{ pedido.total }}
+                            </td>
+
+                            <td>
+                                {{ pedido.creado_en|date:"d/m/Y H:i" }}
+                            </td>
+
+                            <td>
+                                <div class="order-actions">
+
+                                    <a
+                                        href="{% url 'core:pedido_detalle' pedido.pk %}"
+                                        class="order-action"
+                                    >
+                                        Ver
+                                    </a>
+
+                                    {% if pedido.estado == "carrito" %}
+
+                                        <a
+                                            href="{% url 'core:pedido_editar' pedido.pk %}"
+                                            class="order-action"
+                                        >
+                                            Editar
+                                        </a>
+
+                                    {% endif %}
+
+                                </div>
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <div class="orders-empty">
+
+                <h3>
+                    No hay pedidos registrados
+                </h3>
+
+                <p>
+                    Registra el primer pedido comercial para comenzar.
+                </p>
+
+                <a
+                    href="{% url 'core:pedido_crear' %}"
+                    class="order-primary"
+                >
+                    Crear pedido
+                </a>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

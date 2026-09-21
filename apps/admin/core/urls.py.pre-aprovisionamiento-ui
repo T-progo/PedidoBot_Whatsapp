@@ -1,0 +1,327 @@
+from django.contrib.auth import views as auth_views
+from django.urls import path
+
+from . import views
+
+
+app_name = "core"
+
+
+urlpatterns = [
+
+    path(
+        "",
+        views.dashboard,
+        name="dashboard",
+    ),
+
+    path(
+        "login/",
+        auth_views.LoginView.as_view(
+            template_name="core/login.html",
+            redirect_authenticated_user=True,
+        ),
+        name="login",
+    ),
+
+    path(
+        "logout/",
+        auth_views.LogoutView.as_view(),
+        name="logout",
+    ),
+
+    path(
+        "empresas/",
+        views.empresa_lista,
+        name="empresa_lista",
+    ),
+
+    path(
+        "empresas/nueva/",
+        views.empresa_crear,
+        name="empresa_crear",
+    ),
+
+    path(
+        "empresas/<int:pk>/editar/",
+        views.empresa_editar,
+        name="empresa_editar",
+    ),
+
+    path(
+        "usuarios/",
+        views.usuario_lista,
+        name="usuario_lista",
+    ),
+
+    path(
+        "usuarios/nuevo/",
+        views.usuario_crear,
+        name="usuario_crear",
+    ),
+
+    path(
+        "usuarios/<int:pk>/editar/",
+        views.usuario_editar,
+        name="usuario_editar",
+    ),
+
+
+    path(
+        "licencias/",
+        views.licencia_lista,
+        name="licencia_lista",
+    ),
+
+    path(
+        "licencias/nueva/",
+        views.licencia_crear,
+        name="licencia_crear",
+    ),
+
+    path(
+        "licencias/<int:pk>/editar/",
+        views.licencia_editar,
+        name="licencia_editar",
+    ),
+
+
+    path(
+        "bots/",
+        views.bot_lista,
+        name="bot_lista",
+    ),
+
+    path(
+        "bots/nuevo/",
+        views.bot_crear,
+        name="bot_crear",
+    ),
+
+    path(
+        "bots/<int:pk>/editar/",
+        views.bot_editar,
+        name="bot_editar",
+    ),
+
+
+    path(
+        "canales/",
+        views.canal_lista,
+        name="canal_lista",
+    ),
+
+    path(
+        "canales/nuevo/",
+        views.canal_crear,
+        name="canal_crear",
+    ),
+
+    path(
+        "canales/<int:pk>/editar/",
+        views.canal_editar,
+        name="canal_editar",
+    ),
+
+
+    path(
+        "plantillas/",
+        views.plantilla_lista,
+        name="plantilla_lista",
+    ),
+
+    path(
+        "plantillas/nueva/",
+        views.plantilla_crear,
+        name="plantilla_crear",
+    ),
+
+    path(
+        "plantillas/<int:pk>/editar/",
+        views.plantilla_editar,
+        name="plantilla_editar",
+    ),
+
+
+    path(
+        "variables/",
+        views.variable_lista,
+        name="variable_lista",
+    ),
+
+    path(
+        "variables/nueva/",
+        views.variable_crear,
+        name="variable_crear",
+    ),
+
+    path(
+        "variables/<int:pk>/editar/",
+        views.variable_editar,
+        name="variable_editar",
+    ),
+
+
+    path(
+        "catalogos/",
+        views.catalogo_lista,
+        name="catalogo_lista",
+    ),
+
+    path(
+        "catalogos/nuevo/",
+        views.catalogo_crear,
+        name="catalogo_crear",
+    ),
+
+    path(
+        "catalogos/<int:pk>/editar/",
+        views.catalogo_editar,
+        name="catalogo_editar",
+    ),
+
+
+    path(
+        "productos/",
+        views.producto_lista,
+        name="producto_lista",
+    ),
+
+    path(
+        "productos/nuevo/",
+        views.producto_crear,
+        name="producto_crear",
+    ),
+
+    path(
+        "productos/<int:pk>/editar/",
+        views.producto_editar,
+        name="producto_editar",
+    ),
+
+]
+
+
+# ============================================================
+# PEDIDOS
+# ============================================================
+
+urlpatterns += [
+
+    path(
+        "pedidos/",
+        views.pedido_lista,
+        name="pedido_lista",
+    ),
+
+    path(
+        "pedidos/nuevo/",
+        views.pedido_crear,
+        name="pedido_crear",
+    ),
+
+    path(
+        "pedidos/<int:pk>/",
+        views.pedido_detalle,
+        name="pedido_detalle",
+    ),
+
+    path(
+        "pedidos/<int:pk>/editar/",
+        views.pedido_editar,
+        name="pedido_editar",
+    ),
+
+    path(
+        "pedidos/<int:pk>/productos/agregar/",
+        views.pedido_producto_agregar,
+        name="pedido_producto_agregar",
+    ),
+
+    path(
+        "pedidos/detalles/<int:detalle_id>/editar/",
+        views.pedido_producto_editar,
+        name="pedido_producto_editar",
+    ),
+
+    path(
+        "pedidos/detalles/<int:detalle_id>/eliminar/",
+        views.pedido_producto_eliminar,
+        name="pedido_producto_eliminar",
+    ),
+
+    path(
+        "pedidos/<int:pk>/confirmar/",
+        views.pedido_confirmar,
+        name="pedido_confirmar",
+    ),
+]
+
+
+# ============================================================
+# PEDIDOS
+# ============================================================
+
+urlpatterns += [
+
+    path(
+        "pedidos/",
+        views.pedido_lista,
+        name="pedido_lista",
+    ),
+
+    path(
+        "pedidos/nuevo/",
+        views.pedido_crear,
+        name="pedido_crear",
+    ),
+
+    path(
+        "pedidos/<int:pk>/",
+        views.pedido_detalle,
+        name="pedido_detalle",
+    ),
+
+    path(
+        "pedidos/<int:pk>/editar/",
+        views.pedido_editar,
+        name="pedido_editar",
+    ),
+
+    path(
+        "pedidos/<int:pk>/productos/agregar/",
+        views.pedido_producto_agregar,
+        name="pedido_producto_agregar",
+    ),
+
+    path(
+        "pedidos/detalles/<int:detalle_id>/editar/",
+        views.pedido_producto_editar,
+        name="pedido_producto_editar",
+    ),
+
+    path(
+        "pedidos/detalles/<int:detalle_id>/eliminar/",
+        views.pedido_producto_eliminar,
+        name="pedido_producto_eliminar",
+    ),
+
+    path(
+        "pedidos/<int:pk>/confirmar/",
+        views.pedido_confirmar,
+        name="pedido_confirmar",
+    ),
+]
+
+
+# ============================================================
+# CONTROLADOR DE CLIENTES V1
+# ============================================================
+
+urlpatterns += [
+    path(
+        "empresas/<int:pk>/",
+        views.empresa_detalle,
+        name="empresa_detalle",
+    ),
+]

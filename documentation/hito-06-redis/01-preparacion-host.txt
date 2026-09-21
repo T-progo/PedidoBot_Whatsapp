@@ -1,0 +1,21 @@
+==================================================
+HITO 06 - REDIS - PREPARACION DEL HOST
+Fecha: Fri Aug  7 00:00:03 CST 2026
+==================================================
+
+===== OVERCOMMIT MEMORY =====
+vm.overcommit_memory = 1
+
+===== TRANSPARENT HUGE PAGES =====
+always madvise [never]
+
+===== SERVICIO THP =====
+active
+enabled
+
+===== REDIS SECRET =====
+-rw------- 1 tnl tnl 65 Aug  6 19:41 /opt/tunegociolisto/infrastructure/secrets/redis_password
+65 /opt/tunegociolisto/infrastructure/secrets/redis_password
+
+===== REDIS ENV =====
+TZ=America/Mexico_City

@@ -1,0 +1,1027 @@
+from django import forms
+from django.contrib.auth import get_user_model
+
+from .models import Empresa, PerfilUsuario
+
+
+User = get_user_model()
+
+
+class EmpresaForm(forms.ModelForm):
+
+    class Meta:
+        model = Empresa
+
+        fields = [
+            "nombre",
+            "razon_social",
+            "rfc",
+            "email",
+            "telefono",
+            "estado",
+        ]
+
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre comercial",
+                }
+            ),
+
+            "razon_social": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Razón social",
+                }
+            ),
+
+            "rfc": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "RFC",
+                }
+            ),
+
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "correo@empresa.com",
+                }
+            ),
+
+            "telefono": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Teléfono",
+                }
+            ),
+
+            "estado": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+        }
+
+        labels = {
+            "nombre": "Nombre",
+            "razon_social": "Razón social",
+            "rfc": "RFC",
+            "email": "Correo electrónico",
+            "telefono": "Teléfono",
+            "estado": "Estado",
+        }
+
+
+class UsuarioCrearForm(forms.Form):
+
+    username = forms.CharField(
+        label="Usuario",
+        max_length=150,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nombre de usuario",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+    first_name = forms.CharField(
+        label="Nombre",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nombre",
+            }
+        ),
+    )
+
+    last_name = forms.CharField(
+        label="Apellidos",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Apellidos",
+            }
+        ),
+    )
+
+    email = forms.EmailField(
+        label="Correo electrónico",
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "correo@empresa.com",
+            }
+        ),
+    )
+
+    empresa = forms.ModelChoiceField(
+        label="Empresa",
+        queryset=Empresa.objects.none(),
+        required=False,
+        empty_label="Administración central / Sin empresa",
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    rol = forms.ChoiceField(
+        label="Rol",
+        choices=PerfilUsuario._meta.get_field("rol").choices,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    activo = forms.BooleanField(
+        label="Usuario activo",
+        required=False,
+        initial=True,
+    )
+
+    password1 = forms.CharField(
+        label="Contraseña",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Contraseña",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    password2 = forms.CharField(
+        label="Confirmar contraseña",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Repite la contraseña",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = Empresa.objects.order_by(
+            "nombre"
+        )
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+
+        if User.objects.filter(
+            username__iexact=username
+        ).exists():
+            raise forms.ValidationError(
+                "Ya existe un usuario con este nombre."
+            )
+
+        return username
+
+    def clean(self):
+        cleaned = super().clean()
+
+        password1 = cleaned.get("password1")
+        password2 = cleaned.get("password2")
+
+        rol = cleaned.get("rol")
+        empresa = cleaned.get("empresa")
+
+        if password1 and password2:
+            if password1 != password2:
+                self.add_error(
+                    "password2",
+                    "Las contraseñas no coinciden.",
+                )
+
+        if rol in ("cliente", "operador") and not empresa:
+            self.add_error(
+                "empresa",
+                "Selecciona una empresa para este rol.",
+            )
+
+        return cleaned
+
+
+class UsuarioEditarForm(forms.Form):
+
+    first_name = forms.CharField(
+        label="Nombre",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nombre",
+            }
+        ),
+    )
+
+    last_name = forms.CharField(
+        label="Apellidos",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Apellidos",
+            }
+        ),
+    )
+
+    email = forms.EmailField(
+        label="Correo electrónico",
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "correo@empresa.com",
+            }
+        ),
+    )
+
+    empresa = forms.ModelChoiceField(
+        label="Empresa",
+        queryset=Empresa.objects.none(),
+        required=False,
+        empty_label="Administración central / Sin empresa",
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    rol = forms.ChoiceField(
+        label="Rol",
+        choices=PerfilUsuario._meta.get_field("rol").choices,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    activo = forms.BooleanField(
+        label="Usuario activo",
+        required=False,
+    )
+
+    password1 = forms.CharField(
+        label="Nueva contraseña",
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Dejar vacío para conservarla",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    password2 = forms.CharField(
+        label="Confirmar nueva contraseña",
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Repite la nueva contraseña",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = Empresa.objects.order_by(
+            "nombre"
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+
+        password1 = cleaned.get("password1")
+        password2 = cleaned.get("password2")
+
+        rol = cleaned.get("rol")
+        empresa = cleaned.get("empresa")
+
+        if password1 or password2:
+            if password1 != password2:
+                self.add_error(
+                    "password2",
+                    "Las contraseñas no coinciden.",
+                )
+
+        if rol in ("cliente", "operador") and not empresa:
+            self.add_error(
+                "empresa",
+                "Selecciona una empresa para este rol.",
+            )
+
+        return cleaned
+
+
+# ============================================================
+# LICENCIAS
+# ============================================================
+
+from .models import Licencia
+
+
+class LicenciaForm(forms.ModelForm):
+
+    class Meta:
+        model = Licencia
+
+        fields = [
+            "empresa",
+            "nombre",
+            "estado",
+            "fecha_inicio",
+            "fecha_fin",
+        ]
+
+        widgets = {
+            "empresa": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre de la licencia",
+                }
+            ),
+
+            "estado": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "fecha_inicio": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+
+            "fecha_fin": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+        }
+
+        labels = {
+            "empresa": "Empresa",
+            "nombre": "Nombre",
+            "estado": "Estado",
+            "fecha_inicio": "Fecha de inicio",
+            "fecha_fin": "Fecha de vencimiento",
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = (
+            self.fields["empresa"]
+            .queryset
+            .order_by("nombre")
+        )
+
+
+    def clean(self):
+
+        cleaned = super().clean()
+
+        fecha_inicio = cleaned.get("fecha_inicio")
+        fecha_fin = cleaned.get("fecha_fin")
+
+        if (
+            fecha_inicio
+            and fecha_fin
+            and fecha_fin < fecha_inicio
+        ):
+            self.add_error(
+                "fecha_fin",
+                "La fecha de vencimiento no puede ser anterior a la fecha de inicio.",
+            )
+
+        return cleaned
+
+
+# ============================================================
+# BOTS
+# ============================================================
+
+from .models import Bot
+
+
+class BotForm(forms.ModelForm):
+
+    class Meta:
+        model = Bot
+
+        fields = [
+            "empresa",
+            "nombre",
+            "identificador_externo",
+            "activo",
+        ]
+
+        labels = {
+            "empresa": "Empresa",
+            "nombre": "Nombre",
+            "identificador_externo": "Identificador externo",
+            "activo": "Bot activo",
+        }
+
+        widgets = {
+            "empresa": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre del bot",
+                }
+            ),
+
+            "identificador_externo": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Identificador externo",
+                }
+            ),
+
+            "activo": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = (
+            self.fields["empresa"]
+            .queryset
+            .order_by("nombre")
+        )
+
+
+# ============================================================
+# CANALES
+# ============================================================
+
+from .models import Canal
+
+
+class CanalForm(forms.ModelForm):
+
+    class Meta:
+        model = Canal
+
+        fields = [
+            "bot",
+            "tipo",
+            "nombre",
+            "identificador",
+            "activo",
+        ]
+
+        labels = {
+            "bot": "Bot",
+            "tipo": "Tipo de canal",
+            "nombre": "Nombre",
+            "identificador": "Identificador",
+            "activo": "Canal activo",
+        }
+
+        widgets = {
+            "bot": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "tipo": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre del canal",
+                }
+            ),
+
+            "identificador": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Identificador del canal",
+                }
+            ),
+
+            "activo": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["bot"].queryset = (
+            self.fields["bot"]
+            .queryset
+            .select_related("empresa")
+            .order_by("empresa__nombre", "nombre")
+        )
+
+
+# ============================================================
+# PLANTILLAS
+# ============================================================
+
+from .models import Plantilla
+
+
+class PlantillaForm(forms.ModelForm):
+
+    class Meta:
+        model = Plantilla
+
+        fields = [
+            "empresa",
+            "nombre",
+            "tipo",
+            "descripcion",
+            "identificador_externo",
+            "activa",
+        ]
+
+        labels = {
+            "empresa": "Empresa",
+            "nombre": "Nombre de la plantilla",
+            "tipo": "Tipo de plantilla",
+            "descripcion": "Descripción",
+            "identificador_externo": "Identificador externo",
+            "activa": "Plantilla activa",
+        }
+
+        widgets = {
+            "empresa": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre de la plantilla",
+                }
+            ),
+
+            "tipo": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "descripcion": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Describe el propósito de esta plantilla",
+                    "rows": 4,
+                }
+            ),
+
+            "identificador_externo": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "ID externo / Typebot ID",
+                }
+            ),
+
+            "activa": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = (
+            Empresa.objects
+            .order_by("nombre")
+        )
+
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
+from .models import Variable
+
+
+class VariableForm(forms.ModelForm):
+
+    class Meta:
+        model = Variable
+
+        fields = [
+            "plantilla",
+            "clave",
+            "valor",
+            "descripcion",
+            "activa",
+        ]
+
+        labels = {
+            "plantilla": "Plantilla",
+            "clave": "Clave",
+            "valor": "Valor",
+            "descripcion": "Descripción",
+            "activa": "Variable activa",
+        }
+
+        widgets = {
+            "plantilla": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "clave": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ej. telefono, horario, direccion",
+                }
+            ),
+
+            "valor": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Valor de la variable",
+                    "rows": 3,
+                }
+            ),
+
+            "descripcion": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Descripción o uso de esta variable",
+                    "rows": 3,
+                }
+            ),
+
+            "activa": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["plantilla"].queryset = (
+            Plantilla.objects
+            .select_related("empresa")
+            .order_by(
+                "empresa__nombre",
+                "nombre",
+            )
+        )
+
+
+    def clean(self):
+
+        cleaned = super().clean()
+
+        plantilla = cleaned.get("plantilla")
+        clave = cleaned.get("clave")
+
+        if plantilla and clave:
+
+            existe = Variable.objects.filter(
+                plantilla=plantilla,
+                clave=clave,
+            )
+
+            if self.instance and self.instance.pk:
+                existe = existe.exclude(
+                    pk=self.instance.pk
+                )
+
+            if existe.exists():
+
+                self.add_error(
+                    "clave",
+                    "Ya existe una variable con esta clave para la plantilla seleccionada.",
+                )
+
+        return cleaned
+
+
+# ============================================================
+# CATALOGOS
+# ============================================================
+
+from .models import Catalogo
+
+
+class CatalogoForm(forms.ModelForm):
+
+    class Meta:
+        model = Catalogo
+
+        fields = [
+            "empresa",
+            "nombre",
+            "descripcion",
+            "moneda",
+            "identificador_externo",
+            "activo",
+        ]
+
+        labels = {
+            "empresa": "Empresa",
+            "nombre": "Nombre del catálogo",
+            "descripcion": "Descripción",
+            "moneda": "Moneda",
+            "identificador_externo": "Identificador externo",
+            "activo": "Catálogo activo",
+        }
+
+        widgets = {
+            "empresa": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre del catálogo",
+                }
+            ),
+
+            "descripcion": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Describe el propósito de este catálogo",
+                    "rows": 3,
+                }
+            ),
+
+            "moneda": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "identificador_externo": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "ID externo / sistema origen",
+                }
+            ),
+
+            "activo": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = (
+            self.fields["empresa"]
+            .queryset
+            .order_by("nombre")
+        )
+
+
+    def clean(self):
+
+        cleaned = super().clean()
+
+        empresa = cleaned.get("empresa")
+        nombre = cleaned.get("nombre")
+
+        if empresa and nombre:
+
+            existe = Catalogo.objects.filter(
+                empresa=empresa,
+                nombre=nombre,
+            )
+
+            if self.instance and self.instance.pk:
+                existe = existe.exclude(
+                    pk=self.instance.pk
+                )
+
+            if existe.exists():
+
+                self.add_error(
+                    "nombre",
+                    "Ya existe un catálogo con este nombre para la empresa seleccionada.",
+                )
+
+        return cleaned
+
+
+# ============================================================
+# PRODUCTOS
+# ============================================================
+
+from decimal import Decimal
+
+from .models import Producto
+
+
+class ProductoForm(forms.ModelForm):
+
+    class Meta:
+        model = Producto
+
+        fields = [
+            "catalogo",
+            "sku",
+            "nombre",
+            "descripcion",
+            "precio",
+            "stock",
+            "unidad",
+            "identificador_externo",
+            "activo",
+        ]
+
+        labels = {
+            "catalogo": "Catálogo",
+            "sku": "SKU",
+            "nombre": "Nombre del producto",
+            "descripcion": "Descripción",
+            "precio": "Precio",
+            "stock": "Existencia / Stock",
+            "unidad": "Unidad",
+            "identificador_externo": "Identificador externo",
+            "activo": "Producto activo",
+        }
+
+        widgets = {
+            "catalogo": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "sku": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ej. PROD-001",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre del producto",
+                }
+            ),
+
+            "descripcion": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Descripción del producto",
+                    "rows": 3,
+                }
+            ),
+
+            "precio": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "step": "0.0001",
+                    "min": "0",
+                    "placeholder": "0.0000",
+                }
+            ),
+
+            "stock": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "step": "0.0001",
+                    "min": "0",
+                    "placeholder": "0.0000",
+                }
+            ),
+
+            "unidad": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Ej. pieza, kg, litro, metro",
+                }
+            ),
+
+            "identificador_externo": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "ID externo / sistema origen",
+                }
+            ),
+
+            "activo": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["catalogo"].queryset = (
+            self.fields["catalogo"]
+            .queryset
+            .select_related("empresa")
+            .order_by(
+                "empresa__nombre",
+                "nombre",
+            )
+        )
+
+
+    def clean_precio(self):
+
+        precio = self.cleaned_data.get("precio")
+
+        if precio is not None and precio < Decimal("0"):
+            raise forms.ValidationError(
+                "El precio no puede ser negativo."
+            )
+
+        return precio
+
+
+    def clean_stock(self):
+
+        stock = self.cleaned_data.get("stock")
+
+        if stock is not None and stock < Decimal("0"):
+            raise forms.ValidationError(
+                "La existencia no puede ser negativa."
+            )
+
+        return stock
+
+
+    def clean(self):
+
+        cleaned = super().clean()
+
+        catalogo = cleaned.get("catalogo")
+        sku = cleaned.get("sku")
+
+        if catalogo and sku:
+
+            existe = Producto.objects.filter(
+                catalogo=catalogo,
+                sku=sku,
+            )
+
+            if self.instance and self.instance.pk:
+                existe = existe.exclude(
+                    pk=self.instance.pk
+                )
+
+            if existe.exists():
+
+                self.add_error(
+                    "sku",
+                    "Ya existe un producto con este SKU en el catálogo seleccionado.",
+                )
+
+        return cleaned

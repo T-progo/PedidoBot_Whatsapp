@@ -1,0 +1,42 @@
+services:
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: tnl-rustfs
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/storage.env
+
+    volumes:
+      - /opt/tunegociolisto/volumes/storage/rustfs/data:/data
+
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+    networks:
+      - backend
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:9000/health >/dev/null || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+
+networks:
+  backend:
+    external: true
+    name: tunegociolisto-backend

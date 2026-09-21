@@ -1,0 +1,28 @@
+services:
+  evolution:
+    image: tunegociolisto/evolution-api:v2.3.7-cards3-full-labels3-iafallback3
+    container_name: tnl-evolution
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/evolution.env
+
+    ports:
+      - "127.0.0.1:8082:8080"
+
+    volumes:
+      - /opt/tunegociolisto/infrastructure/volumes/evolution:/evolution/instances
+
+    networks:
+      - backend
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+networks:
+  backend:
+    external: true
+    name: tunegociolisto-backend

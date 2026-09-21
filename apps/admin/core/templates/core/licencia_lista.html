@@ -1,0 +1,128 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Licencias | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Licencias
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Administración
+        </span>
+
+        <h2>
+            Licencias registradas
+        </h2>
+
+        <p>
+            Gestiona las licencias asignadas a las empresas de NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:licencia_crear' %}"
+        class="primary-link"
+    >
+        + Nueva licencia
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if licencias %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>EMPRESA</th>
+                    <th>LICENCIA</th>
+                    <th>ESTADO</th>
+                    <th>INICIO</th>
+                    <th>VENCIMIENTO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for licencia in licencias %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ licencia.empresa.nombre }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ licencia.nombre }}
+                        </td>
+
+                        <td>
+                            <span class="badge">
+                                {{ licencia.get_estado_display }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {{ licencia.fecha_inicio|date:"d/m/Y" }}
+                        </td>
+
+                        <td>
+                            {{ licencia.fecha_fin|date:"d/m/Y" }}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:licencia_editar' licencia.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>
+                No hay licencias registradas
+            </h3>
+
+            <p>
+                Registra la primera licencia para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:licencia_crear' %}"
+                class="primary-link"
+            >
+                Crear licencia
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

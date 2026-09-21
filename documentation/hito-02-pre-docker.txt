@@ -1,0 +1,26 @@
+==================================================
+HITO 02 - ESTADO PREVIO A DOCKER
+Fecha: Thu Aug  6 21:07:34 UTC 2026
+==================================================
+
+===== SISTEMA =====
+Ubuntu 24.04.4 LTS
+amd64
+
+===== DOCKER ACTUAL =====
+Docker no instalado
+
+===== PAQUETES POSIBLEMENTE CONFLICTIVOS =====
+No se encontraron paquetes conflictivos
+
+===== SERVICIOS =====
+Servicio Docker inexistente
+
+===== PUERTOS =====
+Netid State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                 
+udp   UNCONN 0      0         127.0.0.54:53        0.0.0.0:*    users:(("systemd-resolve",pid=629,fd=16))              
+udp   UNCONN 0      0      127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=629,fd=14))              
+tcp   LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=629,fd=15))              
+tcp   LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*    users:(("systemd-resolve",pid=629,fd=17))              
+tcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=1021,fd=3),("systemd",pid=1,fd=217))
+tcp   LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=1021,fd=4),("systemd",pid=1,fd=218))

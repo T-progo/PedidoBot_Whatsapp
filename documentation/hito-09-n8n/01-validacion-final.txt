@@ -1,0 +1,65 @@
+==================================================
+HITO 09 - N8N - VALIDACION FINAL
+Fecha: Fri Aug  7 16:23:45 CST 2026
+==================================================
+
+===== CONTENEDORES N8N =====
+NAME              IMAGE                            COMMAND                  SERVICE       CREATED          STATUS          PORTS
+tnl-n8n           docker.n8n.io/n8nio/n8n:2.32.7   "tini -- /docker-ent…"   n8n           10 minutes ago   Up 10 minutes   127.0.0.1:8083->5678/tcp
+tnl-n8n-runners   n8nio/runners:2.32.7             "tini -- /usr/local/…"   n8n-runners   10 minutes ago   Up 10 minutes   5680/tcp
+
+===== ESTADO N8N =====
+Status=running | ExitCode=0 | Restarting=false
+
+===== ESTADO TASK RUNNER =====
+Status=running | ExitCode=0 | Restarting=false
+
+===== HTTP HEALTH =====
+HTTP n8n healthz: 200
+
+===== PUERTO N8N =====
+LISTEN 0      4096       127.0.0.1:8083      0.0.0.0:*    users:(("docker-proxy",pid=295964,fd=8))               
+
+===== BROKER HOST =====
+OK: broker 5679 NO expuesto en el host
+
+===== POSTGRESQL N8N =====
+ tablas_n8n 
+------------
+        115
+(1 row)
+
+
+===== MIGRACIONES =====
+ migraciones_n8n 
+-----------------
+             227
+(1 row)
+
+
+===== PROPIETARIO TABLAS =====
+ tableowner | tablas 
+------------+--------
+ n8n_user   |    115
+(1 row)
+
+
+===== VOLUMEN N8N =====
+20K	/opt/tunegociolisto/infrastructure/volumes/n8n
+
+===== SERVICIOS TNL =====
+NAMES                 STATUS                  PORTS
+tnl-n8n-runners       Up 10 minutes           5680/tcp
+tnl-n8n               Up 10 minutes           127.0.0.1:8083->5678/tcp
+tnl-evolution         Up 2 hours              127.0.0.1:8082->8080/tcp
+tnl-typebot-viewer    Up 4 hours              127.0.0.1:8081->3000/tcp
+tnl-typebot-builder   Up 4 hours              127.0.0.1:8080->3000/tcp
+tnl-redis             Up 15 hours (healthy)   6379/tcp
+tnl-postgresql        Up 21 hours (healthy)   5432/tcp
+
+===== OBSERVACIONES =====
+Persistencia PostgreSQL validada mediante recreacion de contenedor.
+Persistencia de /home/node/.n8n validada.
+Task Runners externos configurados y conectados.
+Broker 5679 no publicado en el host.
+Pruebas reales Code Node JavaScript/Python pendientes de fase funcional.

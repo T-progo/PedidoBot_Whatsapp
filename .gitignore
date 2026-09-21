@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.log
+
+# Secretos (solo en el servidor)
+.env
+*.env
+infrastructure/secrets/
+infrastructure/env/
+configs/
+
+# Datos
+media/
+staticfiles/
+backups/
+exports/
+infrastructure/volumes/
+*.dump
+*.sql
+*.sql.gz

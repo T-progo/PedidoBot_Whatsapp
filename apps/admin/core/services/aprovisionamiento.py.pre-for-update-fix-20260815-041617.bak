@@ -1,0 +1,1504 @@
+from __future__ import annotations
+
+from uuid import UUID
+
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.utils import timezone
+
+from core.integrations.typebot_client import (
+    TypebotClient,
+    TypebotError,
+)
+
+from core.models import (
+    Empresa,
+    Licencia,
+    Bot,
+    Catalogo,
+    Plantilla,
+    Variable,
+    PlantillaMaestra,
+    InstalacionPlantilla,
+)
+
+
+def _texto_error(exc):
+    """
+    Convierte una excepción en texto seguro para auditoría.
+    """
+
+    if isinstance(exc, ValidationError):
+        mensajes = getattr(exc, "messages", None)
+
+        if mensajes:
+            return " ".join(
+                str(mensaje)
+                for mensaje in mensajes
+            )[:4000]
+
+    return str(exc)[:4000]
+
+
+def _nombre_limitado(modelo, campo, valor):
+    """
+    Respeta automáticamente el max_length del modelo destino.
+    """
+
+    field = modelo._meta.get_field(campo)
+    max_length = getattr(field, "max_length", None)
+
+    valor = str(valor).strip()
+
+    if max_length:
+        return valor[:max_length]
+
+    return valor
+
+
+def _validar_empresa(empresa):
+    """
+    Impide aprovisionar una empresa deshabilitada.
+    """
+
+    estado = getattr(
+        empresa,
+        "estado",
+        None,
+    )
+
+    if estado is None:
+        return
+
+    estado_normalizado = str(
+        estado
+    ).strip().lower()
+
+    if estado_normalizado not in {
+        "activa",
+        "activo",
+    }:
+        raise ValidationError(
+            (
+                f"La empresa {empresa} no está activa. "
+                f"Estado actual: {estado}."
+            )
+        )
+
+
+def _validar_licencia(
+    licencia,
+    empresa,
+):
+    """
+    Valida propiedad, estado y vigencia de la licencia.
+    """
+
+    if licencia.empresa_id != empresa.id:
+        raise ValidationError(
+            "La licencia no pertenece a la empresa indicada."
+        )
+
+    if licencia.estado != "activa":
+        raise ValidationError(
+            (
+                f"La licencia {licencia.nombre} "
+                f"no está activa. "
+                f"Estado actual: {licencia.estado}."
+            )
+        )
+
+    hoy = timezone.localdate()
+
+    if licencia.fecha_inicio > hoy:
+        raise ValidationError(
+            (
+                f"La licencia {licencia.nombre} "
+                "todavía no inicia. "
+                f"Fecha de inicio: {licencia.fecha_inicio}."
+            )
+        )
+
+    if licencia.fecha_fin < hoy:
+        raise ValidationError(
+            (
+                f"La licencia {licencia.nombre} "
+                "está vencida. "
+                f"Fecha de fin: {licencia.fecha_fin}."
+            )
+        )
+
+
+def _validar_plantilla_maestra(
+    plantilla_maestra,
+):
+    """
+    Solo permite instalar plantillas publicadas y activas.
+    """
+
+    if not plantilla_maestra.activa:
+        raise ValidationError(
+            (
+                f"La plantilla maestra "
+                f"{plantilla_maestra} está inactiva."
+            )
+        )
+
+    if (
+        plantilla_maestra.estado
+        != PlantillaMaestra.Estado.PUBLICADA
+    ):
+        raise ValidationError(
+            (
+                f"La plantilla maestra "
+                f"{plantilla_maestra} "
+                "no está publicada."
+            )
+        )
+
+
+def _moneda_catalogo(
+    configuracion,
+):
+    """
+    Obtiene una moneda válida para Catalogo.
+    """
+
+    moneda = str(
+        configuracion.get(
+            "moneda",
+            "MXN",
+        )
+    ).upper()
+
+    field = Catalogo._meta.get_field(
+        "moneda"
+    )
+
+    monedas_validas = {
+        str(valor)
+        for valor, _etiqueta in field.choices
+    }
+
+    if moneda in monedas_validas:
+        return moneda
+
+    if "MXN" in monedas_validas:
+        return "MXN"
+
+    if monedas_validas:
+        return sorted(
+            monedas_validas
+        )[0]
+
+    return moneda
+
+
+
+# ============================================================
+# APROVISIONAMIENTO TYPEBOT V2
+# ============================================================
+
+
+def _configuracion_maestra(
+    plantilla_maestra,
+):
+    """
+    Devuelve una configuración segura para la plantilla maestra.
+    """
+
+    if isinstance(
+        plantilla_maestra.configuracion,
+        dict,
+    ):
+        return plantilla_maestra.configuracion
+
+    return {}
+
+
+def _requiere_typebot(
+    plantilla_maestra,
+):
+    """
+    Solo aprovisiona Typebot cuando:
+    - la plantilla crea Bot;
+    - la maestra tiene Typebot origen asociado.
+
+    Esto mantiene compatibilidad con maestras históricas que
+    todavía no tienen identificador_externo.
+    """
+
+    configuracion = _configuracion_maestra(
+        plantilla_maestra
+    )
+
+    crear_bot = configuracion.get(
+        "crear_bot",
+        True,
+    )
+
+    origen_id = str(
+        getattr(
+            plantilla_maestra,
+            "identificador_externo",
+            "",
+        )
+        or ""
+    ).strip()
+
+    return bool(
+        crear_bot
+        and origen_id
+    )
+
+
+def _extraer_typebot(
+    respuesta,
+):
+    """
+    Normaliza respuestas de la API de Typebot.
+    """
+
+    if not isinstance(
+        respuesta,
+        dict,
+    ):
+        raise TypebotError(
+            "La respuesta de Typebot no es válida."
+        )
+
+    data = respuesta.get(
+        "data",
+        {},
+    )
+
+    if not isinstance(
+        data,
+        dict,
+    ):
+        raise TypebotError(
+            "Typebot devolvió data inválida."
+        )
+
+    typebot = data.get(
+        "typebot",
+        data,
+    )
+
+    if not isinstance(
+        typebot,
+        dict,
+    ):
+        raise TypebotError(
+            "Typebot no devolvió un objeto typebot válido."
+        )
+
+    return typebot
+
+
+def _nombre_typebot_instalacion(
+    *,
+    instalacion,
+    empresa,
+    plantilla_maestra,
+):
+    """
+    Nombre determinista.
+
+    TNL-I<ID> permite recuperar un clon creado antes de una
+    interrupción sin generar otro duplicado.
+    """
+
+    nombre = (
+        f"{empresa.nombre} - "
+        f"{plantilla_maestra.nombre} "
+        f"v{plantilla_maestra.version} "
+        f"- TNL-I{instalacion.id}"
+    )
+
+    return nombre[:150]
+
+
+def _validar_clon_typebot(
+    *,
+    origen,
+    clon,
+    nombre_esperado,
+):
+    """
+    Comprueba que el clon sea independiente y completo.
+    """
+
+    origen_id = str(
+        origen.get("id")
+        or ""
+    ).strip()
+
+    clon_id = str(
+        clon.get("id")
+        or ""
+    ).strip()
+
+    if not clon_id:
+        raise TypebotError(
+            "El clon Typebot no tiene ID."
+        )
+
+    if clon_id == origen_id:
+        raise TypebotError(
+            "SEGURIDAD: el clon tiene el mismo ID que el maestro."
+        )
+
+    if clon.get("name") != nombre_esperado:
+        raise TypebotError(
+            "El clon Typebot tiene un nombre inesperado."
+        )
+
+    if clon.get("isArchived") is True:
+        raise TypebotError(
+            "El clon Typebot está archivado."
+        )
+
+    if clon.get("publicId"):
+        raise TypebotError(
+            "El clon Typebot fue creado publicado inesperadamente."
+        )
+
+    for campo in (
+        "groups",
+        "variables",
+        "edges",
+        "events",
+    ):
+
+        cantidad_origen = len(
+            origen.get(campo)
+            or []
+        )
+
+        cantidad_clon = len(
+            clon.get(campo)
+            or []
+        )
+
+        if cantidad_origen != cantidad_clon:
+            raise TypebotError(
+                (
+                    f"El clon Typebot no conserva "
+                    f"la estructura de {campo}: "
+                    f"{cantidad_origen} != {cantidad_clon}."
+                )
+            )
+
+    return clon_id
+
+
+def _buscar_typebot_por_nombre(
+    *,
+    client,
+    workspace_id,
+    nombre,
+):
+    """
+    Busca un Typebot operativo por nombre exacto.
+
+    Se utiliza para recuperar aprovisionamientos interrumpidos.
+    """
+
+    respuesta = client.listar_typebots(
+        workspace_id=workspace_id,
+    )
+
+    if not respuesta["ok"]:
+        raise TypebotError(
+            (
+                "Typebot no permitió listar bots "
+                "durante la recuperación idempotente."
+            )
+        )
+
+    typebots = (
+        respuesta["data"]
+        .get(
+            "typebots",
+            [],
+        )
+    )
+
+    coincidencias = [
+        typebot
+        for typebot in typebots
+        if (
+            typebot.get("name")
+            == nombre
+            and not typebot.get(
+                "isArchived",
+                False,
+            )
+        )
+    ]
+
+    if len(coincidencias) > 1:
+        raise TypebotError(
+            (
+                "Existen varios Typebots operativos "
+                "con el nombre determinista de esta instalación. "
+                "Debe revisarse manualmente."
+            )
+        )
+
+    if not coincidencias:
+        return None
+
+    return str(
+        coincidencias[0].get("id")
+        or ""
+    ).strip() or None
+
+
+def _archivar_typebot_rollback(
+    *,
+    client,
+    typebot_id,
+):
+    """
+    Rollback externo.
+
+    Typebot 3.17.2 realiza eliminación lógica:
+    DELETE correcto => isArchived=True.
+    """
+
+    respuesta = client.eliminar_typebot(
+        typebot_id
+    )
+
+    if not respuesta["ok"]:
+        return (
+            "Rollback Typebot falló: "
+            f"HTTP {respuesta['status']} "
+            f"{respuesta['data']}"
+        )[:1500]
+
+    comprobacion = client.obtener_typebot(
+        typebot_id
+    )
+
+    if not comprobacion["ok"]:
+
+        if comprobacion["status"] == 404:
+            return ""
+
+        return (
+            "Rollback Typebot no pudo comprobarse: "
+            f"HTTP {comprobacion['status']}."
+        )[:1500]
+
+    typebot = _extraer_typebot(
+        comprobacion
+    )
+
+    if typebot.get("isArchived") is not True:
+        return (
+            "Rollback Typebot respondió correctamente, "
+            "pero el clon continúa operativo."
+        )
+
+    return ""
+
+
+def _obtener_o_clonar_typebot(
+    *,
+    client,
+    instalacion,
+    empresa,
+    plantilla_maestra,
+):
+    """
+    Obtiene un clon previo de esta instalación o crea uno nuevo.
+
+    El nombre determinista evita duplicados si el proceso se
+    interrumpe después de crear Typebot y antes de persistir
+    su ID en Django.
+    """
+
+    origen_id = str(
+        plantilla_maestra.identificador_externo
+        or ""
+    ).strip()
+
+    if not origen_id:
+        return {
+            "typebot_id": "",
+            "creado": False,
+            "recuperado": False,
+            "nombre": "",
+        }
+
+    respuesta_origen = (
+        client.obtener_typebot(
+            origen_id
+        )
+    )
+
+    if not respuesta_origen["ok"]:
+        raise TypebotError(
+            (
+                "No fue posible obtener el Typebot maestro "
+                f"{origen_id}. "
+                f"HTTP {respuesta_origen['status']}."
+            )
+        )
+
+    origen = _extraer_typebot(
+        respuesta_origen
+    )
+
+    if origen.get("isArchived") is True:
+        raise TypebotError(
+            "El Typebot maestro está archivado."
+        )
+
+    workspace = (
+        client.resolver_workspace()
+    )
+
+    workspace_id = workspace.get(
+        "id"
+    )
+
+    if not workspace_id:
+        raise TypebotError(
+            "Typebot no devolvió workspace_id."
+        )
+
+    nombre = (
+        _nombre_typebot_instalacion(
+            instalacion=instalacion,
+            empresa=empresa,
+            plantilla_maestra=(
+                plantilla_maestra
+            ),
+        )
+    )
+
+    existente_id = (
+        _buscar_typebot_por_nombre(
+            client=client,
+            workspace_id=workspace_id,
+            nombre=nombre,
+        )
+    )
+
+    if existente_id:
+
+        if existente_id == origen_id:
+            raise TypebotError(
+                (
+                    "SEGURIDAD: el Typebot encontrado para "
+                    "la instalación es el mismo maestro."
+                )
+            )
+
+        respuesta_existente = (
+            client.obtener_typebot(
+                existente_id
+            )
+        )
+
+        if not respuesta_existente["ok"]:
+            raise TypebotError(
+                "No fue posible recuperar el clon existente."
+            )
+
+        clon = _extraer_typebot(
+            respuesta_existente
+        )
+
+        clon_id = _validar_clon_typebot(
+            origen=origen,
+            clon=clon,
+            nombre_esperado=nombre,
+        )
+
+        return {
+            "typebot_id": clon_id,
+            "creado": False,
+            "recuperado": True,
+            "nombre": nombre,
+        }
+
+    respuesta_clon = (
+        client.duplicar_typebot(
+            origen_id,
+            nombre=nombre,
+            workspace_id=workspace_id,
+        )
+    )
+
+    if not respuesta_clon["ok"]:
+        raise TypebotError(
+            (
+                "Typebot rechazó la duplicación. "
+                f"HTTP {respuesta_clon['status']}: "
+                f"{respuesta_clon['data']}"
+            )
+        )
+
+    clon_inicial = _extraer_typebot(
+        respuesta_clon
+    )
+
+    clon_id = str(
+        clon_inicial.get("id")
+        or ""
+    ).strip()
+
+    if not clon_id:
+        raise TypebotError(
+            "Typebot creó el clon sin devolver su ID."
+        )
+
+    try:
+
+        respuesta_clon_completo = (
+            client.obtener_typebot(
+                clon_id
+            )
+        )
+
+        if not respuesta_clon_completo["ok"]:
+            raise TypebotError(
+                (
+                    "El clon fue creado, pero no pudo "
+                    "ser consultado para validarlo."
+                )
+            )
+
+        clon = _extraer_typebot(
+            respuesta_clon_completo
+        )
+
+        clon_id = _validar_clon_typebot(
+            origen=origen,
+            clon=clon,
+            nombre_esperado=nombre,
+        )
+
+    except Exception:
+
+        try:
+            client.eliminar_typebot(
+                clon_id
+            )
+        except Exception:
+            pass
+
+        raise
+
+    return {
+        "typebot_id": clon_id,
+        "creado": True,
+        "recuperado": False,
+        "nombre": nombre,
+    }
+
+
+def _crear_recursos_operativos(
+    *,
+    instalacion,
+    empresa,
+    plantilla_maestra,
+    typebot_id="",
+):
+    """
+    Crea la instancia privada de la plantilla y sus recursos.
+
+    IMPORTANTE:
+    Esta función debe ejecutarse dentro de transaction.atomic().
+    """
+
+    configuracion = (
+        plantilla_maestra.configuracion
+        if isinstance(
+            plantilla_maestra.configuracion,
+            dict,
+        )
+        else {}
+    )
+
+    nombre_plantilla = _nombre_limitado(
+        Plantilla,
+        "nombre",
+        (
+            f"{plantilla_maestra.nombre} "
+            f"v{plantilla_maestra.version}"
+        ),
+    )
+
+    plantilla = Plantilla.objects.create(
+        empresa=empresa,
+        nombre=nombre_plantilla,
+        tipo=plantilla_maestra.tipo,
+        descripcion=(
+            plantilla_maestra.descripcion
+            or ""
+        ),
+        identificador_externo=typebot_id,
+        activa=True,
+    )
+
+    variables_maestras = (
+        plantilla_maestra.variables
+        .filter(
+            activa=True,
+        )
+        .order_by(
+            "orden",
+            "id",
+        )
+    )
+
+    for variable_maestra in variables_maestras:
+
+        Variable.objects.create(
+            plantilla=plantilla,
+            clave=variable_maestra.clave,
+            valor=(
+                variable_maestra.valor_default
+                or ""
+            ),
+            descripcion=(
+                variable_maestra.descripcion
+                or ""
+            ),
+            activa=True,
+        )
+
+    crear_bot = configuracion.get(
+        "crear_bot",
+        True,
+    )
+
+    bot = None
+
+    if crear_bot:
+
+        nombre_bot = configuracion.get(
+            "nombre_bot",
+            (
+                f"Bot {plantilla_maestra.nombre}"
+            ),
+        )
+
+        bot = Bot.objects.create(
+            empresa=empresa,
+            plantilla=plantilla,
+            nombre=_nombre_limitado(
+                Bot,
+                "nombre",
+                nombre_bot,
+            ),
+            identificador_externo=typebot_id,
+            activo=True,
+        )
+
+    crear_catalogo = configuracion.get(
+        "crear_catalogo",
+        True,
+    )
+
+    catalogo = None
+
+    if crear_catalogo:
+
+        nombre_catalogo = (
+            configuracion.get(
+                "nombre_catalogo",
+                (
+                    f"Catálogo "
+                    f"{plantilla_maestra.nombre}"
+                ),
+            )
+        )
+
+        catalogo = Catalogo.objects.create(
+            empresa=empresa,
+            plantilla=plantilla,
+            nombre=_nombre_limitado(
+                Catalogo,
+                "nombre",
+                nombre_catalogo,
+            ),
+            descripcion=(
+                "Catálogo aprovisionado "
+                f"desde {plantilla_maestra}."
+            ),
+            moneda=_moneda_catalogo(
+                configuracion
+            ),
+            identificador_externo="",
+            activo=True,
+        )
+
+    instalacion.plantilla = plantilla
+    instalacion.version_instalada = (
+        plantilla_maestra.version
+    )
+    instalacion.estado = (
+        InstalacionPlantilla.Estado.LISTA
+    )
+    instalacion.ultimo_error = ""
+    instalacion.completada_en = timezone.now()
+
+    instalacion.save(
+        update_fields=[
+            "plantilla",
+            "version_instalada",
+            "estado",
+            "ultimo_error",
+            "completada_en",
+            "actualizado_en",
+        ]
+    )
+
+    return {
+        "instalacion": instalacion,
+        "plantilla": plantilla,
+        "bot": bot,
+        "catalogo": catalogo,
+    }
+
+
+
+def provisionar_empresa_desde_plantilla(
+    *,
+    empresa_id,
+    licencia_id,
+    plantilla_maestra_id,
+    clave_idempotencia=None,
+):
+    """
+    Aprovisiona una plantilla maestra para una empresa.
+
+    Características:
+    - valida Empresa, Licencia y PlantillaMaestra;
+    - evita instalaciones locales duplicadas;
+    - permite reintentar instalaciones en ERROR;
+    - conserva compatibilidad con maestras sin Typebot;
+    - clona un Typebot maestro cuando existe identificador_externo;
+    - usa nombre determinista para idempotencia externa;
+    - recupera clones de ejecuciones interrumpidas;
+    - vincula el mismo Typebot a Plantilla y Bot;
+    - permite completar instalaciones LISTA antiguas sin Typebot;
+    - hace rollback local mediante transaction.atomic();
+    - archiva el clon nuevo si falla la persistencia local;
+    - todavía no conecta Evolution API.
+    """
+
+    modo_completar_typebot = False
+
+    # ========================================================
+    # FASE 1
+    # Reservar o localizar la instalación.
+    # ========================================================
+
+    with transaction.atomic():
+
+        empresa = (
+            Empresa.objects
+            .select_for_update()
+            .get(
+                pk=empresa_id
+            )
+        )
+
+        licencia = (
+            Licencia.objects
+            .select_for_update()
+            .get(
+                pk=licencia_id
+            )
+        )
+
+        plantilla_maestra = (
+            PlantillaMaestra.objects
+            .select_for_update()
+            .get(
+                pk=plantilla_maestra_id
+            )
+        )
+
+        _validar_empresa(
+            empresa
+        )
+
+        _validar_licencia(
+            licencia,
+            empresa,
+        )
+
+        _validar_plantilla_maestra(
+            plantilla_maestra
+        )
+
+        instalacion = (
+            InstalacionPlantilla.objects
+            .select_for_update()
+            .filter(
+                empresa=empresa,
+                plantilla_maestra=(
+                    plantilla_maestra
+                ),
+            )
+            .first()
+        )
+
+        if instalacion:
+
+            if (
+                instalacion.estado
+                == InstalacionPlantilla.Estado.LISTA
+            ):
+
+                # --------------------------------------------
+                # Compatibilidad:
+                # si la maestra todavía no usa Typebot,
+                # conservamos exactamente la idempotencia V1.
+                # --------------------------------------------
+
+                if not _requiere_typebot(
+                    plantilla_maestra
+                ):
+
+                    return {
+                        "instalacion": instalacion,
+                        "plantilla": instalacion.plantilla,
+                        "bot": (
+                            instalacion
+                            .plantilla
+                            .bots
+                            .first()
+                            if instalacion.plantilla_id
+                            else None
+                        ),
+                        "catalogo": (
+                            instalacion
+                            .plantilla
+                            .catalogos
+                            .first()
+                            if instalacion.plantilla_id
+                            else None
+                        ),
+                        "idempotente": True,
+                    }
+
+                if not instalacion.plantilla_id:
+                    raise ValidationError(
+                        (
+                            "La instalación está LISTA, "
+                            "pero no tiene Plantilla asociada."
+                        )
+                    )
+
+                plantilla_actual = (
+                    instalacion.plantilla
+                )
+
+                bot_actual = (
+                    plantilla_actual
+                    .bots
+                    .first()
+                )
+
+                if bot_actual is None:
+                    raise ValidationError(
+                        (
+                            "La instalación está LISTA, "
+                            "pero no tiene Bot asociado."
+                        )
+                    )
+
+                plantilla_externo = str(
+                    plantilla_actual
+                    .identificador_externo
+                    or ""
+                ).strip()
+
+                bot_externo = str(
+                    bot_actual
+                    .identificador_externo
+                    or ""
+                ).strip()
+
+                # Ya tiene Typebot correctamente asociado.
+                if (
+                    plantilla_externo
+                    and bot_externo
+                ):
+
+                    if (
+                        plantilla_externo
+                        != bot_externo
+                    ):
+                        raise ValidationError(
+                            (
+                                "Plantilla y Bot tienen "
+                                "Typebot IDs diferentes. "
+                                "Debe revisarse manualmente."
+                            )
+                        )
+
+                    return {
+                        "instalacion": instalacion,
+                        "plantilla": plantilla_actual,
+                        "bot": bot_actual,
+                        "catalogo": (
+                            plantilla_actual
+                            .catalogos
+                            .first()
+                        ),
+                        "idempotente": True,
+                    }
+
+                # Asociación parcial: no asumir cuál es correcta.
+                if (
+                    plantilla_externo
+                    or bot_externo
+                ):
+                    raise ValidationError(
+                        (
+                            "Existe una asociación Typebot parcial. "
+                            "Debe revisarse manualmente antes "
+                            "de continuar."
+                        )
+                    )
+
+                # Instalación histórica local-only.
+                # La bloqueamos temporalmente para que dos
+                # solicitudes no creen clones simultáneos.
+                modo_completar_typebot = True
+
+                instalacion.estado = (
+                    InstalacionPlantilla
+                    .Estado
+                    .APROVISIONANDO
+                )
+                instalacion.ultimo_error = ""
+
+                instalacion.save(
+                    update_fields=[
+                        "estado",
+                        "ultimo_error",
+                        "actualizado_en",
+                    ]
+                )
+
+            elif (
+                instalacion.estado
+                == InstalacionPlantilla.Estado.APROVISIONANDO
+            ):
+                raise ValidationError(
+                    (
+                        "La instalación ya se encuentra "
+                        "en proceso de aprovisionamiento."
+                    )
+                )
+
+            else:
+
+                if instalacion.plantilla_id:
+                    raise ValidationError(
+                        (
+                            "Existe una instalación incompleta "
+                            "con una plantilla operativa asociada. "
+                            "Debe revisarse manualmente antes "
+                            "de reintentar."
+                        )
+                    )
+
+                instalacion.licencia = licencia
+                instalacion.version_instalada = (
+                    plantilla_maestra.version
+                )
+                instalacion.estado = (
+                    InstalacionPlantilla
+                    .Estado
+                    .APROVISIONANDO
+                )
+                instalacion.ultimo_error = ""
+                instalacion.completada_en = None
+
+                instalacion.save(
+                    update_fields=[
+                        "licencia",
+                        "version_instalada",
+                        "estado",
+                        "ultimo_error",
+                        "completada_en",
+                        "actualizado_en",
+                    ]
+                )
+
+        else:
+
+            create_kwargs = {
+                "empresa": empresa,
+                "licencia": licencia,
+                "plantilla_maestra": (
+                    plantilla_maestra
+                ),
+                "version_instalada": (
+                    plantilla_maestra.version
+                ),
+                "estado": (
+                    InstalacionPlantilla
+                    .Estado
+                    .APROVISIONANDO
+                ),
+            }
+
+            if clave_idempotencia is not None:
+                create_kwargs[
+                    "clave_idempotencia"
+                ] = clave_idempotencia
+
+            instalacion = (
+                InstalacionPlantilla.objects.create(
+                    **create_kwargs
+                )
+            )
+
+        instalacion_id = instalacion.id
+
+    # ========================================================
+    # FASE 2
+    # Typebot externo + persistencia local.
+    # ========================================================
+
+    client = None
+
+    typebot_info = {
+        "typebot_id": "",
+        "creado": False,
+        "recuperado": False,
+        "nombre": "",
+    }
+
+    try:
+
+        if _requiere_typebot(
+            plantilla_maestra
+        ):
+
+            client = TypebotClient()
+
+            typebot_info = (
+                _obtener_o_clonar_typebot(
+                    client=client,
+                    instalacion=instalacion,
+                    empresa=empresa,
+                    plantilla_maestra=(
+                        plantilla_maestra
+                    ),
+                )
+            )
+
+        typebot_id = (
+            typebot_info[
+                "typebot_id"
+            ]
+        )
+
+        # ====================================================
+        # Instalación LISTA antigua:
+        # solo faltaba vincular su Typebot.
+        # ====================================================
+
+        if modo_completar_typebot:
+
+            with transaction.atomic():
+
+                instalacion = (
+                    InstalacionPlantilla.objects
+                    .select_for_update()
+                    .select_related(
+                        "empresa",
+                        "plantilla",
+                        "plantilla_maestra",
+                    )
+                    .get(
+                        pk=instalacion_id
+                    )
+                )
+
+                if not instalacion.plantilla_id:
+                    raise ValidationError(
+                        (
+                            "La instalación perdió su "
+                            "Plantilla durante el aprovisionamiento."
+                        )
+                    )
+
+                plantilla = (
+                    instalacion.plantilla
+                )
+
+                bot = (
+                    plantilla
+                    .bots
+                    .first()
+                )
+
+                if bot is None:
+                    raise ValidationError(
+                        (
+                            "La Plantilla no tiene Bot "
+                            "para asociar al Typebot."
+                        )
+                    )
+
+                plantilla_externo = str(
+                    plantilla.identificador_externo
+                    or ""
+                ).strip()
+
+                bot_externo = str(
+                    bot.identificador_externo
+                    or ""
+                ).strip()
+
+                # Si otra ejecución ya terminó exactamente
+                # la misma asociación, no duplicamos nada.
+                if (
+                    plantilla_externo
+                    and bot_externo
+                ):
+
+                    if not (
+                        plantilla_externo
+                        == bot_externo
+                        == typebot_id
+                    ):
+                        raise ValidationError(
+                            (
+                                "La asociación externa cambió "
+                                "durante el aprovisionamiento."
+                            )
+                        )
+
+                elif (
+                    plantilla_externo
+                    or bot_externo
+                ):
+                    raise ValidationError(
+                        (
+                            "La asociación externa quedó parcial "
+                            "durante el aprovisionamiento."
+                        )
+                    )
+
+                else:
+
+                    plantilla.identificador_externo = (
+                        typebot_id
+                    )
+
+                    plantilla.save(
+                        update_fields=[
+                            "identificador_externo",
+                            "actualizado_en",
+                        ]
+                    )
+
+                    bot.identificador_externo = (
+                        typebot_id
+                    )
+
+                    bot.save(
+                        update_fields=[
+                            "identificador_externo",
+                            "actualizado_en",
+                        ]
+                    )
+
+                instalacion.estado = (
+                    InstalacionPlantilla
+                    .Estado
+                    .LISTA
+                )
+                instalacion.ultimo_error = ""
+
+                instalacion.save(
+                    update_fields=[
+                        "estado",
+                        "ultimo_error",
+                        "actualizado_en",
+                    ]
+                )
+
+                return {
+                    "instalacion": instalacion,
+                    "plantilla": plantilla,
+                    "bot": bot,
+                    "catalogo": (
+                        plantilla
+                        .catalogos
+                        .first()
+                    ),
+                    "idempotente": False,
+                    "typebot_id": typebot_id,
+                    "typebot_creado": (
+                        typebot_info[
+                            "creado"
+                        ]
+                    ),
+                    "typebot_recuperado": (
+                        typebot_info[
+                            "recuperado"
+                        ]
+                    ),
+                }
+
+        # ====================================================
+        # Instalación nueva / reintento limpio.
+        # ====================================================
+
+        with transaction.atomic():
+
+            instalacion = (
+                InstalacionPlantilla.objects
+                .select_for_update()
+                .select_related(
+                    "empresa",
+                    "plantilla_maestra",
+                )
+                .get(
+                    pk=instalacion_id
+                )
+            )
+
+            if (
+                instalacion.estado
+                != InstalacionPlantilla.Estado.APROVISIONANDO
+            ):
+                raise ValidationError(
+                    (
+                        "La instalación cambió de estado "
+                        "antes de crear los recursos."
+                    )
+                )
+
+            resultado = (
+                _crear_recursos_operativos(
+                    instalacion=instalacion,
+                    empresa=instalacion.empresa,
+                    plantilla_maestra=(
+                        instalacion
+                        .plantilla_maestra
+                    ),
+                    typebot_id=typebot_id,
+                )
+            )
+
+            resultado[
+                "idempotente"
+            ] = False
+
+            resultado[
+                "typebot_id"
+            ] = typebot_id
+
+            resultado[
+                "typebot_creado"
+            ] = typebot_info[
+                "creado"
+            ]
+
+            resultado[
+                "typebot_recuperado"
+            ] = typebot_info[
+                "recuperado"
+            ]
+
+            return resultado
+
+    except Exception as exc:
+
+        rollback_error = ""
+
+        # Solo archivamos automáticamente un clon que fue
+        # creado EN ESTA ejecución.
+        #
+        # Un clon recuperado de una ejecución interrumpida
+        # se conserva para poder reutilizarlo en el reintento.
+        if (
+            client is not None
+            and typebot_info.get(
+                "creado"
+            )
+            and typebot_info.get(
+                "typebot_id"
+            )
+        ):
+
+            try:
+                rollback_error = (
+                    _archivar_typebot_rollback(
+                        client=client,
+                        typebot_id=(
+                            typebot_info[
+                                "typebot_id"
+                            ]
+                        ),
+                    )
+                )
+            except Exception as rollback_exc:
+                rollback_error = (
+                    "Rollback Typebot lanzó excepción: "
+                    f"{_texto_error(rollback_exc)}"
+                )[:1500]
+
+        error_texto = _texto_error(
+            exc
+        )
+
+        if rollback_error:
+            error_texto = (
+                f"{error_texto} | "
+                f"{rollback_error}"
+            )[:4000]
+
+        if modo_completar_typebot:
+
+            # La parte local ya era válida antes de esta
+            # operación. Regresamos a LISTA para permitir
+            # reintentar exclusivamente la integración externa.
+            InstalacionPlantilla.objects.filter(
+                pk=instalacion_id
+            ).update(
+                estado=(
+                    InstalacionPlantilla
+                    .Estado
+                    .LISTA
+                ),
+                ultimo_error=error_texto,
+                actualizado_en=timezone.now(),
+            )
+
+        else:
+
+            InstalacionPlantilla.objects.filter(
+                pk=instalacion_id
+            ).update(
+                estado=(
+                    InstalacionPlantilla
+                    .Estado
+                    .ERROR
+                ),
+                ultimo_error=error_texto,
+                completada_en=None,
+                actualizado_en=timezone.now(),
+            )
+
+        raise
+

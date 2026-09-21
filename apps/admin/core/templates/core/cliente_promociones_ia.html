@@ -1,0 +1,928 @@
+{% extends "core/cliente_portal_base.html" %}
+
+{% block cliente_content %}
+
+<style>
+.pia-wrap {
+    display: grid;
+    gap: 22px;
+}
+
+.pia-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.pia-title {
+    margin: 0;
+    font-size: clamp(28px, 3vw, 40px);
+    line-height: 1.1;
+}
+
+.pia-subtitle {
+    max-width: 760px;
+    margin: 10px 0 0;
+    color: var(--cp-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.pia-back {
+    flex: 0 0 auto;
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    padding: 0 15px;
+    border: 1px solid var(--cp-border);
+    border-radius: 11px;
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.pia-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 13px;
+}
+
+.pia-stat,
+.pia-section {
+    border: 1px solid var(--cp-border);
+    background: var(--cp-surface);
+}
+
+.pia-stat {
+    padding: 18px;
+    border-radius: 16px;
+}
+
+.pia-stat span {
+    display: block;
+    color: var(--cp-muted);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.pia-stat strong {
+    display: block;
+    margin-top: 6px;
+    font-size: 28px;
+}
+
+.pia-section {
+    padding: 22px;
+    border-radius: 20px;
+}
+
+.pia-section-head {
+    margin-bottom: 18px;
+}
+
+.pia-section-head h2 {
+    margin: 0;
+    font-size: 21px;
+}
+
+.pia-section-head p {
+    margin: 7px 0 0;
+    color: var(--cp-muted);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.pia-products {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.pia-product,
+.pia-rule {
+    padding: 17px;
+    border: 1px solid var(--cp-border);
+    border-radius: 16px;
+    background: var(--cp-surface-2);
+}
+
+.pia-product-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.pia-product-name {
+    font-size: 15px;
+    font-weight: 850;
+}
+
+.pia-meta {
+    margin-top: 5px;
+    color: var(--cp-muted);
+    font-size: 12px;
+}
+
+.pia-price {
+    color: var(--cp-green-dark);
+    white-space: nowrap;
+    font-weight: 900;
+}
+
+.pia-state {
+    display: inline-flex;
+    margin-top: 7px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--cp-green-soft);
+    color: var(--cp-green-dark);
+    font-size: 10px;
+    font-weight: 850;
+}
+
+.pia-state.off {
+    background: var(--cp-danger-soft);
+    color: var(--cp-danger);
+}
+
+.pia-label {
+    display: block;
+    margin: 13px 0 6px;
+    color: var(--cp-muted);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.pia-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 13px;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.pia-check input {
+    width: 18px;
+    height: 18px;
+}
+
+.pia-input,
+.pia-select,
+.pia-textarea {
+    width: 100%;
+    border: 1px solid var(--cp-border);
+    border-radius: 10px;
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    font: inherit;
+}
+
+.pia-input,
+.pia-select {
+    min-height: 42px;
+    padding: 0 11px;
+}
+
+.pia-textarea {
+    min-height: 96px;
+    padding: 11px;
+    resize: vertical;
+    line-height: 1.45;
+}
+
+.pia-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 13px;
+}
+
+.pia-btn {
+    min-height: 41px;
+    padding: 0 15px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--cp-green);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 850;
+}
+
+.pia-btn.danger {
+    background: var(--cp-danger);
+}
+
+.pia-cross-form,
+.pia-rule-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.pia-full {
+    grid-column: 1 / -1;
+}
+
+.pia-help {
+    margin-top: 8px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    background: var(--cp-green-soft);
+    color: var(--cp-green-dark);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.pia-help code {
+    font-weight: 850;
+}
+
+.pia-rules {
+    display: grid;
+    gap: 13px;
+    margin-top: 20px;
+}
+
+.pia-rule-title {
+    margin-bottom: 12px;
+    font-weight: 850;
+}
+
+.pia-empty {
+    padding: 24px;
+    border: 1px dashed var(--cp-border);
+    border-radius: 14px;
+    color: var(--cp-muted);
+    text-align: center;
+    font-size: 13px;
+}
+
+.pia-message {
+    padding: 11px 13px;
+    border-radius: 11px;
+    background: var(--cp-green-soft);
+    color: var(--cp-green-dark);
+    font-size: 13px;
+    font-weight: 750;
+}
+
+.pia-message.error {
+    background: var(--cp-danger-soft);
+    color: var(--cp-danger);
+}
+
+@media (max-width: 900px) {
+    .pia-products,
+    .pia-cross-form,
+    .pia-rule-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pia-full {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 650px) {
+    .pia-head {
+        display: block;
+    }
+
+    .pia-back {
+        margin-top: 15px;
+    }
+
+    .pia-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .pia-section {
+        padding: 16px;
+    }
+
+    .pia-product-top {
+        display: block;
+    }
+
+    .pia-price {
+        display: block;
+        margin-top: 8px;
+    }
+
+    .pia-actions {
+        flex-direction: column;
+    }
+
+    .pia-btn {
+        width: 100%;
+    }
+}
+</style>
+
+
+<div class="pia-wrap">
+
+    <div class="pia-head">
+
+        <div>
+
+            <div class="cp-eyebrow">
+                Inteligencia comercial
+            </div>
+
+            <h1 class="pia-title">
+                ⭐ Promociones IA
+            </h1>
+
+            <p class="pia-subtitle">
+                Decide qué productos debe destacar tu
+                asistente y configura recomendaciones
+                adicionales para aumentar el valor de
+                cada pedido.
+            </p>
+
+        </div>
+
+        <a
+            href="{% url 'core:cliente_panel' %}"
+            class="pia-back"
+        >
+            ← Volver a Mi negocio
+        </a>
+
+    </div>
+
+
+    {% if messages %}
+
+        {% for message in messages %}
+
+            <div
+                class="pia-message{% if message.tags == 'error' %} error{% endif %}"
+            >
+                {{ message }}
+            </div>
+
+        {% endfor %}
+
+    {% endif %}
+
+
+    <div class="pia-summary">
+
+        <div class="pia-stat">
+            <span>Productos registrados</span>
+            <strong>{{ productos|length }}</strong>
+        </div>
+
+        <div class="pia-stat">
+            <span>Productos Estrella</span>
+            <strong>{{ productos_estrella_count }}</strong>
+        </div>
+
+        <div class="pia-stat">
+            <span>Reglas de venta cruzada</span>
+            <strong>{{ reglas|length }}</strong>
+        </div>
+
+    </div>
+
+
+    <section class="pia-section">
+
+        <div class="pia-section-head">
+
+            <h2>⭐ Productos Estrella</h2>
+
+            <p>
+                Marca los productos que quieres que
+                la IA destaque cuando tus clientes
+                pidan recomendaciones.
+            </p>
+
+        </div>
+
+
+        {% if productos %}
+
+            <div class="pia-products">
+
+                {% for producto in productos %}
+
+                    <form
+                        method="post"
+                        class="pia-product"
+                    >
+
+                        {% csrf_token %}
+
+                        <input
+                            type="hidden"
+                            name="accion"
+                            value="guardar_promocion"
+                        >
+
+                        <input
+                            type="hidden"
+                            name="producto_id"
+                            value="{{ producto.id }}"
+                        >
+
+
+                        <div class="pia-product-top">
+
+                            <div>
+
+                                <div class="pia-product-name">
+                                    {{ producto.nombre }}
+                                </div>
+
+                                <div class="pia-meta">
+                                    SKU:
+                                    {% if producto.sku %}
+                                        {{ producto.sku }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                    · Stock:
+                                    {{ producto.stock|floatformat:2 }}
+                                </div>
+
+                                {% if producto.activo and producto.catalogo.activo %}
+
+                                    <span class="pia-state">
+                                        Producto activo
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="pia-state off">
+                                        Producto inactivo
+                                    </span>
+
+                                {% endif %}
+
+                            </div>
+
+
+                            <div class="pia-price">
+                                ${{ producto.precio|floatformat:2 }}
+                                {{ producto.catalogo.moneda }}
+                            </div>
+
+                        </div>
+
+
+                        <label class="pia-check">
+
+                            <input
+                                type="checkbox"
+                                name="es_estrella"
+                                value="1"
+                                {% if producto.promocion_ia_ui and producto.promocion_ia_ui.es_estrella %}checked{% endif %}
+                            >
+
+                            ⭐ Producto Estrella
+
+                        </label>
+
+
+                        <label class="pia-label">
+                            Texto promocional
+                        </label>
+
+                        <textarea
+                            name="texto_promocional"
+                            class="pia-textarea"
+                            maxlength="1200"
+                            placeholder="Ej. Nuestras alitas BBQ son una de las especialidades de la casa."
+                        >{% if producto.promocion_ia_ui %}{{ producto.promocion_ia_ui.texto_promocional }}{% endif %}</textarea>
+
+
+                        <div class="pia-actions">
+
+                            <button
+                                type="submit"
+                                class="pia-btn"
+                            >
+                                Guardar
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="pia-empty">
+                Tu negocio todavía no tiene
+                productos registrados.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+    <section class="pia-section">
+
+        <div class="pia-section-head">
+
+            <h2>🛍️ Recomendaciones de compra</h2>
+
+            <p>
+                Selecciona qué producto debe
+                recomendarse después de que el
+                cliente agregue otro producto.
+            </p>
+
+        </div>
+
+
+        {% if productos|length >= 2 %}
+
+            <form
+                method="post"
+                class="pia-cross-form"
+            >
+
+                {% csrf_token %}
+
+                <input
+                    type="hidden"
+                    name="accion"
+                    value="guardar_crosssell"
+                >
+
+
+                <div>
+
+                    <label class="pia-label">
+                        Cuando compre
+                    </label>
+
+                    <select
+                        name="producto_origen_id"
+                        class="pia-select"
+                        required
+                    >
+
+                        <option value="">
+                            Selecciona un producto
+                        </option>
+
+                        {% for producto in productos %}
+
+                            <option value="{{ producto.id }}">
+                                {{ producto.nombre }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <div>
+
+                    <label class="pia-label">
+                        Recomendar
+                    </label>
+
+                    <select
+                        name="producto_recomendado_id"
+                        class="pia-select"
+                        required
+                    >
+
+                        <option value="">
+                            Selecciona un producto
+                        </option>
+
+                        {% for producto in productos %}
+
+                            <option value="{{ producto.id }}">
+                                {{ producto.nombre }}
+                            </option>
+
+                        {% endfor %}
+
+                    </select>
+
+                </div>
+
+
+                <div class="pia-full">
+
+                    <label class="pia-label">
+                        Mensaje
+                    </label>
+
+                    <textarea
+                        name="texto_promocional"
+                        class="pia-textarea"
+                        maxlength="1200"
+                        placeholder="Ya adquiriste tu producto. ¿Deseas agregar también el producto recomendado?"
+                    ></textarea>
+
+                    <div class="pia-help">
+
+                        Puedes utilizar los marcadores:
+
+                        <code>
+                            &#123;&#123;producto_origen&#125;&#125;
+                        </code>,
+
+                        <code>
+                            &#123;&#123;producto_recomendado&#125;&#125;
+                        </code>
+
+                        y
+
+                        <code>
+                            &#123;&#123;precio_recomendado&#125;&#125;
+                        </code>.
+
+                        El precio real siempre será
+                        obtenido del catálogo.
+
+                    </div>
+
+                </div>
+
+
+                <div>
+
+                    <label class="pia-label">
+                        Prioridad
+                    </label>
+
+                    <input
+                        type="number"
+                        name="prioridad"
+                        class="pia-input"
+                        min="0"
+                        max="9999"
+                        value="100"
+                    >
+
+                </div>
+
+
+                <div>
+
+                    <label class="pia-label">
+                        Estado
+                    </label>
+
+                    <label class="pia-check">
+
+                        <input
+                            type="checkbox"
+                            name="activa"
+                            value="1"
+                            checked
+                        >
+
+                        Recomendación activa
+
+                    </label>
+
+                </div>
+
+
+                <div class="pia-full pia-actions">
+
+                    <button
+                        type="submit"
+                        class="pia-btn"
+                    >
+                        Crear recomendación
+                    </button>
+
+                </div>
+
+            </form>
+
+
+            {% if reglas %}
+
+                <div class="pia-rules">
+
+                    {% for regla in reglas %}
+
+                        <div class="pia-rule">
+
+                            <div class="pia-rule-title">
+                                {{ regla.producto_origen.nombre }}
+                                →
+                                {{ regla.producto_recomendado.nombre }}
+                            </div>
+
+
+                            <form
+                                method="post"
+                                class="pia-rule-grid"
+                            >
+
+                                {% csrf_token %}
+
+                                <input
+                                    type="hidden"
+                                    name="accion"
+                                    value="guardar_crosssell"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="regla_id"
+                                    value="{{ regla.id }}"
+                                >
+
+
+                                <div>
+
+                                    <label class="pia-label">
+                                        Cuando compre
+                                    </label>
+
+                                    <select
+                                        name="producto_origen_id"
+                                        class="pia-select"
+                                    >
+
+                                        {% for producto in productos %}
+
+                                            <option
+                                                value="{{ producto.id }}"
+                                                {% if producto.id == regla.producto_origen_id %}selected{% endif %}
+                                            >
+                                                {{ producto.nombre }}
+                                            </option>
+
+                                        {% endfor %}
+
+                                    </select>
+
+                                </div>
+
+
+                                <div>
+
+                                    <label class="pia-label">
+                                        Recomendar
+                                    </label>
+
+                                    <select
+                                        name="producto_recomendado_id"
+                                        class="pia-select"
+                                    >
+
+                                        {% for producto in productos %}
+
+                                            <option
+                                                value="{{ producto.id }}"
+                                                {% if producto.id == regla.producto_recomendado_id %}selected{% endif %}
+                                            >
+                                                {{ producto.nombre }}
+                                            </option>
+
+                                        {% endfor %}
+
+                                    </select>
+
+                                </div>
+
+
+                                <div class="pia-full">
+
+                                    <label class="pia-label">
+                                        Mensaje
+                                    </label>
+
+                                    <textarea
+                                        name="texto_promocional"
+                                        class="pia-textarea"
+                                        maxlength="1200"
+                                    >{{ regla.texto_promocional }}</textarea>
+
+                                </div>
+
+
+                                <div>
+
+                                    <label class="pia-label">
+                                        Prioridad
+                                    </label>
+
+                                    <input
+                                        type="number"
+                                        name="prioridad"
+                                        class="pia-input"
+                                        min="0"
+                                        max="9999"
+                                        value="{{ regla.prioridad }}"
+                                    >
+
+                                </div>
+
+
+                                <div>
+
+                                    <label class="pia-label">
+                                        Estado
+                                    </label>
+
+                                    <label class="pia-check">
+
+                                        <input
+                                            type="checkbox"
+                                            name="activa"
+                                            value="1"
+                                            {% if regla.activa %}checked{% endif %}
+                                        >
+
+                                        Activa
+
+                                    </label>
+
+                                </div>
+
+
+                                <div class="pia-full pia-actions">
+
+                                    <button
+                                        type="submit"
+                                        class="pia-btn"
+                                    >
+                                        Guardar cambios
+                                    </button>
+
+                                </div>
+
+                            </form>
+
+
+                            <form
+                                method="post"
+                                class="pia-actions"
+                            >
+
+                                {% csrf_token %}
+
+                                <input
+                                    type="hidden"
+                                    name="accion"
+                                    value="eliminar_crosssell"
+                                >
+
+                                <input
+                                    type="hidden"
+                                    name="regla_id"
+                                    value="{{ regla.id }}"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="pia-btn danger"
+                                >
+                                    Eliminar
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            {% endif %}
+
+
+        {% else %}
+
+            <div class="pia-empty">
+                Necesitas al menos dos productos
+                registrados para crear una
+                recomendación de compra.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+</div>
+
+{% endblock %}

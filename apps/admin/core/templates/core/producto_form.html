@@ -1,0 +1,518 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+{{ titulo }} | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+{{ titulo }}
+{% endblock %}
+
+{% block content %}
+
+<style>
+.tnl-product-form {
+    display: grid;
+    gap: 22px;
+}
+
+.tnl-image-section {
+    margin-top: 24px;
+    padding: 22px;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #fff;
+}
+
+.tnl-image-section h3 {
+    margin: 0 0 6px;
+}
+
+.tnl-image-section > p {
+    margin: 0 0 18px;
+    color: #64748b;
+}
+
+.tnl-main-preview {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.tnl-main-preview img,
+.tnl-preview-card img,
+.tnl-gallery-card img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.tnl-gallery-grid,
+.tnl-preview-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(
+            auto-fill,
+            minmax(150px, 1fr)
+        );
+    gap: 15px;
+    margin-top: 16px;
+}
+
+.tnl-gallery-card,
+.tnl-preview-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 10px;
+    background: #fff;
+}
+
+.tnl-gallery-card img,
+.tnl-preview-card img {
+    width: 100%;
+}
+
+.tnl-gallery-card p,
+.tnl-preview-card p {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tnl-danger-button {
+    width: 100%;
+    border: 0;
+    margin-top: 9px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    background: #fee2e2;
+    color: #991b1b;
+    font-weight: 700;
+}
+
+.tnl-file-help {
+    margin-top: 7px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.tnl-no-image {
+    width: 150px;
+    height: 150px;
+    border-radius: 14px;
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: #94a3b8;
+    padding: 12px;
+}
+
+@media (max-width: 640px) {
+    .tnl-image-section {
+        padding: 16px;
+    }
+
+    .tnl-gallery-grid,
+    .tnl-preview-grid {
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+    }
+}
+</style>
+
+
+<div class="form-container tnl-product-form">
+
+    <div>
+        <span class="eyebrow">
+            Productos
+        </span>
+
+        <h2>
+            {{ titulo }}
+        </h2>
+
+        {% if modo == "crear" %}
+            <p>
+                Registra el producto, su imagen principal
+                y su galería comercial.
+            </p>
+        {% else %}
+            <p>
+                Actualiza la información y las imágenes
+                del producto seleccionado.
+            </p>
+        {% endif %}
+    </div>
+
+
+    <form
+        method="post"
+        enctype="multipart/form-data"
+        novalidate
+        id="producto-form"
+    >
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="field-error">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+
+        <div class="form-grid">
+
+            {% for field in form %}
+
+                {% if field.name != "imagen_principal" and field.name != "galeria_imagenes" %}
+
+                    <div class="form-group">
+
+                        <label for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <div class="field-help">
+                                {{ field.help_text|safe }}
+                            </div>
+                        {% endif %}
+
+                        {% if field.errors %}
+                            <div class="field-error">
+                                {{ field.errors|striptags }}
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+                {% endif %}
+
+            {% endfor %}
+
+        </div>
+
+
+        <section class="tnl-image-section">
+
+            <h3>
+                Imagen principal
+            </h3>
+
+            <p>
+                Esta será la imagen representativa del producto
+                en el catálogo.
+            </p>
+
+            <div class="tnl-main-preview">
+
+                <div id="principal-preview-box">
+
+                    {% if producto and producto.imagen_principal %}
+                        <img
+                            id="principal-preview"
+                            src="{{ producto.imagen_principal.url }}"
+                            alt="{{ producto.nombre }}"
+                        >
+                    {% else %}
+                        <div
+                            id="principal-empty"
+                            class="tnl-no-image"
+                        >
+                            Sin imagen principal
+                        </div>
+
+                        <img
+                            id="principal-preview"
+                            src=""
+                            alt="Vista previa"
+                            style="display:none;"
+                        >
+                    {% endif %}
+
+                </div>
+
+                <div style="flex:1; min-width:240px;">
+
+                    {{ form.imagen_principal }}
+
+                    {% if form.imagen_principal.help_text %}
+                        <div class="tnl-file-help">
+                            {{ form.imagen_principal.help_text }}
+                        </div>
+                    {% endif %}
+
+                    {% if form.imagen_principal.errors %}
+                        <div class="field-error">
+                            {{ form.imagen_principal.errors|striptags }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <section class="tnl-image-section">
+
+            <h3>
+                Agregar imágenes a la galería
+            </h3>
+
+            <p>
+                Puedes seleccionar varias imágenes al mismo tiempo.
+                El producto admite hasta 10 imágenes de galería.
+            </p>
+
+            {{ form.galeria_imagenes }}
+
+            {% if form.galeria_imagenes.help_text %}
+                <div class="tnl-file-help">
+                    {{ form.galeria_imagenes.help_text }}
+                </div>
+            {% endif %}
+
+            {% if form.galeria_imagenes.errors %}
+                <div class="field-error">
+                    {{ form.galeria_imagenes.errors|striptags }}
+                </div>
+            {% endif %}
+
+            <div
+                id="galeria-preview"
+                class="tnl-preview-grid"
+            ></div>
+
+        </section>
+
+
+        <div class="form-actions">
+
+            <a
+                href="{% url 'core:producto_lista' %}"
+                class="secondary-link"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="primary-button form-submit"
+            >
+                {{ boton }}
+            </button>
+
+        </div>
+
+    </form>
+
+
+    {% if producto %}
+
+        <section class="tnl-image-section">
+
+            <h3>
+                Galería actual
+            </h3>
+
+            <p>
+                Imágenes adicionales guardadas para este producto.
+            </p>
+
+            {% if producto.galeria.all %}
+
+                <div class="tnl-gallery-grid">
+
+                    {% for imagen in producto.galeria.all %}
+
+                        <div class="tnl-gallery-card">
+
+                            <img
+                                src="{{ imagen.imagen.url }}"
+                                alt="{% if imagen.texto_alternativo %}{{ imagen.texto_alternativo }}{% else %}{{ producto.nombre }}{% endif %}"
+                                loading="lazy"
+                            >
+
+                            <p>
+                                Imagen {{ forloop.counter }}
+                            </p>
+
+                            <form
+                                method="post"
+                                action="{% url 'core:producto_imagen_eliminar' imagen.id %}"
+                                onsubmit="return confirm('¿Eliminar esta imagen de la galería?');"
+                            >
+                                {% csrf_token %}
+
+                                <button
+                                    type="submit"
+                                    class="tnl-danger-button"
+                                >
+                                    Eliminar
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+                    <p>
+                        Este producto todavía no tiene
+                        imágenes adicionales.
+                    </p>
+                </div>
+
+            {% endif %}
+
+        </section>
+
+    {% endif %}
+
+</div>
+
+
+<script>
+(function () {
+
+    const principalInput = document.getElementById(
+        "id_imagen_principal"
+    );
+
+    const principalPreview = document.getElementById(
+        "principal-preview"
+    );
+
+    const principalEmpty = document.getElementById(
+        "principal-empty"
+    );
+
+    if (
+        principalInput
+        && principalPreview
+    ) {
+
+        principalInput.addEventListener(
+            "change",
+            function () {
+
+                const file = (
+                    this.files
+                    && this.files[0]
+                );
+
+                if (!file) {
+                    return;
+                }
+
+                principalPreview.src = (
+                    URL.createObjectURL(file)
+                );
+
+                principalPreview.style.display = "block";
+
+                if (principalEmpty) {
+                    principalEmpty.style.display = "none";
+                }
+
+            }
+        );
+
+    }
+
+
+    const galleryInput = document.getElementById(
+        "id_galeria_imagenes"
+    );
+
+    const galleryPreview = document.getElementById(
+        "galeria-preview"
+    );
+
+    if (
+        galleryInput
+        && galleryPreview
+    ) {
+
+        galleryInput.addEventListener(
+            "change",
+            function () {
+
+                galleryPreview.innerHTML = "";
+
+                const files = Array.from(
+                    this.files || []
+                );
+
+                files.forEach(
+                    function (file, index) {
+
+                        const card = document.createElement(
+                            "div"
+                        );
+
+                        card.className = (
+                            "tnl-preview-card"
+                        );
+
+                        const img = document.createElement(
+                            "img"
+                        );
+
+                        img.src = URL.createObjectURL(
+                            file
+                        );
+
+                        img.alt = (
+                            "Vista previa "
+                            + (index + 1)
+                        );
+
+                        const label = document.createElement(
+                            "p"
+                        );
+
+                        label.textContent = file.name;
+
+                        card.appendChild(img);
+                        card.appendChild(label);
+
+                        galleryPreview.appendChild(
+                            card
+                        );
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+})();
+</script>
+
+{% endblock %}

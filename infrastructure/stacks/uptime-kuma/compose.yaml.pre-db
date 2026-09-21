@@ -1,0 +1,28 @@
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:2.3.2
+    container_name: tnl-uptime-kuma
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:8084:3001"
+
+    volumes:
+      - /opt/tunegociolisto/infrastructure/volumes/uptime-kuma:/app/data
+
+    environment:
+      TZ: America/Mexico_City
+
+    networks:
+      - backend
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+networks:
+  backend:
+    external: true
+    name: tunegociolisto-backend

@@ -1,0 +1,172 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+
+{% include "core/_plantillas_maestras_styles.html" %}
+
+<div class="pm-shell">
+
+    <div class="pm-heading">
+
+        <div>
+            <p class="pm-eyebrow">
+                Automatizaciones
+            </p>
+
+            <h1 class="pm-title">
+                Biblioteca de Plantillas Maestras
+            </h1>
+
+            <p class="pm-subtitle">
+                Plantillas comerciales administradas
+                centralmente por NegocioListo.
+            </p>
+        </div>
+
+        <div class="pm-actions">
+
+            <a
+                href="{% url 'core:plantilla_lista' %}"
+                class="pm-button"
+            >
+                Plantillas de clientes
+            </a>
+
+            <a
+                href="{% url 'core:plantilla_maestra_crear' %}"
+                class="pm-button primary"
+            >
+                + Nueva plantilla maestra
+            </a>
+
+        </div>
+
+    </div>
+
+
+    {% if plantillas %}
+
+        <div class="pm-grid">
+
+            {% for plantilla in plantillas %}
+
+                <article class="pm-card">
+
+                    <div
+                        style="
+                            display:flex;
+                            justify-content:space-between;
+                            gap:12px;
+                            align-items:flex-start;
+                        "
+                    >
+
+                        <div>
+
+                            <p class="pm-eyebrow">
+                                {{ plantilla.get_tipo_display }}
+                            </p>
+
+                            <h3>
+                                {{ plantilla.nombre }}
+                                v{{ plantilla.version }}
+                            </h3>
+
+                        </div>
+
+
+                        {% if plantilla.estado == "publicada" and plantilla.activa %}
+
+                            <span class="pm-badge ok">
+                                Publicada
+                            </span>
+
+                        {% elif plantilla.estado == "borrador" %}
+
+                            <span class="pm-badge warn">
+                                Borrador
+                            </span>
+
+                        {% else %}
+
+                            <span class="pm-badge off">
+                                {{ plantilla.get_estado_display }}
+                            </span>
+
+                        {% endif %}
+
+                    </div>
+
+
+                    <p class="pm-meta">
+                        {{ plantilla.slug }}
+                    </p>
+
+                    <p>
+                        {{ plantilla.descripcion|default:"Sin descripción."|truncatechars:180 }}
+                    </p>
+
+
+                    <div class="pm-two">
+
+                        <div class="pm-card">
+                            <div class="pm-meta">
+                                Variables
+                            </div>
+
+                            <div class="pm-stat">
+                                {{ plantilla.variables_total }}
+                            </div>
+                        </div>
+
+                        <div class="pm-card">
+                            <div class="pm-meta">
+                                Instalaciones
+                            </div>
+
+                            <div class="pm-stat">
+                                {{ plantilla.instalaciones_total }}
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="pm-actions"
+                        style="margin-top:18px;"
+                    >
+
+                        <a
+                            class="pm-button primary"
+                            href="{% url 'core:plantilla_maestra_detalle' plantilla.pk %}"
+                        >
+                            Administrar
+                        </a>
+
+                        <a
+                            class="pm-button"
+                            href="{% url 'core:plantilla_maestra_editar' plantilla.pk %}"
+                        >
+                            Editar
+                        </a>
+
+                    </div>
+
+                </article>
+
+            {% endfor %}
+
+        </div>
+
+    {% else %}
+
+        <div class="pm-card pm-empty">
+            No existen Plantillas Maestras.
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

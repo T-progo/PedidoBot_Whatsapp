@@ -1,0 +1,147 @@
+from hmac import compare_digest
+from pathlib import Path
+
+from django.db.models import Q
+from django.http import JsonResponse
+
+from .models import Bot, Producto
+
+
+CLAVE_API_PATH = Path(
+    "/opt/tunegociolisto/infrastructure/secrets/typebot_catalog_api_key"
+)
+
+
+def _leer_clave_api():
+    try:
+        return CLAVE_API_PATH.read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def producto_buscar(request):
+    if request.method != "GET":
+        return JsonResponse(
+            {"ok": False, "error": "Método no permitido."},
+            status=405,
+        )
+
+    clave_esperada = _leer_clave_api()
+
+    if not clave_esperada:
+        return JsonResponse(
+            {"ok": False, "error": "Servicio no configurado."},
+            status=503,
+        )
+
+    autorizacion = request.headers.get("Authorization", "")
+
+    if not compare_digest(
+        autorizacion,
+        f"Bearer {clave_esperada}",
+    ):
+        respuesta = JsonResponse(
+            {"ok": False, "error": "No autorizado."},
+            status=401,
+        )
+        respuesta["WWW-Authenticate"] = "Bearer"
+        return respuesta
+
+    consulta = request.GET.get("q", "").strip()
+    bot_id = request.GET.get("bot_id", "").strip()
+
+    if not bot_id:
+        return JsonResponse(
+            {"ok": False, "error": "El parámetro bot_id es obligatorio."},
+            status=400,
+        )
+
+    if len(consulta) < 2:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "La búsqueda debe contener al menos 2 caracteres.",
+            },
+            status=400,
+        )
+
+    try:
+        bot_id = int(bot_id)
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"ok": False, "error": "bot_id no es válido."},
+            status=400,
+        )
+
+    bot = (
+        Bot.objects
+        .select_related("empresa", "plantilla")
+        .filter(id=bot_id, activo=True)
+        .first()
+    )
+
+    if bot is None:
+        return JsonResponse(
+            {"ok": False, "error": "Bot no encontrado o inactivo."},
+            status=404,
+        )
+
+    if bot.plantilla_id is None:
+        return JsonResponse(
+            {
+                "ok": False,
+                "error": "El bot no tiene una plantilla asociada.",
+            },
+            status=409,
+        )
+
+    productos = list(
+        Producto.objects
+        .select_related("catalogo")
+        .filter(
+            catalogo__empresa_id=bot.empresa_id,
+            catalogo__plantilla_id=bot.plantilla_id,
+            catalogo__activo=True,
+            activo=True,
+            stock__gt=0,
+        )
+        .filter(
+            Q(nombre__icontains=consulta)
+            | Q(descripcion__icontains=consulta)
+            | Q(sku__icontains=consulta)
+        )
+        .order_by("nombre")[:10]
+    )
+
+    resultados = [
+        {
+            "id": producto.id,
+            "sku": producto.sku,
+            "nombre": producto.nombre,
+            "descripcion": producto.descripcion,
+            "precio": str(producto.precio),
+            "stock": str(producto.stock),
+            "unidad": producto.unidad,
+            "moneda": producto.catalogo.moneda,
+        }
+        for producto in productos
+    ]
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "consulta": consulta,
+            "cantidad": len(resultados),
+            "empresa": bot.empresa.nombre,
+            "productos": resultados,
+            "producto_ids": [item["id"] for item in resultados],
+            "skus": [item["sku"] for item in resultados],
+            "nombres": [item["nombre"] for item in resultados],
+            "descripciones": [item["descripcion"] for item in resultados],
+            "precios": [item["precio"] for item in resultados],
+            "stocks": [item["stock"] for item in resultados],
+            "unidades": [item["unidad"] for item in resultados],
+            "monedas": [item["moneda"] for item in resultados],
+        },
+        json_dumps_params={"ensure_ascii": False},
+    )

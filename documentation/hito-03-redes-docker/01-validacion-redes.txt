@@ -1,0 +1,108 @@
+==================================================
+HITO 03 - REDES DOCKER
+Fecha: Thu Aug  6 23:03:51 UTC 2026
+==================================================
+
+===== REDES =====
+NETWORK ID     NAME                        DRIVER    SCOPE
+d7c239e859c5   bridge                      bridge    local
+be226f6f2999   host                        host      local
+65f54983611b   none                        null      local
+d4457d027cc4   tunegociolisto-backend      bridge    local
+47c57da3b1ea   tunegociolisto-monitoring   bridge    local
+
+===== BACKEND =====
+[
+    {
+        "Name": "tunegociolisto-backend",
+        "Id": "d4457d027cc41982a7b8cb9eb8bbb39d759e49bb7414bdbb41b846ea91c4ddc7",
+        "Created": "2026-08-06T22:56:38.36357819Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv4": true,
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.18.0.0/16",
+                    "Gateway": "172.18.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Options": {},
+        "Labels": {
+            "com.tunegociolisto.scope": "backend"
+        },
+        "Containers": {},
+        "Status": {
+            "IPAM": {
+                "Subnets": {
+                    "172.18.0.0/16": {
+                        "IPsInUse": 3,
+                        "DynamicIPsAvailable": 65533
+                    }
+                }
+            }
+        }
+    }
+]
+
+===== MONITORING =====
+[
+    {
+        "Name": "tunegociolisto-monitoring",
+        "Id": "47c57da3b1eaaf5d2eba7bea50a12ea2074003cea12590e97e1d2b163c7990b4",
+        "Created": "2026-08-06T22:56:48.60505828Z",
+        "Scope": "local",
+        "Driver": "bridge",
+        "EnableIPv4": true,
+        "EnableIPv6": false,
+        "IPAM": {
+            "Driver": "default",
+            "Options": {},
+            "Config": [
+                {
+                    "Subnet": "172.19.0.0/16",
+                    "Gateway": "172.19.0.1"
+                }
+            ]
+        },
+        "Internal": false,
+        "Attachable": false,
+        "Ingress": false,
+        "ConfigFrom": {
+            "Network": ""
+        },
+        "ConfigOnly": false,
+        "Options": {},
+        "Labels": {
+            "com.tunegociolisto.scope": "monitoring"
+        },
+        "Containers": {},
+        "Status": {
+            "IPAM": {
+                "Subnets": {
+                    "172.19.0.0/16": {
+                        "IPsInUse": 3,
+                        "DynamicIPsAvailable": 65533
+                    }
+                }
+            }
+        }
+    }
+]
+
+===== CONTENEDORES =====
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+
+===== IMÁGENES =====
+IMAGE   ID             DISK USAGE   CONTENT SIZE   EXTRA

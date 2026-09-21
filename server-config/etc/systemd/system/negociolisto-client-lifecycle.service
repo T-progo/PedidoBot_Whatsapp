@@ -1,0 +1,16 @@
+[Unit]
+Description=NegocioListo - Reconciliador de ciclo de vida de clientes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tunegociolisto/apps/admin
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/tunegociolisto/apps/admin/.venv/bin/python manage.py reconcile_client_lifecycle
+TimeoutStartSec=180
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal

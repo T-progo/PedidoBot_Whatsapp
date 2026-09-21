@@ -1,0 +1,51 @@
+services:
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:2.32.7
+    container_name: tnl-n8n
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/n8n.env
+
+    ports:
+      - "127.0.0.1:8083:5678"
+
+    volumes:
+      - /opt/tunegociolisto/infrastructure/volumes/n8n:/home/node/.n8n
+
+    networks:
+      - backend
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+
+  n8n-runners:
+    image: n8nio/runners:2.32.7
+    container_name: tnl-n8n-runners
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/n8n-runners.env
+
+    depends_on:
+      - n8n
+
+    networks:
+      - backend
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+
+networks:
+  backend:
+    external: true
+    name: tunegociolisto-backend

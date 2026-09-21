@@ -1,0 +1,139 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Canales | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Canales
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Administración
+        </span>
+
+        <h2>
+            Canales registrados
+        </h2>
+
+        <p>
+            Gestiona los canales conectados a los bots de NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:canal_crear' %}"
+        class="primary-link"
+    >
+        + Nuevo canal
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if canales %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>EMPRESA</th>
+                    <th>BOT</th>
+                    <th>TIPO</th>
+                    <th>CANAL</th>
+                    <th>IDENTIFICADOR</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for canal in canales %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ canal.bot.empresa.nombre }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ canal.bot.nombre }}
+                        </td>
+
+                        <td>
+                            {{ canal.get_tipo_display }}
+                        </td>
+
+                        <td>
+                            {{ canal.nombre }}
+                        </td>
+
+                        <td>
+                            {% if canal.identificador %}
+                                {{ canal.identificador }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if canal.activo %}
+                                Activo
+                            {% else %}
+                                Inactivo
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:canal_editar' canal.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>
+                No hay canales registrados
+            </h3>
+
+            <p>
+                Registra el primer canal para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:canal_crear' %}"
+                class="primary-link"
+            >
+                Crear canal
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

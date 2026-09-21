@@ -1,0 +1,2445 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+    <meta charset="utf-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        Mi negocio | NegocioListo
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'core/css/app.css' %}?v=ui-final-v1"
+    >
+
+    <script
+        defer
+        src="{% static 'core/js/ui.js' %}?v=ui-final-v1"
+    ></script>
+
+    <style>
+        :root {
+            --cp-bg: #f5f7f8;
+            --cp-surface: #ffffff;
+            --cp-surface-2: #f8faf9;
+            --cp-border: #e3e8e5;
+            --cp-text: #15201b;
+            --cp-muted: #6d7872;
+            --cp-green: #16a36a;
+            --cp-green-dark: #0d7b4e;
+            --cp-green-soft: #e7f7ef;
+            --cp-warning: #b7791f;
+            --cp-warning-soft: #fff7e3;
+            --cp-danger: #c64545;
+            --cp-danger-soft: #fff0f0;
+            --cp-sidebar: #102018;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--cp-bg);
+            color: var(--cp-text);
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+        }
+
+        .cp-layout {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns:
+                245px
+                minmax(0, 1fr);
+        }
+
+        .cp-sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 22px 16px;
+            background: var(--cp-sidebar);
+            color: white;
+        }
+
+        .cp-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 4px 8px 24px;
+        }
+
+        .cp-brand-mark {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 42px;
+            border-radius: 13px;
+            background: var(--cp-green);
+            color: white;
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        .cp-brand strong {
+            display: block;
+            font-size: 15px;
+        }
+
+        .cp-brand span {
+            display: block;
+            margin-top: 2px;
+            opacity: .58;
+            font-size: 11px;
+        }
+
+        .cp-nav {
+            display: grid;
+            gap: 5px;
+        }
+
+        .cp-nav a {
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            padding: 0 13px;
+            border-radius: 10px;
+            color: rgba(255,255,255,.72);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 650;
+        }
+
+        .cp-nav a:hover,
+        .cp-nav a.active {
+            color: white;
+            background: rgba(255,255,255,.09);
+        }
+
+        .cp-nav a.active {
+            box-shadow:
+                inset 3px 0 0
+                var(--cp-green);
+        }
+
+        .cp-sidebar-bottom {
+            margin-top: auto;
+            padding-top: 20px;
+        }
+
+        .cp-user {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            background: rgba(255,255,255,.06);
+        }
+
+        .cp-user strong {
+            display: block;
+            overflow-wrap: anywhere;
+            font-size: 12px;
+        }
+
+        .cp-user span {
+            display: block;
+            margin-top: 4px;
+            opacity: .55;
+            font-size: 10px;
+        }
+
+        .cp-logout {
+            width: 100%;
+            min-height: 39px;
+            border: 1px solid rgba(255,255,255,.10);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,.75);
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .cp-main {
+            min-width: 0;
+            padding: 30px;
+        }
+
+        .cp-container {
+            width: 100%;
+            max-width: 1450px;
+            margin: 0 auto;
+        }
+
+        .cp-mobile-head {
+            display: none;
+        }
+
+        .cp-hero {
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 27px;
+            border: 1px solid var(--cp-border);
+            border-radius: 22px;
+            background: var(--cp-surface);
+        }
+
+        .cp-hero::after {
+            content: "";
+            position: absolute;
+            right: -80px;
+            top: -110px;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: var(--cp-green-soft);
+        }
+
+        .cp-hero-content {
+            position: relative;
+            z-index: 1;
+            min-width: 0;
+        }
+
+        .cp-eyebrow {
+            margin-bottom: 8px;
+            color: var(--cp-green);
+            font-size: 11px;
+            font-weight: 850;
+            letter-spacing: .11em;
+            text-transform: uppercase;
+        }
+
+        .cp-title {
+            margin: 0;
+            font-size: clamp(27px, 3vw, 40px);
+            letter-spacing: -.025em;
+            line-height: 1.1;
+        }
+
+        .cp-subtitle {
+            max-width: 680px;
+            margin: 11px 0 0;
+            color: var(--cp-muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .cp-company-status {
+            position: relative;
+            z-index: 1;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            flex: 0 0 auto;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--cp-green-soft);
+            color: var(--cp-green-dark);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .cp-company-status::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .cp-kpis {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(0, 1fr));
+            gap: 13px;
+            margin-top: 16px;
+        }
+
+        .cp-kpi {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--cp-border);
+            border-radius: 17px;
+            background: var(--cp-surface);
+        }
+
+        .cp-kpi-label {
+            color: var(--cp-muted);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+        }
+
+        .cp-kpi-number {
+            margin-top: 7px;
+            font-size: 28px;
+            font-weight: 850;
+        }
+
+        .cp-kpi-small {
+            margin-top: 5px;
+            color: var(--cp-muted);
+            font-size: 11px;
+        }
+
+        .cp-section {
+            scroll-margin-top: 20px;
+            margin-top: 26px;
+        }
+
+        .cp-section-head {
+            margin-bottom: 12px;
+        }
+
+        .cp-section-title {
+            margin: 0;
+            font-size: 19px;
+        }
+
+        .cp-section-text {
+            margin: 5px 0 0;
+            color: var(--cp-muted);
+            font-size: 12px;
+        }
+
+        .cp-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(3, minmax(0, 1fr));
+            gap: 13px;
+        }
+
+        .cp-card {
+            min-width: 0;
+            padding: 18px;
+            border: 1px solid var(--cp-border);
+            border-radius: 17px;
+            background: var(--cp-surface);
+        }
+
+        .cp-label {
+            display: block;
+            margin-bottom: 7px;
+            color: var(--cp-muted);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .cp-value {
+            display: block;
+            overflow-wrap: anywhere;
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.45;
+        }
+
+        .cp-license {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(0, 1fr));
+            gap: 1px;
+            overflow: hidden;
+            border: 1px solid var(--cp-border);
+            border-radius: 17px;
+            background: var(--cp-border);
+        }
+
+        .cp-license-item {
+            padding: 17px;
+            background: var(--cp-surface);
+        }
+
+        .cp-resource-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .cp-resource {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 16px 18px;
+            border: 1px solid var(--cp-border);
+            border-radius: 15px;
+            background: var(--cp-surface);
+        }
+
+        .cp-resource-name {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 800;
+        }
+
+        .cp-resource-meta {
+            margin: 5px 0 0;
+            color: var(--cp-muted);
+            font-size: 11px;
+        }
+
+        .cp-badge {
+            flex: 0 0 auto;
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: var(--cp-green-soft);
+            color: var(--cp-green-dark);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .cp-table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--cp-border);
+            border-radius: 17px;
+            background: var(--cp-surface);
+        }
+
+        .cp-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 650px;
+        }
+
+        .cp-table th,
+        .cp-table td {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--cp-border);
+            text-align: left;
+            font-size: 12px;
+        }
+
+        .cp-table th {
+            color: var(--cp-muted);
+            background: var(--cp-surface-2);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .cp-table tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .cp-empty {
+            padding: 24px;
+            border: 1px dashed var(--cp-border);
+            border-radius: 16px;
+            background: var(--cp-surface);
+            color: var(--cp-muted);
+            text-align: center;
+            font-size: 12px;
+        }
+
+        @media (max-width: 1050px) {
+            .cp-kpis {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+
+            .cp-grid {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+
+            .cp-license {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 760px) {
+            .cp-layout {
+                display: block;
+            }
+
+            .cp-sidebar {
+                position: static;
+                width: 100%;
+                height: auto;
+                padding: 13px;
+            }
+
+            .cp-brand {
+                padding-bottom: 12px;
+            }
+
+            .cp-nav {
+                display: flex;
+                overflow-x: auto;
+                padding-bottom: 4px;
+            }
+
+            .cp-nav a {
+                flex: 0 0 auto;
+                white-space: nowrap;
+            }
+
+            .cp-sidebar-bottom {
+                display: none;
+            }
+
+            .cp-main {
+                padding: 16px;
+            }
+
+            .cp-hero {
+                padding: 20px;
+                flex-direction: column;
+            }
+
+            .cp-company-status {
+                align-self: flex-start;
+            }
+        }
+
+        @media (max-width: 540px) {
+            .cp-kpis,
+            .cp-grid,
+            .cp-license {
+                grid-template-columns: 1fr;
+            }
+
+            .cp-resource {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+
+        /* ====================================================
+           TNL-CLIENTE-WHATSAPP-UI-V1
+           ==================================================== */
+
+        .cp-whatsapp-list {
+            display: grid;
+            gap: 14px;
+        }
+
+        .cp-whatsapp-card {
+            padding: 20px;
+            border: 1px solid var(--cp-border);
+            border-radius: 17px;
+            background: var(--cp-surface);
+        }
+
+        .cp-whatsapp-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .cp-whatsapp-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 850;
+        }
+
+        .cp-whatsapp-text {
+            margin: 7px 0 0;
+            color: var(--cp-muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .cp-whatsapp-status {
+            flex: 0 0 auto;
+            padding: 7px 11px;
+            border: 1px solid var(--cp-border);
+            border-radius: 999px;
+            background: var(--cp-surface-2);
+            color: var(--cp-muted);
+            font-size: 10px;
+            font-weight: 850;
+            white-space: nowrap;
+        }
+
+        .cp-whatsapp-status[data-state="connected"] {
+            border-color: transparent;
+            background: var(--cp-green-soft);
+            color: var(--cp-green-dark);
+        }
+
+        .cp-whatsapp-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .cp-whatsapp-button {
+            appearance: none;
+            min-height: 42px;
+            padding: 0 16px;
+            border: 0;
+            border-radius: 11px;
+            background: var(--cp-green-dark);
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .cp-whatsapp-button:disabled {
+            cursor: not-allowed;
+            opacity: .48;
+        }
+
+        .cp-whatsapp-qr-shell {
+            display: none;
+            margin-top: 18px;
+            padding: 18px;
+            border: 1px solid var(--cp-border);
+            border-radius: 16px;
+            background: var(--cp-surface-2);
+            text-align: center;
+        }
+
+        .cp-whatsapp-qr-shell.visible {
+            display: block;
+        }
+
+        .cp-whatsapp-qr {
+            display: block;
+            width: min(280px, 100%);
+            height: auto;
+            margin: 0 auto;
+            padding: 10px;
+            border-radius: 14px;
+            background: #fff;
+        }
+
+        .cp-whatsapp-qr-help {
+            max-width: 480px;
+            margin: 13px auto 0;
+            color: var(--cp-muted);
+            font-size: 11px;
+            line-height: 1.55;
+        }
+
+        .cp-whatsapp-message {
+            min-height: 18px;
+            margin: 12px 0 0;
+            color: var(--cp-muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .cp-address {
+            line-height: 1.55;
+        }
+
+        @media (max-width: 540px) {
+            .cp-whatsapp-head {
+                flex-direction: column;
+            }
+
+            .cp-whatsapp-status {
+                align-self: flex-start;
+            }
+
+            .cp-whatsapp-button {
+                width: 100%;
+            }
+        }
+
+
+        /* ====================================================
+           NEGOCIOLISTO-CLIENTE-RESPONSIVE-FINAL-V1
+           ==================================================== */
+
+        .cp-sidebar {
+            z-index: 700;
+            overflow-y: auto;
+            scrollbar-width: none;
+            transition:
+                width .22s ease,
+                transform .22s ease,
+                padding .22s ease;
+        }
+
+        .cp-sidebar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .cp-sidebar-collapse-toggle {
+            position: absolute;
+            top: 74px;
+            right: -14px;
+            width: 29px;
+            height: 29px;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            border: 1px solid rgba(255,255,255,.12);
+            border-radius: 50%;
+            background: var(--cp-sidebar);
+            color: rgba(255,255,255,.86);
+            box-shadow: 0 5px 16px rgba(0,0,0,.16);
+            cursor: pointer;
+            font-size: 21px;
+            line-height: 1;
+            z-index: 5;
+        }
+
+        .cp-sidebar-overlay,
+        .cp-mobile-menu-toggle {
+            display: none;
+        }
+
+        .cp-mobile-brand {
+            min-width: 0;
+        }
+
+        .cp-mobile-brand strong,
+        .cp-mobile-brand span {
+            display: block;
+        }
+
+        .cp-mobile-brand strong {
+            font-size: 14px;
+        }
+
+        .cp-mobile-brand span {
+            max-width: min(58vw, 320px);
+            margin-top: 2px;
+            overflow: hidden;
+            color: var(--cp-muted);
+            font-size: 11px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        body.cp-sidebar-collapsed .cp-layout {
+            grid-template-columns:
+                84px
+                minmax(0, 1fr);
+        }
+
+        body.cp-sidebar-collapsed .cp-sidebar {
+            padding-left: 11px;
+            padding-right: 11px;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-brand {
+            justify-content: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-brand > div:last-child {
+            display: none;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-nav a {
+            justify-content: center;
+            padding-left: 5px;
+            padding-right: 5px;
+            font-size: 0;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-nav a::before {
+            content: attr(data-short);
+            display: grid;
+            place-items: center;
+            min-width: 34px;
+            height: 34px;
+            font-size: 10px;
+            font-weight: 850;
+            letter-spacing: .02em;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-user {
+            display: none;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-logout {
+            padding-left: 4px;
+            padding-right: 4px;
+            font-size: 0;
+        }
+
+        body.cp-sidebar-collapsed
+        .cp-logout::before {
+            content: "Salir";
+            font-size: 10px;
+        }
+
+        @media (
+            min-width: 761px
+        ) and (
+            max-width: 1050px
+        ) {
+
+            .cp-layout {
+                grid-template-columns:
+                    88px
+                    minmax(0, 1fr);
+            }
+
+            .cp-sidebar {
+                padding-left: 11px;
+                padding-right: 11px;
+            }
+
+            .cp-sidebar-collapse-toggle {
+                display: none;
+            }
+
+            .cp-brand {
+                justify-content: center;
+                padding-left: 0;
+                padding-right: 0;
+            }
+
+            .cp-brand > div:last-child {
+                display: none;
+            }
+
+            .cp-nav a {
+                justify-content: center;
+                padding-left: 5px;
+                padding-right: 5px;
+                font-size: 0;
+            }
+
+            .cp-nav a::before {
+                content: attr(data-short);
+                display: grid;
+                place-items: center;
+                min-width: 34px;
+                height: 34px;
+                font-size: 10px;
+                font-weight: 850;
+            }
+
+            .cp-user {
+                display: none;
+            }
+
+            .cp-logout {
+                padding-left: 4px;
+                padding-right: 4px;
+                font-size: 0;
+            }
+
+            .cp-logout::before {
+                content: "Salir";
+                font-size: 10px;
+            }
+
+            .cp-main {
+                padding: 22px;
+            }
+        }
+
+        @media (max-width: 760px) {
+
+            .cp-layout {
+                display: block !important;
+            }
+
+            .cp-sidebar {
+                position: fixed !important;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: min(86vw, 320px) !important;
+                height: 100dvh !important;
+                padding: 18px 14px !important;
+                transform: translateX(-104%);
+                box-shadow:
+                    20px 0 60px rgba(0,0,0,.22);
+                z-index: 1002;
+            }
+
+            body.cp-mobile-nav-open
+            .cp-sidebar {
+                transform: translateX(0);
+            }
+
+            .cp-sidebar-collapse-toggle {
+                display: none;
+            }
+
+            .cp-brand {
+                justify-content: flex-start;
+                padding:
+                    4px
+                    8px
+                    18px !important;
+            }
+
+            .cp-brand > div:last-child {
+                display: block !important;
+            }
+
+            .cp-nav {
+                display: grid !important;
+                overflow: visible !important;
+                padding-bottom: 0 !important;
+            }
+
+            .cp-nav a {
+                width: 100%;
+                justify-content: flex-start !important;
+                padding: 0 13px !important;
+                font-size: 13px !important;
+                white-space: normal !important;
+            }
+
+            .cp-nav a::before {
+                display: none !important;
+            }
+
+            .cp-sidebar-bottom {
+                display: block !important;
+            }
+
+            .cp-user {
+                display: block !important;
+            }
+
+            .cp-logout {
+                font-size: 12px !important;
+            }
+
+            .cp-logout::before {
+                display: none !important;
+            }
+
+            .cp-main {
+                width: 100%;
+                min-width: 0;
+                padding: 16px !important;
+            }
+
+            .cp-mobile-head {
+                position: sticky;
+                top: 0;
+                z-index: 650;
+                display: flex !important;
+                align-items: center;
+                gap: 12px;
+                margin:
+                    -16px
+                    -16px
+                    16px;
+                padding:
+                    11px
+                    16px;
+                border-bottom:
+                    1px solid var(--cp-border);
+                background:
+                    rgba(245,247,248,.94);
+                backdrop-filter:
+                    blur(12px);
+            }
+
+            .cp-mobile-menu-toggle {
+                width: 42px;
+                height: 42px;
+                flex: 0 0 42px;
+                display: grid;
+                place-items: center;
+                padding: 0;
+                border:
+                    1px solid var(--cp-border);
+                border-radius: 11px;
+                background: var(--cp-surface);
+                color: var(--cp-text);
+                cursor: pointer;
+                font-size: 20px;
+            }
+
+            .cp-sidebar-overlay {
+                position: fixed;
+                inset: 0;
+                z-index: 1001;
+                display: block;
+                border: 0;
+                padding: 0;
+                background:
+                    rgba(3, 12, 8, .52);
+                opacity: 0;
+                pointer-events: none;
+                transition:
+                    opacity .2s ease;
+            }
+
+            body.cp-mobile-nav-open
+            .cp-sidebar-overlay {
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            body.cp-mobile-nav-open {
+                overflow: hidden;
+            }
+
+            .cp-hero {
+                min-width: 0;
+            }
+
+            .cp-title {
+                overflow-wrap: anywhere;
+            }
+
+            .cp-table-wrap,
+            .cp-table-wrapper {
+                max-width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
+        @media (max-width: 540px) {
+
+            .cp-main {
+                padding: 13px !important;
+            }
+
+            .cp-mobile-head {
+                margin:
+                    -13px
+                    -13px
+                    13px;
+                padding:
+                    10px
+                    13px;
+            }
+
+            .cp-hero {
+                padding: 17px !important;
+                border-radius: 17px;
+            }
+
+            .cp-title {
+                font-size:
+                    clamp(
+                        24px,
+                        9vw,
+                        32px
+                    );
+            }
+
+            .cp-whatsapp-card {
+                padding: 16px;
+            }
+        }
+
+
+        /* ====================================================
+           TNL-CLIENTE-MERCADOPAGO-UI-V1
+           ==================================================== */
+
+        .cp-message-list {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 18px;
+        }
+
+        .cp-message {
+            padding: 12px 14px;
+            border: 1px solid var(--cp-border);
+            border-radius: 12px;
+            background: var(--cp-surface);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .cp-message.success {
+            border-color: var(--cp-green);
+        }
+
+        .cp-message.warning {
+            border-color: var(--cp-warning);
+        }
+
+        .cp-message.error {
+            border-color: var(--cp-danger);
+        }
+
+        .cp-mp-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 20px;
+            border: 1px solid var(--cp-border);
+            border-radius: 17px;
+            background: var(--cp-surface);
+        }
+
+        .cp-mp-info {
+            min-width: 0;
+        }
+
+        .cp-mp-name {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 850;
+        }
+
+        .cp-mp-text {
+            margin: 6px 0 0;
+            color: var(--cp-muted);
+            font-size: 11px;
+            line-height: 1.55;
+        }
+
+        .cp-mp-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 11px;
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: var(--cp-surface-2);
+            color: var(--cp-muted);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .cp-mp-status.connected {
+            background: var(--cp-green-soft);
+            color: var(--cp-green-dark);
+        }
+
+        .cp-mp-status::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .cp-mp-actions {
+            flex: 0 0 auto;
+        }
+
+        .cp-mp-button {
+            min-height: 42px;
+            padding: 0 16px;
+            border: 0;
+            border-radius: 11px;
+            background: var(--cp-green);
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .cp-mp-button:hover {
+            filter: brightness(.96);
+        }
+
+        .cp-mp-button:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 640px) {
+            .cp-mp-card {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .cp-mp-actions,
+            .cp-mp-actions form,
+            .cp-mp-button {
+                width: 100%;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="cp-layout">
+
+    <aside class="cp-sidebar">
+
+        <!-- NEGOCIOLISTO-CLIENTE-RESPONSIVE-FINAL-V1 -->
+        <button
+            type="button"
+            class="cp-sidebar-collapse-toggle"
+            data-cp-sidebar-collapse
+            aria-label="Minimizar menú"
+            title="Minimizar menú"
+        >
+            ‹
+        </button>
+
+        <div class="cp-brand">
+
+            <div class="cp-brand-mark">
+                N
+            </div>
+
+            <div>
+                <strong>
+                    NegocioListo
+                </strong>
+
+                <span>
+                    Portal del cliente
+                </span>
+            </div>
+
+        </div>
+
+
+        <nav class="cp-nav">
+
+            <a
+                href="{% url 'core:cliente_panel' %}#inicio"
+                class="active"
+            >
+                Inicio
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#negocio">
+                Mi negocio
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#licencia">
+                Licencia
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#automatizacion">
+                Automatización
+            </a>
+
+            <!-- TNL-CLIENTE-AGENDA-NAV-V1 -->
+            <a
+                href="{% url 'core:cliente_agenda_configurar' %}"
+                data-short="AG"
+            >
+                Agenda
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#whatsapp">
+                WhatsApp
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#mercado-pago">
+                Pagos
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#catalogo">
+                Catálogo
+            </a>
+
+            <a href="{% url 'core:cliente_panel' %}#pedidos">
+                Pedidos
+            </a>
+
+        </nav>
+
+
+        <div class="cp-sidebar-bottom">
+
+            <div class="cp-user">
+                <strong>
+                    {{ request.user.get_username }}
+                </strong>
+
+                <span>
+                    {{ empresa.nombre }}
+                </span>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'core:logout' %}"
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="cp-logout"
+                >
+                    Cerrar sesión
+                </button>
+            </form>
+
+        </div>
+
+    </aside>
+
+    <button
+        type="button"
+        class="cp-sidebar-overlay"
+        data-cp-sidebar-overlay
+        aria-label="Cerrar menú"
+        tabindex="-1"
+    ></button>
+
+
+    <main class="cp-main">
+
+        <div class="cp-mobile-head">
+
+            <button
+                type="button"
+                class="cp-mobile-menu-toggle"
+                data-cp-mobile-nav-toggle
+                aria-label="Abrir menú"
+                aria-expanded="false"
+            >
+                <span aria-hidden="true">☰</span>
+            </button>
+
+            <div class="cp-mobile-brand">
+                <strong>NegocioListo</strong>
+                <span>{{ empresa.nombre }}</span>
+            </div>
+
+        </div>
+
+        
+
+        {% block cliente_content %}
+        {% endblock %}
+
+</main>
+
+</div>
+
+
+
+<!-- TNL-CLIENTE-SWEETALERT2-LOADER-V1 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+<!-- TNL-CLIENTE-TERMINOS-SWEETALERT-V1 -->
+<div
+    id="nl-client-terms-config"
+    data-status-url="{% url 'core:cliente_terminos_estado' %}"
+    data-accept-url="{% url 'core:cliente_terminos_aceptar' %}"
+    hidden
+></div>
+
+
+<script>
+(function () {
+    "use strict";
+
+
+    const config = document.getElementById(
+        "nl-client-terms-config"
+    );
+
+
+    if (!config) {
+        return;
+    }
+
+
+    const statusUrl =
+        config.dataset.statusUrl;
+
+    const acceptUrl =
+        config.dataset.acceptUrl;
+
+
+    let termsPromise = null;
+
+
+    function escapeHtml(value) {
+
+        return String(
+            value == null
+                ? ""
+                : value
+        )
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+    }
+
+
+    function getCookie(name) {
+
+        const cookies =
+            document.cookie
+            ? document.cookie.split(";")
+            : [];
+
+
+        for (const raw of cookies) {
+
+            const cookie =
+                raw.trim();
+
+
+            if (
+                cookie.startsWith(
+                    name + "="
+                )
+            ) {
+
+                return decodeURIComponent(
+                    cookie.substring(
+                        name.length + 1
+                    )
+                );
+            }
+        }
+
+
+        return "";
+    }
+
+
+    async function showError(
+        message
+    ) {
+
+        if (
+            window.Swal
+            &&
+            typeof window.Swal.fire
+            === "function"
+        ) {
+
+            await window.Swal.fire({
+                icon: "error",
+                title:
+                    "No fue posible continuar",
+                text:
+                    message
+                    ||
+                    "Inténtalo nuevamente.",
+                confirmButtonText:
+                    "Aceptar",
+            });
+
+            return;
+        }
+
+
+        window.alert(
+            message
+            ||
+            "No fue posible continuar."
+        );
+    }
+
+
+    async function consultarEstado() {
+
+        const response = await fetch(
+            statusUrl,
+            {
+                method: "GET",
+                credentials: "same-origin",
+                headers: {
+                    "Accept":
+                        "application/json",
+                },
+            }
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "terms_status_http_"
+                +
+                response.status
+            );
+        }
+
+
+        const payload =
+            await response.json();
+
+
+        if (!payload.ok) {
+
+            throw new Error(
+                "terms_status_not_ok"
+            );
+        }
+
+
+        return payload;
+    }
+
+
+    async function registrarAceptacion(
+        estado,
+        origen
+    ) {
+
+        const csrfToken =
+            getCookie(
+                "csrftoken"
+            );
+
+
+        if (!csrfToken) {
+
+            throw new Error(
+                "csrf_missing"
+            );
+        }
+
+
+        const response = await fetch(
+            acceptUrl,
+            {
+                method: "POST",
+                credentials:
+                    "same-origin",
+
+                headers: {
+                    "Accept":
+                        "application/json",
+
+                    "Content-Type":
+                        "application/json",
+
+                    "X-CSRFToken":
+                        csrfToken,
+                },
+
+                body: JSON.stringify({
+                    acepta:
+                        true,
+
+                    version:
+                        estado.version,
+
+                    origen:
+                        origen,
+                }),
+            }
+        );
+
+
+        let payload = {};
+
+
+        try {
+
+            payload =
+                await response.json();
+
+        } catch (error) {
+
+            payload = {};
+        }
+
+
+        if (
+            !response.ok
+            ||
+            !payload.ok
+        ) {
+
+            throw new Error(
+                payload.message
+                ||
+                "No fue posible registrar la aceptación."
+            );
+        }
+
+
+        return payload;
+    }
+
+
+    async function solicitarAceptacion(
+        estado,
+        origen
+    ) {
+
+        if (
+            !window.Swal
+            ||
+            typeof window.Swal.fire
+            !== "function"
+        ) {
+
+            await showError(
+                "No fue posible cargar la ventana de Términos y Condiciones."
+            );
+
+            return false;
+        }
+
+
+        if (!estado.contenido) {
+
+            await showError(
+                "No fue posible cargar los Términos y Condiciones."
+            );
+
+            return false;
+        }
+
+
+        const contenido =
+            escapeHtml(
+                estado.contenido
+            );
+
+
+        const html = `
+            <div style="text-align:left;">
+                <div
+                    style="
+                        max-height:55vh;
+                        overflow:auto;
+                        border:1px solid rgba(127,127,127,.35);
+                        border-radius:10px;
+                        padding:16px;
+                        background:rgba(127,127,127,.05);
+                        white-space:pre-wrap;
+                        line-height:1.45;
+                        font-size:13px;
+                    "
+                >${contenido}</div>
+
+                <label
+                    style="
+                        display:flex;
+                        gap:10px;
+                        align-items:flex-start;
+                        margin-top:18px;
+                        cursor:pointer;
+                        line-height:1.4;
+                    "
+                >
+                    <input
+                        id="nl-terms-accept-checkbox"
+                        type="checkbox"
+                        style="
+                            margin-top:3px;
+                            min-width:18px;
+                            min-height:18px;
+                        "
+                    >
+
+                    <span>
+                        He leído y acepto los
+                        <strong>
+                            Términos y Condiciones del Servicio
+                        </strong>.
+                    </span>
+                </label>
+            </div>
+        `;
+
+
+        const result =
+            await window.Swal.fire({
+
+                icon: "info",
+
+                title:
+                    "Términos y Condiciones",
+
+                html:
+                    html,
+
+                width:
+                    "min(920px, 96vw)",
+
+                showCancelButton:
+                    true,
+
+                confirmButtonText:
+                    "Aceptar y continuar",
+
+                cancelButtonText:
+                    "Cancelar",
+
+                allowOutsideClick:
+                    false,
+
+                allowEscapeKey:
+                    true,
+
+                focusConfirm:
+                    false,
+
+                preConfirm:
+                    function () {
+
+                        const popup =
+                            window.Swal
+                            .getPopup();
+
+
+                        const checkbox =
+                            popup
+                            ?
+                            popup.querySelector(
+                                "#nl-terms-accept-checkbox"
+                            )
+                            :
+                            null;
+
+
+                        if (
+                            !checkbox
+                            ||
+                            !checkbox.checked
+                        ) {
+
+                            window.Swal
+                            .showValidationMessage(
+                                "Debes marcar la casilla de aceptación para continuar."
+                            );
+
+                            return false;
+                        }
+
+
+                        return true;
+                    },
+            });
+
+
+        if (!result.isConfirmed) {
+
+            return false;
+        }
+
+
+        try {
+
+            await registrarAceptacion(
+                estado,
+                origen
+            );
+
+        } catch (error) {
+
+            await showError(
+                error.message
+            );
+
+            return false;
+        }
+
+
+        await window.Swal.fire({
+
+            icon: "success",
+
+            title:
+                "Términos aceptados",
+
+            text:
+                (
+                    "Tu aceptación quedó registrada. "
+                    +
+                    "Continuaremos con la vinculación."
+                ),
+
+            timer:
+                1300,
+
+            showConfirmButton:
+                false,
+        });
+
+
+        return true;
+    }
+
+
+    async function ensureTerms(
+        origen
+    ) {
+
+        /*
+         * Evita abrir dos ventanas simultáneas.
+         */
+        if (termsPromise) {
+            return termsPromise;
+        }
+
+
+        termsPromise = (
+            async function () {
+
+                try {
+
+                    const estado =
+                        await consultarEstado();
+
+
+                    if (
+                        estado.aceptados
+                    ) {
+
+                        return true;
+                    }
+
+
+                    return (
+                        await solicitarAceptacion(
+                            estado,
+                            origen
+                        )
+                    );
+
+
+                } catch (error) {
+
+                    await showError(
+                        (
+                            error.message
+                            ||
+                            "No fue posible validar los Términos y Condiciones."
+                        )
+                    );
+
+                    return false;
+
+
+                } finally {
+
+                    termsPromise = null;
+                }
+
+            }
+        )();
+
+
+        return termsPromise;
+    }
+
+
+    window.nlEnsureTerms =
+        ensureTerms;
+
+
+    /*
+     * Google Calendar y Mercado Pago.
+     *
+     * Tras aceptar usamos form.submit(), que
+     * no vuelve a disparar este listener.
+     */
+    document.addEventListener(
+        "submit",
+        async function (event) {
+
+            const form =
+                event.target.closest(
+                    "[data-client-integration-form]"
+                );
+
+
+            if (!form) {
+                return;
+            }
+
+
+            event.preventDefault();
+
+
+            const origen =
+                form.dataset.integrationOrigin
+                ||
+                "";
+
+
+            const permitido =
+                await ensureTerms(
+                    origen
+                );
+
+
+            if (!permitido) {
+                return;
+            }
+
+
+            form.submit();
+        }
+    );
+
+})();
+</script>
+
+
+<script>
+(function () {
+    "use strict";
+
+    const cards = document.querySelectorAll(
+        "[data-client-whatsapp-card]"
+    );
+
+    if (!cards.length) {
+        return;
+    }
+
+    const csrfInput = document.querySelector(
+        'input[name="csrfmiddlewaretoken"]'
+    );
+
+    const csrfToken = csrfInput
+        ? csrfInput.value
+        : "";
+
+
+    function stateText(payload) {
+
+        if (payload.connected) {
+
+            if (payload.channel_active) {
+                return {
+                    text: "Conectado",
+                    state: "connected",
+                };
+            }
+
+            return {
+                text: "Vinculado",
+                state: "connected",
+            };
+        }
+
+
+        if (payload.prepared) {
+            return {
+                text: "Listo para vincular",
+                state: "ready",
+            };
+        }
+
+
+        return {
+            text: "Pendiente de preparación",
+            state: "pending",
+        };
+    }
+
+
+    cards.forEach(function (card) {
+
+        const statusUrl = card.dataset.statusUrl;
+        const qrUrl = card.dataset.qrUrl;
+
+        const status = card.querySelector(
+            "[data-client-whatsapp-status]"
+        );
+
+        const button = card.querySelector(
+            "[data-client-whatsapp-qr-button]"
+        );
+
+        const shell = card.querySelector(
+            "[data-client-whatsapp-qr-shell]"
+        );
+
+        const image = card.querySelector(
+            "[data-client-whatsapp-qr-image]"
+        );
+
+        const message = card.querySelector(
+            "[data-client-whatsapp-message]"
+        );
+
+        let linkingTimer = null;
+        let qrRefreshTimer = null;
+        let linkingUntil = 0;
+
+
+        function stopLinkPolling() {
+
+            if (linkingTimer) {
+                window.clearInterval(
+                    linkingTimer
+                );
+
+                linkingTimer = null;
+            }
+
+
+            if (qrRefreshTimer) {
+                window.clearInterval(
+                    qrRefreshTimer
+                );
+
+                qrRefreshTimer = null;
+            }
+        }
+
+
+        function applyStatus(payload) {
+
+            const info = stateText(
+                payload
+            );
+
+            status.textContent = info.text;
+            status.dataset.state = info.state;
+
+
+            if (payload.connected) {
+
+                button.disabled = true;
+                button.textContent =
+                    "WhatsApp vinculado";
+
+                shell.classList.remove(
+                    "visible"
+                );
+
+                stopLinkPolling();
+
+                if (payload.channel_active) {
+                    message.textContent =
+                        "Tu WhatsApp está conectado.";
+                } else {
+                    message.textContent =
+                        "Tu dispositivo ya está vinculado. "
+                        + "La activación operativa será "
+                        + "completada por el administrador.";
+                }
+
+                return;
+            }
+
+
+            if (payload.prepared) {
+
+                button.disabled = false;
+
+                if (
+                    button.textContent.trim()
+                    === "WhatsApp vinculado"
+                ) {
+                    button.textContent =
+                        "Vincular WhatsApp";
+                }
+
+                message.textContent =
+                    "La conexión está preparada. "
+                    + "Puedes vincular tu dispositivo.";
+
+                return;
+            }
+
+
+            button.disabled = true;
+            button.textContent =
+                "Vincular WhatsApp";
+
+            shell.classList.remove(
+                "visible"
+            );
+
+            message.textContent =
+                "Tu administrador todavía debe "
+                + "preparar la conexión de WhatsApp.";
+        }
+
+
+        async function loadStatus() {
+
+            try {
+
+                const response = await fetch(
+                    statusUrl,
+                    {
+                        method: "GET",
+                        credentials: "same-origin",
+                        headers: {
+                            "Accept":
+                                "application/json",
+                        },
+                    }
+                );
+
+
+                if (!response.ok) {
+                    throw new Error(
+                        "status_http_"
+                        + response.status
+                    );
+                }
+
+
+                const payload =
+                    await response.json();
+
+
+                if (!payload.ok) {
+                    throw new Error(
+                        "status_not_ok"
+                    );
+                }
+
+
+                applyStatus(
+                    payload
+                );
+
+            } catch (error) {
+
+                status.textContent =
+                    "No disponible";
+
+                status.dataset.state =
+                    "error";
+
+                button.disabled = true;
+
+                message.textContent =
+                    "No fue posible consultar "
+                    + "el estado en este momento.";
+            }
+        }
+
+
+        async function refreshQrSilently() {
+
+            if (!csrfToken) {
+                return;
+            }
+
+
+            try {
+
+                const response = await fetch(
+                    qrUrl,
+                    {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: {
+                            "Accept":
+                                "application/json",
+
+                            "X-CSRFToken":
+                                csrfToken,
+                        },
+                    }
+                );
+
+
+                const payload =
+                    await response.json();
+
+
+                if (
+                    !response.ok
+                    ||
+                    !payload.ok
+                ) {
+                    return;
+                }
+
+
+                if (payload.connected) {
+
+                    stopLinkPolling();
+
+                    await loadStatus();
+
+                    return;
+                }
+
+
+                if (!payload.qr) {
+                    return;
+                }
+
+
+                image.src = payload.qr;
+
+                shell.classList.add(
+                    "visible"
+                );
+
+                button.disabled = false;
+                button.textContent =
+                    "Actualizar QR";
+
+                message.textContent =
+                    "Código QR actualizado. "
+                    + "Escanéalo desde tu teléfono.";
+
+            } catch (error) {
+
+                /*
+                 * Una renovación silenciosa fallida
+                 * no debe eliminar el QR ya visible.
+                 * El siguiente ciclo podrá reintentar.
+                 */
+            }
+        }
+
+
+        function startLinkPolling() {
+
+            stopLinkPolling();
+
+            linkingUntil =
+                Date.now()
+                + (90 * 1000);
+
+
+            linkingTimer =
+                window.setInterval(
+                    async function () {
+
+                        if (
+                            Date.now()
+                            > linkingUntil
+                        ) {
+                            stopLinkPolling();
+                            return;
+                        }
+
+                        await loadStatus();
+
+                    },
+                    3000
+                );
+
+
+            /*
+             * Evolution rota el QR mientras la
+             * instancia permanece en connecting.
+             *
+             * Renovamos antes de que el QR mostrado
+             * quede obsoleto, sin reiniciar el
+             * polling de estado.
+             */
+            qrRefreshTimer =
+                window.setInterval(
+                    async function () {
+
+                        if (
+                            Date.now()
+                            > linkingUntil
+                        ) {
+                            stopLinkPolling();
+                            return;
+                        }
+
+                        await refreshQrSilently();
+
+                    },
+                    30000
+                );
+        }
+
+
+        async function requestQr() {
+
+            if (
+                typeof window.nlEnsureTerms
+                === "function"
+            ) {
+
+                const permitido =
+                    await window.nlEnsureTerms(
+                        "whatsapp"
+                    );
+
+
+                if (!permitido) {
+
+                    message.textContent =
+                        "Debes aceptar los Términos y Condiciones para vincular WhatsApp.";
+
+                    return;
+                }
+            }
+
+
+            if (!csrfToken) {
+
+                message.textContent =
+                    "No fue posible validar "
+                    + "la sesión.";
+
+                return;
+            }
+
+
+            button.disabled = true;
+            button.textContent =
+                "Generando QR...";
+
+            message.textContent =
+                "Preparando código QR...";
+
+
+            try {
+
+                const response = await fetch(
+                    qrUrl,
+                    {
+                        method: "POST",
+                        credentials: "same-origin",
+                        headers: {
+                            "Accept":
+                                "application/json",
+
+                            "X-CSRFToken":
+                                csrfToken,
+                        },
+                    }
+                );
+
+
+                const payload =
+                    await response.json();
+
+
+                if (!response.ok || !payload.ok) {
+
+                    shell.classList.remove(
+                        "visible"
+                    );
+
+                    message.textContent =
+                        payload.message
+                        || (
+                            "No fue posible obtener "
+                            + "el QR."
+                        );
+
+                    await loadStatus();
+
+                    return;
+                }
+
+
+                if (payload.connected) {
+
+                    await loadStatus();
+                    return;
+                }
+
+
+                if (!payload.qr) {
+
+                    message.textContent =
+                        "No hay un QR disponible.";
+
+                    await loadStatus();
+
+                    return;
+                }
+
+
+                image.src = payload.qr;
+
+                shell.classList.add(
+                    "visible"
+                );
+
+                button.disabled = false;
+                button.textContent =
+                    "Actualizar QR";
+
+                message.textContent =
+                    "Escanea el código desde "
+                    + "tu teléfono.";
+
+                startLinkPolling();
+
+            } catch (error) {
+
+                shell.classList.remove(
+                    "visible"
+                );
+
+                message.textContent =
+                    "No fue posible obtener "
+                    + "el QR en este momento.";
+
+                await loadStatus();
+            }
+        }
+
+
+        button.addEventListener(
+            "click",
+            requestQr
+        );
+
+
+        loadStatus();
+
+
+        window.setInterval(
+            loadStatus,
+            30000
+        );
+
+    });
+
+})();
+</script>
+
+
+</body>
+</html>

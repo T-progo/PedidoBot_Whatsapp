@@ -1,0 +1,1570 @@
+from django.urls import reverse
+from django.http import JsonResponse
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
+
+from .forms import EmpresaForm, UsuarioCrearForm, UsuarioEditarForm, LicenciaForm, BotForm, CanalForm, PlantillaForm
+from .models import (
+    Bot,
+    Canal,
+    Empresa,
+    Licencia,
+    PerfilUsuario,
+    Plantilla,
+)
+
+
+@login_required
+def dashboard(request):
+
+    context = {
+        "total_empresas": Empresa.objects.count(),
+        "total_usuarios": PerfilUsuario.objects.count(),
+        "total_licencias": Licencia.objects.count(),
+        "total_bots": Bot.objects.count(),
+        "total_canales": Canal.objects.count(),
+    }
+
+    return render(
+        request,
+        "core/dashboard.html",
+        context,
+    )
+
+
+@login_required
+def empresa_lista(request):
+
+    empresas = Empresa.objects.all()
+
+    context = {
+        "empresas": empresas,
+    }
+
+    return render(
+        request,
+        "core/empresa_lista.html",
+        context,
+    )
+
+
+@login_required
+def empresa_crear(request):
+
+    if request.method == "POST":
+        form = EmpresaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+        form = EmpresaForm()
+
+    context = {
+        "form": form,
+        "titulo": "Nueva empresa",
+        "boton": "Guardar empresa",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+@login_required
+def empresa_editar(request, pk):
+
+    empresa = get_object_or_404(
+        Empresa,
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = EmpresaForm(
+            request.POST,
+            instance=empresa,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+
+        form = EmpresaForm(
+            instance=empresa,
+        )
+
+    context = {
+        "form": form,
+        "empresa": empresa,
+        "titulo": "Editar empresa",
+        "boton": "Guardar cambios",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+
+# =========================================================
+# USUARIOS
+# =========================================================
+
+@login_required
+def usuario_lista(request):
+
+    perfiles = (
+        PerfilUsuario.objects
+        .select_related("usuario", "empresa")
+        .order_by("usuario__username")
+    )
+
+    return render(
+        request,
+        "core/usuario_lista.html",
+        {
+            "perfiles": perfiles,
+        },
+    )
+
+
+@login_required
+@transaction.atomic
+def usuario_crear(request):
+
+    if request.method == "POST":
+
+        form = UsuarioCrearForm(request.POST)
+
+        if form.is_valid():
+
+            activo = form.cleaned_data["activo"]
+
+            usuario = get_user_model().objects.create_user(
+                username=form.cleaned_data["username"],
+                email=form.cleaned_data["email"],
+                password=form.cleaned_data["password1"],
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                is_active=activo,
+            )
+
+            PerfilUsuario.objects.create(
+                usuario=usuario,
+                empresa=form.cleaned_data["empresa"],
+                rol=form.cleaned_data["rol"],
+                activo=activo,
+            )
+
+            return redirect("core:usuario_lista")
+
+    else:
+
+        form = UsuarioCrearForm()
+
+    return render(
+        request,
+        "core/usuario_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo usuario",
+            "boton": "Guardar usuario",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+@transaction.atomic
+def usuario_editar(request, pk):
+
+    perfil = get_object_or_404(
+        PerfilUsuario.objects.select_related(
+            "usuario",
+            "empresa",
+        ),
+        pk=pk,
+    )
+
+    usuario = perfil.usuario
+
+    if request.method == "POST":
+
+        form = UsuarioEditarForm(
+            request.POST,
+        )
+
+        if form.is_valid():
+
+            usuario.first_name = form.cleaned_data["first_name"]
+            usuario.last_name = form.cleaned_data["last_name"]
+            usuario.email = form.cleaned_data["email"]
+            usuario.is_active = form.cleaned_data["activo"]
+
+            nueva_password = form.cleaned_data.get("password1")
+
+            if nueva_password:
+                usuario.set_password(nueva_password)
+
+            usuario.save()
+
+            perfil.empresa = form.cleaned_data["empresa"]
+            perfil.rol = form.cleaned_data["rol"]
+            perfil.activo = form.cleaned_data["activo"]
+            perfil.save()
+
+            return redirect("core:usuario_lista")
+
+    else:
+
+        form = UsuarioEditarForm(
+            initial={
+                "first_name": usuario.first_name,
+                "last_name": usuario.last_name,
+                "email": usuario.email,
+                "empresa": perfil.empresa,
+                "rol": perfil.rol,
+                "activo": perfil.activo,
+            }
+        )
+
+    return render(
+        request,
+        "core/usuario_form.html",
+        {
+            "form": form,
+            "perfil": perfil,
+            "usuario_obj": usuario,
+            "titulo": "Editar usuario",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# LICENCIAS
+# ============================================================
+
+@login_required
+def licencia_lista(request):
+
+    licencias = (
+        Licencia.objects
+        .select_related("empresa")
+        .all()
+        .order_by("empresa__nombre", "nombre")
+    )
+
+    return render(
+        request,
+        "core/licencia_lista.html",
+        {
+            "licencias": licencias,
+        },
+    )
+
+
+@login_required
+def licencia_crear(request):
+
+    if request.method == "POST":
+        form = LicenciaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:licencia_lista")
+
+    else:
+        form = LicenciaForm()
+
+    return render(
+        request,
+        "core/licencia_form.html",
+        {
+            "form": form,
+            "titulo": "Nueva licencia",
+            "boton": "Guardar licencia",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def licencia_editar(request, pk):
+
+    licencia = get_object_or_404(
+        Licencia.objects.select_related("empresa"),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = LicenciaForm(
+            request.POST,
+            instance=licencia,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:licencia_lista")
+
+    else:
+
+        form = LicenciaForm(
+            instance=licencia,
+        )
+
+    return render(
+        request,
+        "core/licencia_form.html",
+        {
+            "form": form,
+            "licencia": licencia,
+            "titulo": "Editar licencia",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# BOTS
+# ============================================================
+
+@login_required
+def bot_lista(request):
+
+    bots = (
+        Bot.objects
+        .select_related("empresa")
+        .all()
+        .order_by("empresa__nombre", "nombre")
+    )
+
+    return render(
+        request,
+        "core/bot_lista.html",
+        {
+            "bots": bots,
+        },
+    )
+
+
+@login_required
+def bot_crear(request):
+
+    if request.method == "POST":
+        form = BotForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:bot_lista")
+
+    else:
+        form = BotForm()
+
+    return render(
+        request,
+        "core/bot_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo bot",
+            "boton": "Guardar bot",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def bot_editar(request, pk):
+
+    bot = get_object_or_404(
+        Bot.objects.select_related("empresa"),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = BotForm(
+            request.POST,
+            instance=bot,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:bot_lista")
+
+    else:
+
+        form = BotForm(
+            instance=bot,
+        )
+
+    return render(
+        request,
+        "core/bot_form.html",
+        {
+            "form": form,
+            "bot": bot,
+            "titulo": "Editar bot",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# CANALES
+# ============================================================
+
+@login_required
+def canal_lista(request):
+
+    canales = (
+        Canal.objects
+        .select_related("bot", "bot__empresa")
+        .all()
+        .order_by(
+            "bot__empresa__nombre",
+            "bot__nombre",
+            "tipo",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/canal_lista.html",
+        {
+            "canales": canales,
+        },
+    )
+
+
+@login_required
+def canal_crear(request):
+
+    if request.method == "POST":
+        form = CanalForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:canal_lista")
+
+    else:
+        form = CanalForm()
+
+    return render(
+        request,
+        "core/canal_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo canal",
+            "boton": "Guardar canal",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def canal_editar(request, pk):
+
+    canal = get_object_or_404(
+        Canal.objects.select_related(
+            "bot",
+            "bot__empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = CanalForm(
+            request.POST,
+            instance=canal,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:canal_lista")
+
+    else:
+
+        form = CanalForm(
+            instance=canal,
+        )
+
+    return render(
+        request,
+        "core/canal_form.html",
+        {
+            "form": form,
+            "canal": canal,
+            "titulo": "Editar canal",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# PLANTILLAS
+# ============================================================
+
+@login_required
+def plantilla_lista(request):
+
+    plantillas = (
+        Plantilla.objects
+        .select_related("empresa")
+        .all()
+        .order_by(
+            "empresa__nombre",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/plantilla_lista.html",
+        {
+            "plantillas": plantillas,
+        },
+    )
+
+
+@login_required
+def plantilla_crear(request):
+
+    if request.method == "POST":
+
+        form = PlantillaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:plantilla_lista"
+            )
+
+    else:
+
+        form = PlantillaForm()
+
+    return render(
+        request,
+        "core/plantilla_form.html",
+        {
+            "form": form,
+            "titulo": "Nueva plantilla",
+            "boton": "Guardar plantilla",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def plantilla_editar(request, pk):
+
+    plantilla = get_object_or_404(
+        Plantilla.objects.select_related(
+            "empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = PlantillaForm(
+            request.POST,
+            instance=plantilla,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:plantilla_lista"
+            )
+
+    else:
+
+        form = PlantillaForm(
+            instance=plantilla,
+        )
+
+    return render(
+        request,
+        "core/plantilla_form.html",
+        {
+            "form": form,
+            "plantilla": plantilla,
+            "titulo": "Editar plantilla",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
+from .forms import VariableForm
+from .models import Variable
+
+
+@login_required
+def variable_lista(request):
+
+    variables = (
+        Variable.objects
+        .select_related(
+            "plantilla",
+            "plantilla__empresa",
+        )
+        .all()
+        .order_by(
+            "plantilla__empresa__nombre",
+            "plantilla__nombre",
+            "clave",
+        )
+    )
+
+    return render(
+        request,
+        "core/variable_lista.html",
+        {
+            "variables": variables,
+        },
+    )
+
+
+@login_required
+def variable_crear(request):
+
+    if request.method == "POST":
+
+        form = VariableForm(request.POST)
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:variable_lista"
+            )
+
+    else:
+
+        form = VariableForm()
+
+    return render(
+        request,
+        "core/variable_form.html",
+        {
+            "form": form,
+            "titulo": "Nueva variable",
+            "boton": "Guardar variable",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def variable_editar(request, pk):
+
+    variable = get_object_or_404(
+        Variable.objects.select_related(
+            "plantilla",
+            "plantilla__empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = VariableForm(
+            request.POST,
+            instance=variable,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:variable_lista"
+            )
+
+    else:
+
+        form = VariableForm(
+            instance=variable,
+        )
+
+    return render(
+        request,
+        "core/variable_form.html",
+        {
+            "form": form,
+            "variable": variable,
+            "titulo": "Editar variable",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# CATALOGOS
+# ============================================================
+
+from .forms import CatalogoForm
+from .models import Catalogo
+
+
+@login_required
+def catalogo_lista(request):
+
+    catalogos = (
+        Catalogo.objects
+        .select_related("empresa")
+        .all()
+        .order_by(
+            "empresa__nombre",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/catalogo_lista.html",
+        {
+            "catalogos": catalogos,
+        },
+    )
+
+
+@login_required
+def catalogo_crear(request):
+
+    if request.method == "POST":
+
+        form = CatalogoForm(
+            request.POST
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:catalogo_lista"
+            )
+
+    else:
+
+        form = CatalogoForm()
+
+    return render(
+        request,
+        "core/catalogo_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo catálogo",
+            "boton": "Guardar catálogo",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def catalogo_editar(request, pk):
+
+    catalogo = get_object_or_404(
+        Catalogo.objects.select_related(
+            "empresa"
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = CatalogoForm(
+            request.POST,
+            instance=catalogo,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:catalogo_lista"
+            )
+
+    else:
+
+        form = CatalogoForm(
+            instance=catalogo
+        )
+
+    return render(
+        request,
+        "core/catalogo_form.html",
+        {
+            "form": form,
+            "catalogo": catalogo,
+            "titulo": "Editar catálogo",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# PRODUCTOS
+# ============================================================
+
+from .forms import ProductoForm
+from .models import Producto
+
+
+@login_required
+def producto_lista(request):
+
+    productos = (
+        Producto.objects
+        .select_related(
+            "catalogo",
+            "catalogo__empresa",
+        )
+        .all()
+        .order_by(
+            "catalogo__empresa__nombre",
+            "catalogo__nombre",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/producto_lista.html",
+        {
+            "productos": productos,
+        },
+    )
+
+
+@login_required
+def producto_crear(request):
+
+    if request.method == "POST":
+
+        form = ProductoForm(
+            request.POST
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:producto_lista"
+            )
+
+    else:
+
+        form = ProductoForm()
+
+    return render(
+        request,
+        "core/producto_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo producto",
+            "boton": "Guardar producto",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def producto_editar(request, pk):
+
+    producto = get_object_or_404(
+        Producto.objects.select_related(
+            "catalogo",
+            "catalogo__empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = ProductoForm(
+            request.POST,
+            instance=producto,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:producto_lista"
+            )
+
+    else:
+
+        form = ProductoForm(
+            instance=producto
+        )
+
+    return render(
+        request,
+        "core/producto_form.html",
+        {
+            "form": form,
+            "producto": producto,
+            "titulo": "Editar producto",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# VISTAS PEDIDOS
+# ============================================================
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.shortcuts import (
+    get_object_or_404,
+    redirect,
+    render,
+)
+from django.views.decorators.http import require_POST
+
+from core.forms import (
+    PedidoCrearForm,
+    PedidoEditarForm,
+    PedidoDetalleAgregarForm,
+    PedidoDetalleEditarForm,
+)
+
+from core.models import (
+    Pedido,
+    PedidoDetalle,
+)
+
+from core.services.pedidos import (
+    crear_pedido,
+    actualizar_datos_pedido,
+    agregar_producto_a_pedido,
+    actualizar_detalle_pedido,
+    eliminar_detalle_pedido,
+    confirmar_pedido,
+)
+
+
+def _pedido_error_texto(exc):
+
+    if isinstance(
+        exc,
+        ValidationError,
+    ):
+
+        return " ".join(
+            exc.messages
+        )
+
+    return str(exc)
+
+
+@login_required
+def pedido_lista(request):
+
+    pedidos = (
+        Pedido.objects
+        .select_related(
+            "empresa",
+            "canal",
+            "canal__bot",
+        )
+        .order_by(
+            "-creado_en",
+            "-id",
+        )
+    )
+
+    return render(
+        request,
+        "core/pedido_lista.html",
+        {
+            "pedidos": pedidos,
+        },
+    )
+
+
+@login_required
+def pedido_crear(request):
+
+    if request.method == "POST":
+
+        form = PedidoCrearForm(
+            request.POST
+        )
+
+        if form.is_valid():
+
+            data = form.cleaned_data
+            canal = data.get("canal")
+
+            try:
+
+                pedido = crear_pedido(
+                    empresa_id=
+                        data["empresa"].id,
+                    canal_id=(
+                        canal.id
+                        if canal
+                        else None
+                    ),
+                    moneda=data["moneda"],
+                    cliente_nombre=
+                        data["cliente_nombre"],
+                    cliente_telefono=
+                        data["cliente_telefono"],
+                    cliente_email=
+                        data["cliente_email"],
+                    direccion_entrega=
+                        data["direccion_entrega"],
+                    notas=data["notas"],
+                    identificador_externo=
+                        data[
+                            "identificador_externo"
+                        ],
+                )
+
+            except ValidationError as exc:
+
+                form.add_error(
+                    None,
+                    _pedido_error_texto(
+                        exc
+                    ),
+                )
+
+            else:
+
+                messages.success(
+                    request,
+                    (
+                        f"Pedido {pedido.numero} "
+                        "creado correctamente."
+                    ),
+                )
+
+                return redirect(
+                    "core:pedido_detalle",
+                    pk=pedido.pk,
+                )
+
+    else:
+
+        form = PedidoCrearForm()
+
+    return render(
+        request,
+        "core/pedido_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo pedido",
+            "subtitulo":
+                "Registra un nuevo carrito para una empresa.",
+            "boton": "Crear pedido",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def pedido_detalle(request, pk):
+
+    pedido = get_object_or_404(
+        Pedido.objects
+        .select_related(
+            "empresa",
+            "canal",
+            "canal__bot",
+        ),
+        pk=pk,
+    )
+
+    detalles = (
+        PedidoDetalle.objects
+        .filter(
+            pedido_id=pedido.id
+        )
+        .select_related(
+            "producto",
+        )
+        .order_by("id")
+    )
+
+    return render(
+        request,
+        "core/pedido_detalle.html",
+        {
+            "pedido": pedido,
+            "detalles": detalles,
+            "editable":
+                pedido.estado == "carrito",
+        },
+    )
+
+
+@login_required
+def pedido_editar(request, pk):
+
+    pedido = get_object_or_404(
+        Pedido,
+        pk=pk,
+    )
+
+    if pedido.estado != "carrito":
+
+        messages.error(
+            request,
+            (
+                "Solo se puede editar un pedido "
+                "que esté en estado Carrito."
+            ),
+        )
+
+        return redirect(
+            "core:pedido_detalle",
+            pk=pedido.pk,
+        )
+
+    if request.method == "POST":
+
+        form = PedidoEditarForm(
+            request.POST,
+            instance=pedido,
+        )
+
+        if form.is_valid():
+
+            data = form.cleaned_data
+            canal = data.get("canal")
+
+            try:
+
+                actualizar_datos_pedido(
+                    pedido_id=pedido.id,
+                    canal_id=(
+                        canal.id
+                        if canal
+                        else None
+                    ),
+                    cliente_nombre=
+                        data["cliente_nombre"],
+                    cliente_telefono=
+                        data["cliente_telefono"],
+                    cliente_email=
+                        data["cliente_email"],
+                    direccion_entrega=
+                        data["direccion_entrega"],
+                    notas=data["notas"],
+                    identificador_externo=
+                        data[
+                            "identificador_externo"
+                        ],
+                )
+
+            except ValidationError as exc:
+
+                form.add_error(
+                    None,
+                    _pedido_error_texto(
+                        exc
+                    ),
+                )
+
+            else:
+
+                messages.success(
+                    request,
+                    (
+                        f"Pedido {pedido.numero} "
+                        "actualizado correctamente."
+                    ),
+                )
+
+                return redirect(
+                    "core:pedido_detalle",
+                    pk=pedido.pk,
+                )
+
+    else:
+
+        form = PedidoEditarForm(
+            instance=pedido
+        )
+
+    return render(
+        request,
+        "core/pedido_form.html",
+        {
+            "form": form,
+            "pedido": pedido,
+            "titulo":
+                f"Editar {pedido.numero}",
+            "subtitulo":
+                "Actualiza los datos generales del carrito.",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+@login_required
+def pedido_producto_agregar(
+    request,
+    pk,
+):
+
+    pedido = get_object_or_404(
+        Pedido,
+        pk=pk,
+    )
+
+    if pedido.estado != "carrito":
+
+        messages.error(
+            request,
+            (
+                "No se pueden agregar productos "
+                "a un pedido confirmado."
+            ),
+        )
+
+        return redirect(
+            "core:pedido_detalle",
+            pk=pedido.pk,
+        )
+
+    if request.method == "POST":
+
+        form = PedidoDetalleAgregarForm(
+            request.POST,
+            pedido=pedido,
+        )
+
+        if form.is_valid():
+
+            data = form.cleaned_data
+
+            try:
+
+                agregar_producto_a_pedido(
+                    pedido_id=pedido.id,
+                    producto_id=
+                        data["producto"].id,
+                    cantidad=
+                        data["cantidad"],
+                    descuento=
+                        data["descuento"],
+                )
+
+            except ValidationError as exc:
+
+                form.add_error(
+                    None,
+                    _pedido_error_texto(
+                        exc
+                    ),
+                )
+
+            else:
+
+                messages.success(
+                    request,
+                    "Producto agregado al pedido.",
+                )
+
+                return redirect(
+                    "core:pedido_detalle",
+                    pk=pedido.pk,
+                )
+
+    else:
+
+        form = PedidoDetalleAgregarForm(
+            pedido=pedido,
+        )
+
+    return render(
+        request,
+        "core/pedido_detalle_form.html",
+        {
+            "pedido": pedido,
+            "form": form,
+            "titulo": "Agregar producto",
+            "subtitulo":
+                f"Agrega una línea a {pedido.numero}.",
+            "boton": "Agregar producto",
+            "modo": "agregar",
+        },
+    )
+
+
+@login_required
+def pedido_producto_editar(
+    request,
+    detalle_id,
+):
+
+    detalle = get_object_or_404(
+        PedidoDetalle.objects
+        .select_related(
+            "pedido",
+        ),
+        pk=detalle_id,
+    )
+
+    pedido = detalle.pedido
+
+    if pedido.estado != "carrito":
+
+        messages.error(
+            request,
+            (
+                "No se pueden editar productos "
+                "de un pedido confirmado."
+            ),
+        )
+
+        return redirect(
+            "core:pedido_detalle",
+            pk=pedido.pk,
+        )
+
+    if request.method == "POST":
+
+        form = PedidoDetalleEditarForm(
+            request.POST
+        )
+
+        if form.is_valid():
+
+            data = form.cleaned_data
+
+            try:
+
+                actualizar_detalle_pedido(
+                    detalle_id=
+                        detalle.id,
+                    cantidad=
+                        data["cantidad"],
+                    descuento=
+                        data["descuento"],
+                )
+
+            except ValidationError as exc:
+
+                form.add_error(
+                    None,
+                    _pedido_error_texto(
+                        exc
+                    ),
+                )
+
+            else:
+
+                messages.success(
+                    request,
+                    "Línea actualizada correctamente.",
+                )
+
+                return redirect(
+                    "core:pedido_detalle",
+                    pk=pedido.pk,
+                )
+
+    else:
+
+        form = PedidoDetalleEditarForm(
+            initial={
+                "cantidad":
+                    detalle.cantidad,
+                "descuento":
+                    detalle.descuento,
+            }
+        )
+
+    return render(
+        request,
+        "core/pedido_detalle_form.html",
+        {
+            "pedido": pedido,
+            "detalle": detalle,
+            "form": form,
+            "titulo":
+                f"Editar {detalle.sku}",
+            "subtitulo":
+                "Modifica la cantidad o el descuento de la línea.",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+@login_required
+@require_POST
+def pedido_producto_eliminar(
+    request,
+    detalle_id,
+):
+
+    detalle = get_object_or_404(
+        PedidoDetalle.objects
+        .select_related(
+            "pedido",
+        ),
+        pk=detalle_id,
+    )
+
+    pedido_id = detalle.pedido_id
+
+    try:
+
+        eliminar_detalle_pedido(
+            detalle_id=detalle.id,
+        )
+
+    except ValidationError as exc:
+
+        messages.error(
+            request,
+            _pedido_error_texto(
+                exc
+            ),
+        )
+
+    else:
+
+        messages.success(
+            request,
+            "Producto eliminado del pedido.",
+        )
+
+    return redirect(
+        "core:pedido_detalle",
+        pk=pedido_id,
+    )
+
+
+@login_required
+@require_POST
+def pedido_confirmar(
+    request,
+    pk,
+):
+    pedido = get_object_or_404(
+        Pedido,
+        pk=pk,
+    )
+
+    es_ajax = (
+        request.headers.get(
+            "X-Requested-With"
+        )
+        == "XMLHttpRequest"
+    )
+
+    try:
+        pedido = confirmar_pedido(
+            pedido_id=pedido.id,
+        )
+
+    except ValidationError as exc:
+        mensaje = _pedido_error_texto(
+            exc
+        )
+
+        if es_ajax:
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "tipo": "validation_error",
+                    "pedido": pedido.numero,
+                    "message": mensaje,
+                },
+                status=409,
+            )
+
+        messages.error(
+            request,
+            mensaje,
+        )
+
+        return redirect(
+            "core:pedido_detalle",
+            pk=pedido.pk,
+        )
+
+    mensaje = (
+        f"Pedido {pedido.numero} "
+        "confirmado correctamente."
+    )
+
+    if es_ajax:
+        return JsonResponse(
+            {
+                "ok": True,
+                "pedido": pedido.numero,
+                "message": mensaje,
+                "redirect_url": reverse(
+                    "core:pedido_detalle",
+                    kwargs={
+                        "pk": pedido.pk,
+                    },
+                ),
+            },
+            status=200,
+        )
+
+    messages.success(
+        request,
+        mensaje,
+    )
+
+    return redirect(
+        "core:pedido_detalle",
+        pk=pedido.pk,
+    )
+
+

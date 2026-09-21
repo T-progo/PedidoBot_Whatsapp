@@ -1,0 +1,94 @@
+======================================================
+HITO 12 - SSL / HTTPS - VALIDACION FINAL
+Fecha: Mon Aug 10 16:46:00 CST 2026
+======================================================
+
+===== NGINX =====
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+Estado nginx: active
+Habilitado: enabled
+
+===== PUERTOS PUBLICOS =====
+LISTEN 0      511          0.0.0.0:443       0.0.0.0:*    users:(("nginx",pid=1543281,fd=12),("nginx",pid=1543280,fd=12),("nginx",pid=1543279,fd=12),("nginx",pid=1543278,fd=12),("nginx",pid=1516892,fd=12))
+LISTEN 0      511          0.0.0.0:80        0.0.0.0:*    users:(("nginx",pid=1543281,fd=5),("nginx",pid=1543280,fd=5),("nginx",pid=1543279,fd=5),("nginx",pid=1543278,fd=5),("nginx",pid=1516892,fd=5))     
+LISTEN 0      511             [::]:443          [::]:*    users:(("nginx",pid=1543281,fd=11),("nginx",pid=1543280,fd=11),("nginx",pid=1543279,fd=11),("nginx",pid=1543278,fd=11),("nginx",pid=1516892,fd=11))
+LISTEN 0      511             [::]:80           [::]:*    users:(("nginx",pid=1543281,fd=6),("nginx",pid=1543280,fd=6),("nginx",pid=1543279,fd=6),("nginx",pid=1543278,fd=6),("nginx",pid=1516892,fd=6))     
+
+===== HTTPS PUBLICO =====
+https://builder.negociolisto.com.mx                            307
+https://bot.negociolisto.com.mx                                200
+https://evolution.negociolisto.com.mx                          200
+https://n8n.negociolisto.com.mx/healthz                        200
+
+===== HTTP -> HTTPS =====
+http://builder.negociolisto.com.mx                             301 -> https://builder.negociolisto.com.mx/
+http://bot.negociolisto.com.mx                                 301 -> https://bot.negociolisto.com.mx/
+http://evolution.negociolisto.com.mx                           301 -> https://evolution.negociolisto.com.mx/
+http://n8n.negociolisto.com.mx/healthz                         301 -> https://n8n.negociolisto.com.mx/healthz
+
+===== CERTIFICADOS =====
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Found the following certs:
+  Certificate Name: bot.negociolisto.com.mx
+    Serial Number: 5684709e7f20d5f60b8011f03d634412598
+    Key Type: ECDSA
+    Identifiers: bot.negociolisto.com.mx
+    Expiry Date: 2026-11-08 20:58:49+00:00 (VALID: 89 days)
+    Certificate Path: /etc/letsencrypt/live/bot.negociolisto.com.mx/fullchain.pem
+    Private Key Path: /etc/letsencrypt/live/bot.negociolisto.com.mx/privkey.pem
+  Certificate Name: builder.negociolisto.com.mx
+    Serial Number: 5d5b8fec75b44fb93afdac67f0c1a2dcb42
+    Key Type: ECDSA
+    Identifiers: builder.negociolisto.com.mx
+    Expiry Date: 2026-11-08 20:53:43+00:00 (VALID: 89 days)
+    Certificate Path: /etc/letsencrypt/live/builder.negociolisto.com.mx/fullchain.pem
+    Private Key Path: /etc/letsencrypt/live/builder.negociolisto.com.mx/privkey.pem
+  Certificate Name: evolution.negociolisto.com.mx
+    Serial Number: 5ef9957c8fb7ce63576d8ab028e9170c44b
+    Key Type: ECDSA
+    Identifiers: evolution.negociolisto.com.mx
+    Expiry Date: 2026-11-08 21:02:43+00:00 (VALID: 89 days)
+    Certificate Path: /etc/letsencrypt/live/evolution.negociolisto.com.mx/fullchain.pem
+    Private Key Path: /etc/letsencrypt/live/evolution.negociolisto.com.mx/privkey.pem
+  Certificate Name: n8n.negociolisto.com.mx
+    Serial Number: 5d4dafbb8f87913686fad941bcbc28dc9b1
+    Key Type: ECDSA
+    Identifiers: n8n.negociolisto.com.mx
+    Expiry Date: 2026-11-08 21:08:15+00:00 (VALID: 89 days)
+    Certificate Path: /etc/letsencrypt/live/n8n.negociolisto.com.mx/fullchain.pem
+    Private Key Path: /etc/letsencrypt/live/n8n.negociolisto.com.mx/privkey.pem
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+===== RENOVACION AUTOMATICA =====
+Tue 2026-08-11 02:53:00 CST      10h -                                       - snap.certbot.renew.timer       snap.certbot.renew.service
+
+===== CONTENEDORES =====
+NAMES                 STATUS                PORTS
+tnl-n8n               Up 32 minutes         127.0.0.1:8083->5678/tcp
+tnl-uptime-kuma       Up 3 days (healthy)   127.0.0.1:8084->3001/tcp
+tnl-n8n-runners       Up 3 days             5680/tcp
+tnl-evolution         Up 3 days             127.0.0.1:8082->8080/tcp
+tnl-typebot-viewer    Up 2 hours            127.0.0.1:8081->3000/tcp
+tnl-typebot-builder   Up 3 days             127.0.0.1:8080->3000/tcp
+tnl-redis             Up 3 days (healthy)   6379/tcp
+tnl-postgresql        Up 3 days (healthy)   5432/tcp
+
+===== MONITOREO UPTIME KUMA =====
+Monitores internos:
+  PostgreSQL - NegocioListo
+  Redis - NegocioListo
+  Typebot Builder - NegocioListo
+  Typebot Viewer - NegocioListo
+  Evolution API - NegocioListo
+  n8n - NegocioListo
+
+Monitores publicos HTTPS:
+  Builder HTTPS
+  HTTPS Bot - NegocioListo
+  HTTPS Evolution - NegocioListo
+  HTTPS n8n - NegocioListo
+
+Total monitores: 10
+Estado final: FUNCIONALES

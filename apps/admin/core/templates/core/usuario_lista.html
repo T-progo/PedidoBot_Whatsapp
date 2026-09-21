@@ -1,0 +1,134 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Usuarios | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Usuarios
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">Administración</span>
+
+        <h2>Usuarios registrados</h2>
+
+        <p>
+            Gestiona los usuarios de la plataforma NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:usuario_crear' %}"
+        class="primary-link"
+    >
+        + Nuevo usuario
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if perfiles %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>USUARIO</th>
+                    <th>NOMBRE</th>
+                    <th>CORREO</th>
+                    <th>EMPRESA</th>
+                    <th>ROL</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for perfil in perfiles %}
+
+                    <tr>
+
+                        <td>
+                            <strong>{{ perfil.usuario.username }}</strong>
+                        </td>
+
+                        <td>
+                            {% if perfil.usuario.first_name or perfil.usuario.last_name %}
+                                {{ perfil.usuario.first_name }} {{ perfil.usuario.last_name }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ perfil.usuario.email|default:"—" }}
+                        </td>
+
+                        <td>
+                            {% if perfil.empresa %}
+                                {{ perfil.empresa.nombre }}
+                            {% else %}
+                                Administración central
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ perfil.get_rol_display }}
+                        </td>
+
+                        <td>
+                            {% if perfil.activo and perfil.usuario.is_active %}
+                                <span class="badge">Activo</span>
+                            {% else %}
+                                <span class="badge">Inactivo</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:usuario_editar' perfil.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>No hay usuarios registrados</h3>
+
+            <p>
+                Registra el primer usuario para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:usuario_crear' %}"
+                class="primary-link"
+            >
+                Crear usuario
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,159 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}NegocioListo{% endblock %}</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'core/css/app.css' %}"
+    >
+</head>
+
+<body>
+
+<div class="app-shell">
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-mark">N</div>
+
+            <div>
+                <strong>NegocioListo</strong>
+                <span>Administración</span>
+            </div>
+        </div>
+
+                <nav class="menu">
+
+            <a
+                class="menu-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                href="{% url 'core:dashboard' %}"
+            >
+                Inicio
+            </a>
+
+            <a
+                class="menu-item {% if request.resolver_match.url_name == 'empresa_lista' or request.resolver_match.url_name == 'empresa_crear' or request.resolver_match.url_name == 'empresa_editar' %}active{% endif %}"
+                href="{% url 'core:empresa_lista' %}"
+            >
+                Empresas
+            </a>
+
+            <a
+                    href="{% url 'core:usuario_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'usuario_lista' or request.resolver_match.url_name == 'usuario_crear' or request.resolver_match.url_name == 'usuario_editar' %} active{% endif %}"
+                >
+                    Usuarios
+                </a>
+
+            <a
+                    href="{% url 'core:licencia_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'licencia_lista' or request.resolver_match.url_name == 'licencia_crear' or request.resolver_match.url_name == 'licencia_editar' %} active{% endif %}"
+                >
+                    Licencias
+                </a>
+
+            <a
+                    href="{% url 'core:bot_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'bot_lista' or request.resolver_match.url_name == 'bot_crear' or request.resolver_match.url_name == 'bot_editar' %} active{% endif %}"
+                >
+                    Bots
+                </a>
+
+            <a
+                    href="{% url 'core:canal_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'canal_lista' or request.resolver_match.url_name == 'canal_crear' or request.resolver_match.url_name == 'canal_editar' %} active{% endif %}"
+                >
+                    Canales
+                </a>
+
+                <a
+                    href="{% url 'core:plantilla_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'plantilla_lista' or request.resolver_match.url_name == 'plantilla_crear' or request.resolver_match.url_name == 'plantilla_editar' %} active{% endif %}"
+                >
+                    Plantillas
+                </a>
+
+                <a
+                    href="{% url 'core:variable_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'variable_lista' or request.resolver_match.url_name == 'variable_crear' or request.resolver_match.url_name == 'variable_editar' %} active{% endif %}"
+                >
+                    Variables
+                </a>
+
+                <a
+                    href="{% url 'core:catalogo_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'catalogo_lista' or request.resolver_match.url_name == 'catalogo_crear' or request.resolver_match.url_name == 'catalogo_editar' %} active{% endif %}"
+                >
+                    Catálogos
+                </a>
+
+        </nav>
+
+        <div class="sidebar-footer">
+
+            <div class="user-info">
+                <span>Sesión</span>
+                <strong>{{ request.user.username }}</strong>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'core:logout' %}"
+            >
+                {% csrf_token %}
+
+                <button
+                    class="logout-button"
+                    type="submit"
+                >
+                    Cerrar sesión
+                </button>
+            </form>
+
+        </div>
+
+    </aside>
+
+
+    <main class="main-content">
+
+        <header class="topbar">
+
+            <div>
+                <span class="eyebrow">
+                    Plataforma
+                </span>
+
+                <h1>
+                    {% block page_title %}
+                    Administración
+                    {% endblock %}
+                </h1>
+            </div>
+
+            <div class="status-chip">
+                Plataforma operativa
+            </div>
+
+        </header>
+
+
+        <section class="content">
+
+            {% block content %}
+            {% endblock %}
+
+        </section>
+
+    </main>
+
+</div>
+
+</body>
+</html>

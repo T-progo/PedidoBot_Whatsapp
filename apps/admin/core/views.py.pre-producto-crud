@@ -1,0 +1,838 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
+
+from .forms import EmpresaForm, UsuarioCrearForm, UsuarioEditarForm, LicenciaForm, BotForm, CanalForm, PlantillaForm
+from .models import (
+    Bot,
+    Canal,
+    Empresa,
+    Licencia,
+    PerfilUsuario,
+    Plantilla,
+)
+
+
+@login_required
+def dashboard(request):
+
+    context = {
+        "total_empresas": Empresa.objects.count(),
+        "total_usuarios": PerfilUsuario.objects.count(),
+        "total_licencias": Licencia.objects.count(),
+        "total_bots": Bot.objects.count(),
+        "total_canales": Canal.objects.count(),
+    }
+
+    return render(
+        request,
+        "core/dashboard.html",
+        context,
+    )
+
+
+@login_required
+def empresa_lista(request):
+
+    empresas = Empresa.objects.all()
+
+    context = {
+        "empresas": empresas,
+    }
+
+    return render(
+        request,
+        "core/empresa_lista.html",
+        context,
+    )
+
+
+@login_required
+def empresa_crear(request):
+
+    if request.method == "POST":
+        form = EmpresaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+        form = EmpresaForm()
+
+    context = {
+        "form": form,
+        "titulo": "Nueva empresa",
+        "boton": "Guardar empresa",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+@login_required
+def empresa_editar(request, pk):
+
+    empresa = get_object_or_404(
+        Empresa,
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = EmpresaForm(
+            request.POST,
+            instance=empresa,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+
+        form = EmpresaForm(
+            instance=empresa,
+        )
+
+    context = {
+        "form": form,
+        "empresa": empresa,
+        "titulo": "Editar empresa",
+        "boton": "Guardar cambios",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+
+# =========================================================
+# USUARIOS
+# =========================================================
+
+@login_required
+def usuario_lista(request):
+
+    perfiles = (
+        PerfilUsuario.objects
+        .select_related("usuario", "empresa")
+        .order_by("usuario__username")
+    )
+
+    return render(
+        request,
+        "core/usuario_lista.html",
+        {
+            "perfiles": perfiles,
+        },
+    )
+
+
+@login_required
+@transaction.atomic
+def usuario_crear(request):
+
+    if request.method == "POST":
+
+        form = UsuarioCrearForm(request.POST)
+
+        if form.is_valid():
+
+            activo = form.cleaned_data["activo"]
+
+            usuario = get_user_model().objects.create_user(
+                username=form.cleaned_data["username"],
+                email=form.cleaned_data["email"],
+                password=form.cleaned_data["password1"],
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                is_active=activo,
+            )
+
+            PerfilUsuario.objects.create(
+                usuario=usuario,
+                empresa=form.cleaned_data["empresa"],
+                rol=form.cleaned_data["rol"],
+                activo=activo,
+            )
+
+            return redirect("core:usuario_lista")
+
+    else:
+
+        form = UsuarioCrearForm()
+
+    return render(
+        request,
+        "core/usuario_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo usuario",
+            "boton": "Guardar usuario",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+@transaction.atomic
+def usuario_editar(request, pk):
+
+    perfil = get_object_or_404(
+        PerfilUsuario.objects.select_related(
+            "usuario",
+            "empresa",
+        ),
+        pk=pk,
+    )
+
+    usuario = perfil.usuario
+
+    if request.method == "POST":
+
+        form = UsuarioEditarForm(
+            request.POST,
+        )
+
+        if form.is_valid():
+
+            usuario.first_name = form.cleaned_data["first_name"]
+            usuario.last_name = form.cleaned_data["last_name"]
+            usuario.email = form.cleaned_data["email"]
+            usuario.is_active = form.cleaned_data["activo"]
+
+            nueva_password = form.cleaned_data.get("password1")
+
+            if nueva_password:
+                usuario.set_password(nueva_password)
+
+            usuario.save()
+
+            perfil.empresa = form.cleaned_data["empresa"]
+            perfil.rol = form.cleaned_data["rol"]
+            perfil.activo = form.cleaned_data["activo"]
+            perfil.save()
+
+            return redirect("core:usuario_lista")
+
+    else:
+
+        form = UsuarioEditarForm(
+            initial={
+                "first_name": usuario.first_name,
+                "last_name": usuario.last_name,
+                "email": usuario.email,
+                "empresa": perfil.empresa,
+                "rol": perfil.rol,
+                "activo": perfil.activo,
+            }
+        )
+
+    return render(
+        request,
+        "core/usuario_form.html",
+        {
+            "form": form,
+            "perfil": perfil,
+            "usuario_obj": usuario,
+            "titulo": "Editar usuario",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# LICENCIAS
+# ============================================================
+
+@login_required
+def licencia_lista(request):
+
+    licencias = (
+        Licencia.objects
+        .select_related("empresa")
+        .all()
+        .order_by("empresa__nombre", "nombre")
+    )
+
+    return render(
+        request,
+        "core/licencia_lista.html",
+        {
+            "licencias": licencias,
+        },
+    )
+
+
+@login_required
+def licencia_crear(request):
+
+    if request.method == "POST":
+        form = LicenciaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:licencia_lista")
+
+    else:
+        form = LicenciaForm()
+
+    return render(
+        request,
+        "core/licencia_form.html",
+        {
+            "form": form,
+            "titulo": "Nueva licencia",
+            "boton": "Guardar licencia",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def licencia_editar(request, pk):
+
+    licencia = get_object_or_404(
+        Licencia.objects.select_related("empresa"),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = LicenciaForm(
+            request.POST,
+            instance=licencia,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:licencia_lista")
+
+    else:
+
+        form = LicenciaForm(
+            instance=licencia,
+        )
+
+    return render(
+        request,
+        "core/licencia_form.html",
+        {
+            "form": form,
+            "licencia": licencia,
+            "titulo": "Editar licencia",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# BOTS
+# ============================================================
+
+@login_required
+def bot_lista(request):
+
+    bots = (
+        Bot.objects
+        .select_related("empresa")
+        .all()
+        .order_by("empresa__nombre", "nombre")
+    )
+
+    return render(
+        request,
+        "core/bot_lista.html",
+        {
+            "bots": bots,
+        },
+    )
+
+
+@login_required
+def bot_crear(request):
+
+    if request.method == "POST":
+        form = BotForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:bot_lista")
+
+    else:
+        form = BotForm()
+
+    return render(
+        request,
+        "core/bot_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo bot",
+            "boton": "Guardar bot",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def bot_editar(request, pk):
+
+    bot = get_object_or_404(
+        Bot.objects.select_related("empresa"),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = BotForm(
+            request.POST,
+            instance=bot,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:bot_lista")
+
+    else:
+
+        form = BotForm(
+            instance=bot,
+        )
+
+    return render(
+        request,
+        "core/bot_form.html",
+        {
+            "form": form,
+            "bot": bot,
+            "titulo": "Editar bot",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# CANALES
+# ============================================================
+
+@login_required
+def canal_lista(request):
+
+    canales = (
+        Canal.objects
+        .select_related("bot", "bot__empresa")
+        .all()
+        .order_by(
+            "bot__empresa__nombre",
+            "bot__nombre",
+            "tipo",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/canal_lista.html",
+        {
+            "canales": canales,
+        },
+    )
+
+
+@login_required
+def canal_crear(request):
+
+    if request.method == "POST":
+        form = CanalForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:canal_lista")
+
+    else:
+        form = CanalForm()
+
+    return render(
+        request,
+        "core/canal_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo canal",
+            "boton": "Guardar canal",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def canal_editar(request, pk):
+
+    canal = get_object_or_404(
+        Canal.objects.select_related(
+            "bot",
+            "bot__empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = CanalForm(
+            request.POST,
+            instance=canal,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("core:canal_lista")
+
+    else:
+
+        form = CanalForm(
+            instance=canal,
+        )
+
+    return render(
+        request,
+        "core/canal_form.html",
+        {
+            "form": form,
+            "canal": canal,
+            "titulo": "Editar canal",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# PLANTILLAS
+# ============================================================
+
+@login_required
+def plantilla_lista(request):
+
+    plantillas = (
+        Plantilla.objects
+        .select_related("empresa")
+        .all()
+        .order_by(
+            "empresa__nombre",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/plantilla_lista.html",
+        {
+            "plantillas": plantillas,
+        },
+    )
+
+
+@login_required
+def plantilla_crear(request):
+
+    if request.method == "POST":
+
+        form = PlantillaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:plantilla_lista"
+            )
+
+    else:
+
+        form = PlantillaForm()
+
+    return render(
+        request,
+        "core/plantilla_form.html",
+        {
+            "form": form,
+            "titulo": "Nueva plantilla",
+            "boton": "Guardar plantilla",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def plantilla_editar(request, pk):
+
+    plantilla = get_object_or_404(
+        Plantilla.objects.select_related(
+            "empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = PlantillaForm(
+            request.POST,
+            instance=plantilla,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:plantilla_lista"
+            )
+
+    else:
+
+        form = PlantillaForm(
+            instance=plantilla,
+        )
+
+    return render(
+        request,
+        "core/plantilla_form.html",
+        {
+            "form": form,
+            "plantilla": plantilla,
+            "titulo": "Editar plantilla",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
+from .forms import VariableForm
+from .models import Variable
+
+
+@login_required
+def variable_lista(request):
+
+    variables = (
+        Variable.objects
+        .select_related(
+            "plantilla",
+            "plantilla__empresa",
+        )
+        .all()
+        .order_by(
+            "plantilla__empresa__nombre",
+            "plantilla__nombre",
+            "clave",
+        )
+    )
+
+    return render(
+        request,
+        "core/variable_lista.html",
+        {
+            "variables": variables,
+        },
+    )
+
+
+@login_required
+def variable_crear(request):
+
+    if request.method == "POST":
+
+        form = VariableForm(request.POST)
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:variable_lista"
+            )
+
+    else:
+
+        form = VariableForm()
+
+    return render(
+        request,
+        "core/variable_form.html",
+        {
+            "form": form,
+            "titulo": "Nueva variable",
+            "boton": "Guardar variable",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def variable_editar(request, pk):
+
+    variable = get_object_or_404(
+        Variable.objects.select_related(
+            "plantilla",
+            "plantilla__empresa",
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = VariableForm(
+            request.POST,
+            instance=variable,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:variable_lista"
+            )
+
+    else:
+
+        form = VariableForm(
+            instance=variable,
+        )
+
+    return render(
+        request,
+        "core/variable_form.html",
+        {
+            "form": form,
+            "variable": variable,
+            "titulo": "Editar variable",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )
+
+
+# ============================================================
+# CATALOGOS
+# ============================================================
+
+from .forms import CatalogoForm
+from .models import Catalogo
+
+
+@login_required
+def catalogo_lista(request):
+
+    catalogos = (
+        Catalogo.objects
+        .select_related("empresa")
+        .all()
+        .order_by(
+            "empresa__nombre",
+            "nombre",
+        )
+    )
+
+    return render(
+        request,
+        "core/catalogo_lista.html",
+        {
+            "catalogos": catalogos,
+        },
+    )
+
+
+@login_required
+def catalogo_crear(request):
+
+    if request.method == "POST":
+
+        form = CatalogoForm(
+            request.POST
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:catalogo_lista"
+            )
+
+    else:
+
+        form = CatalogoForm()
+
+    return render(
+        request,
+        "core/catalogo_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo catálogo",
+            "boton": "Guardar catálogo",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+def catalogo_editar(request, pk):
+
+    catalogo = get_object_or_404(
+        Catalogo.objects.select_related(
+            "empresa"
+        ),
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = CatalogoForm(
+            request.POST,
+            instance=catalogo,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            return redirect(
+                "core:catalogo_lista"
+            )
+
+    else:
+
+        form = CatalogoForm(
+            instance=catalogo
+        )
+
+    return render(
+        request,
+        "core/catalogo_form.html",
+        {
+            "form": form,
+            "catalogo": catalogo,
+            "titulo": "Editar catálogo",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )

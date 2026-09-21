@@ -1,0 +1,21 @@
+main.js extraido de la imagen que corre en produccion (no habia build context en el servidor).
+
+Imagen: ['tunegociolisto/evolution-api:v2.3.7-cards3-full-labels3-iafallback5']
+Creada: 2026-09-02T22:40:30.109604994Z
+Capa: 34 de 34
+sha256 main.js: e7c12e4e0fb11d9029afaa6c4ab58e822709c99787e2bddd47875a59302378f6
+
+Labels:
+  mx.negociolisto.base-runtime-sha=5e3961f9fdc4a748b8dd295c487cc6dcdf17ad86ae3f4b8b29de4f54408f34d8
+  mx.negociolisto.base-version=2.3.7
+  mx.negociolisto.component=evolution-api
+  mx.negociolisto.patch=ia-natural-continuation-v1
+  mx.negociolisto.runtime-sha=5e3961f9fdc4a748b8dd295c487cc6dcdf17ad86ae3f4b8b29de4f54408f34d8
+
+Ultimos pasos del build (docker history):
+  COPY --chmod=0644 main.js /evolution/dist/main.js # buildkit
+  COPY --chmod=0644 main.js /evolution/dist/main.js # buildkit
+  COPY main.js /evolution/dist/main.js # buildkit
+  RUN /bin/sh -c chmod 0644 /evolution/dist/main.js # buildkit
+  COPY main.js /evolution/dist/main.js # buildkit
+  RUN /bin/sh -c chown 0:0 /evolution/dist/main.js && chmod 644 /evolution/dist/main.js # buildkit

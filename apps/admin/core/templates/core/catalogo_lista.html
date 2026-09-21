@@ -1,0 +1,134 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Catálogos | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Catálogos
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Comercio
+        </span>
+
+        <h2>
+            Catálogos registrados
+        </h2>
+
+        <p>
+            Gestiona los catálogos comerciales asignados a las empresas de NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:catalogo_crear' %}"
+        class="primary-link"
+    >
+        + Nuevo catálogo
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if catalogos %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>EMPRESA</th>
+                    <th>CATÁLOGO</th>
+                    <th>MONEDA</th>
+                    <th>IDENTIFICADOR EXTERNO</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for catalogo in catalogos %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ catalogo.empresa.nombre }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ catalogo.nombre }}
+                        </td>
+
+                        <td>
+                            {{ catalogo.moneda }}
+                        </td>
+
+                        <td>
+                            {% if catalogo.identificador_externo %}
+                                {{ catalogo.identificador_externo }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if catalogo.activo %}
+                                Activo
+                            {% else %}
+                                Inactivo
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:catalogo_editar' catalogo.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>
+                No hay catálogos registrados
+            </h3>
+
+            <p>
+                Registra el primer catálogo para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:catalogo_crear' %}"
+                class="primary-link"
+            >
+                Crear catálogo
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

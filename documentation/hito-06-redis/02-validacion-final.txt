@@ -1,0 +1,46 @@
+==================================================
+HITO 06 - REDIS - VALIDACION FINAL
+Fecha: Fri Aug  7 01:56:54 CST 2026
+==================================================
+
+===== CONTENEDOR =====
+NAME        IMAGE                COMMAND                  SERVICE   CREATED         STATUS                   PORTS
+tnl-redis   redis:7.4-bookworm   "docker-entrypoint.s…"   redis     8 minutes ago   Up 8 minutes (healthy)   6379/tcp
+
+===== HEALTH =====
+running | health=healthy
+
+===== VERSION =====
+Redis server v=7.4.10 sha=00000000:0 malloc=jemalloc-5.3.0 bits=64 build=fd277fdbe309a270
+
+===== AUTENTICACION SIN PASSWORD =====
+NOAUTH Authentication required.
+
+
+===== AUTENTICACION CON PASSWORD =====
+PONG
+
+===== AOF =====
+appendonly
+yes
+appendfsync
+everysec
+
+===== ARCHIVOS PERSISTENTES =====
+  1579194      4 -rw-------   1 tnl      systemd-journal       89 Aug  7 01:39 /opt/tunegociolisto/infrastructure/volumes/redis/appendonlydir/appendonly.aof.1.base.rdb
+  1841557      4 -rw-------   1 tnl      systemd-journal       88 Aug  7 01:39 /opt/tunegociolisto/infrastructure/volumes/redis/appendonlydir/appendonly.aof.manifest
+  1841555      4 -rw-------   1 tnl      systemd-journal      163 Aug  7 01:53 /opt/tunegociolisto/infrastructure/volumes/redis/appendonlydir/appendonly.aof.1.incr.aof
+  1579195      4 -rw-------   1 tnl      systemd-journal      147 Aug  7 01:47 /opt/tunegociolisto/infrastructure/volumes/redis/dump.rdb
+
+===== EXPOSICION =====
+Redis NO expuesto en el host
+
+===== KERNEL =====
+vm.overcommit_memory = 1
+always madvise [never]
+
+===== CLAVE TEMPORAL =====
+0
+
+===== POSTGRESQL =====
+running | health=healthy

@@ -1,0 +1,196 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ titulo }} | NegocioListo{% endblock %}
+
+{% block content %}
+
+<style>
+    .line-form-shell {
+        max-width: 1250px;
+    }
+
+    .line-eyebrow {
+        color: var(--green);
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .line-title {
+        margin: 12px 0;
+        font-size: 34px;
+    }
+
+    .line-description {
+        margin-bottom: 34px;
+        font-size: 18px;
+    }
+
+    .line-reference {
+        margin-bottom: 28px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        background: var(--surface);
+    }
+
+    .line-form-grid {
+        display: grid;
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        gap: 26px;
+    }
+
+    .line-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 17px;
+    }
+
+    .line-field input,
+    .line-field select {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 15px 17px;
+        border: 1px solid var(--border);
+        border-radius: 15px;
+        background: var(--input-bg);
+        color: var(--text);
+        font: inherit;
+    }
+
+    .line-error,
+    .line-errors {
+        margin-top: 8px;
+        color: var(--danger);
+    }
+
+    .line-errors {
+        margin-bottom: 24px;
+    }
+
+    .line-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 16px;
+        margin-top: 34px;
+        padding-top: 28px;
+        border-top: 1px solid var(--border);
+    }
+
+    .line-secondary,
+    .line-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 54px;
+        padding: 0 24px;
+        border-radius: 15px;
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .line-secondary {
+        border: 1px solid var(--border);
+        color: var(--text);
+    }
+
+    .line-primary {
+        border: 0;
+        background: var(--green);
+        color: var(--accent-contrast);
+        cursor: pointer;
+    }
+
+    @media (max-width: 760px) {
+        .line-form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="line-form-shell">
+
+    <div class="line-eyebrow">
+        Productos del pedido
+    </div>
+
+    <h2 class="line-title">
+        {{ titulo }}
+    </h2>
+
+    <p class="line-description">
+        {{ subtitulo }}
+    </p>
+
+    {% if detalle %}
+
+        <div class="line-reference">
+            <strong>{{ detalle.sku }}</strong>
+            &nbsp;·&nbsp;
+            {{ detalle.nombre_producto }}
+            &nbsp;·&nbsp;
+            Precio snapshot:
+            {{ detalle.precio_unitario }} {{ pedido.moneda }}
+        </div>
+
+    {% endif %}
+
+    <form method="post" novalidate>
+
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="line-errors">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="line-form-grid">
+
+            {% for field in form %}
+
+                <div class="line-field">
+
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.errors %}
+                        <div class="line-error">
+                            {{ field.errors|striptags }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+        <div class="line-actions">
+
+            <a
+                href="{% url 'core:pedido_detalle' pedido.pk %}"
+                class="line-secondary"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="line-primary"
+            >
+                {{ boton }}
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

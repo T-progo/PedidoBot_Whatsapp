@@ -1,0 +1,28 @@
+==================================================
+HITO 01 - FAIL2BAN
+Fecha: Thu Aug  6 18:17:23 CST 2026
+==================================================
+
+===== SERVICIO =====
+active
+enabled
+
+===== CONFIGURACION =====
+[sshd]
+enabled = true
+backend = systemd
+port = 22
+maxretry = 5
+findtime = 10m
+bantime = 1h
+
+===== JAIL SSH =====
+Status for the jail: sshd
+|- Filter
+|  |- Currently failed:	0
+|  |- Total failed:	0
+|  `- Journal matches:	_SYSTEMD_UNIT=sshd.service + _COMM=sshd
+`- Actions
+   |- Currently banned:	0
+   |- Total banned:	0
+   `- Banned IP list:	

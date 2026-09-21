@@ -1,0 +1,759 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Clientes | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Clientes
+{% endblock %}
+
+{% block content %}
+
+<style>
+    .clients-shell {
+        width: 100%;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    .clients-hero {
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 28px;
+        padding: 28px;
+        margin-bottom: 22px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background:
+            linear-gradient(
+                135deg,
+                var(--surface) 0%,
+                var(--surface-2) 100%
+            );
+    }
+
+    .clients-hero::after {
+        content: "";
+        position: absolute;
+        width: 230px;
+        height: 230px;
+        right: -80px;
+        top: -100px;
+        border-radius: 50%;
+        background: var(--green-soft);
+        pointer-events: none;
+    }
+
+    .clients-hero-copy {
+        position: relative;
+        z-index: 1;
+        min-width: 0;
+    }
+
+    .clients-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        color: var(--green);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .11em;
+        text-transform: uppercase;
+    }
+
+    .clients-eyebrow-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--green);
+        box-shadow: 0 0 0 5px var(--green-soft);
+    }
+
+    .clients-title {
+        margin: 0;
+        font-size: clamp(27px, 3vw, 40px);
+        line-height: 1.1;
+        letter-spacing: -.025em;
+    }
+
+    .clients-description {
+        max-width: 720px;
+        margin: 11px 0 0;
+        opacity: .70;
+        font-size: 15px;
+        line-height: 1.6;
+    }
+
+    .clients-hero-actions {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .clients-new-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 9px;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 1px solid var(--green);
+        border-radius: 13px;
+        background: var(--green);
+        color: var(--accent-contrast);
+        text-decoration: none;
+        font-weight: 800;
+        white-space: nowrap;
+        transition:
+            transform .16s ease,
+            box-shadow .16s ease;
+    }
+
+    .clients-new-button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, .10);
+    }
+
+    .clients-new-icon {
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    .clients-summary {
+        display: grid;
+        grid-template-columns:
+            minmax(220px, 320px)
+            minmax(0, 1fr);
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+
+    .clients-summary-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-height: 92px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface);
+    }
+
+    .clients-summary-icon {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        border-radius: 15px;
+        background: var(--green-soft);
+        color: var(--green);
+        font-size: 22px;
+        font-weight: 800;
+    }
+
+    .clients-summary-label {
+        margin: 0 0 3px;
+        color: var(--label);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    .clients-summary-number {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 850;
+        line-height: 1;
+    }
+
+    .clients-summary-text {
+        margin: 5px 0 0;
+        opacity: .65;
+        font-size: 13px;
+    }
+
+    .clients-info-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface);
+    }
+
+    .clients-info-mark {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+        border-radius: 12px;
+        background: var(--surface-2);
+        color: var(--green);
+        font-weight: 900;
+    }
+
+    .clients-info-title {
+        margin: 0 0 3px;
+        font-weight: 800;
+    }
+
+    .clients-info-text {
+        margin: 0;
+        opacity: .65;
+        font-size: 13px;
+        line-height: 1.45;
+    }
+
+    .clients-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin: 0 0 14px;
+    }
+
+    .clients-section-title {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 800;
+    }
+
+    .clients-section-caption {
+        margin: 4px 0 0;
+        opacity: .62;
+        font-size: 13px;
+    }
+
+    .clients-grid {
+        display: grid;
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+        gap: 15px;
+    }
+
+    .client-card {
+        position: relative;
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+        transition:
+            transform .16s ease,
+            border-color .16s ease,
+            box-shadow .16s ease;
+    }
+
+    .client-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--green-border);
+        box-shadow: 0 12px 34px rgba(0, 0, 0, .07);
+    }
+
+    .client-card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 20px 20px 17px;
+    }
+
+    .client-identity {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        gap: 14px;
+    }
+
+    .client-avatar {
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        flex: 0 0 52px;
+        border-radius: 15px;
+        background: var(--green-soft);
+        color: var(--green);
+        font-size: 20px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .client-name-wrap {
+        min-width: 0;
+    }
+
+    .client-name {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-size: 18px;
+        font-weight: 850;
+        line-height: 1.25;
+    }
+
+    .client-company-name {
+        margin: 5px 0 0;
+        overflow-wrap: anywhere;
+        opacity: .60;
+        font-size: 12px;
+        line-height: 1.35;
+    }
+
+    .client-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        flex: 0 0 auto;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        font-size: 11px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .client-status::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+    }
+
+    .client-status.activa,
+    .client-status.activo {
+        color: var(--green);
+        background: var(--green-soft);
+    }
+
+    .client-status.pendiente {
+        color: var(--warning);
+        background: var(--warning-soft);
+    }
+
+    .client-status.inactiva,
+    .client-status.suspendida,
+    .client-status.cancelada {
+        color: var(--danger);
+        background: var(--danger-soft);
+    }
+
+    .client-details {
+        display: grid;
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+        gap: 1px;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background: var(--border);
+    }
+
+    .client-detail {
+        min-width: 0;
+        padding: 14px 17px;
+        background: var(--surface-2);
+    }
+
+    .client-detail-label {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--label);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+    }
+
+    .client-detail-value {
+        display: block;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.4;
+    }
+
+    .client-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 9px;
+        padding: 14px 17px;
+    }
+
+    .client-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 0 14px;
+        border: 1px solid var(--border);
+        border-radius: 11px;
+        color: inherit;
+        background: var(--surface-2);
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 800;
+        transition: border-color .15s ease;
+    }
+
+    .client-action:hover {
+        border-color: var(--green-border);
+    }
+
+    .client-action.primary {
+        border-color: var(--green);
+        background: var(--green);
+        color: var(--accent-contrast);
+    }
+
+    .clients-empty {
+        padding: 70px 24px;
+        border: 1px dashed var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+        text-align: center;
+    }
+
+    .clients-empty-icon {
+        display: grid;
+        place-items: center;
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 16px;
+        border-radius: 18px;
+        background: var(--green-soft);
+        color: var(--green);
+        font-size: 28px;
+        font-weight: 900;
+    }
+
+    .clients-empty h3 {
+        margin: 0;
+        font-size: 20px;
+    }
+
+    .clients-empty p {
+        margin: 8px 0 20px;
+        opacity: .65;
+    }
+
+    @media (max-width: 1100px) {
+        .clients-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .clients-hero {
+            flex-direction: column;
+            padding: 22px;
+        }
+
+        .clients-hero-actions {
+            width: 100%;
+        }
+
+        .clients-new-button {
+            width: 100%;
+        }
+
+        .clients-summary {
+            grid-template-columns: 1fr;
+        }
+
+        .clients-section-head {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+
+    @media (max-width: 520px) {
+        .clients-hero {
+            border-radius: 17px;
+            padding: 18px;
+        }
+
+        .client-card-top {
+            flex-direction: column;
+        }
+
+        .client-status {
+            margin-left: 66px;
+            margin-top: -8px;
+        }
+
+        .client-details {
+            grid-template-columns: 1fr;
+        }
+
+        .client-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .client-action {
+            width: 100%;
+        }
+    }
+</style>
+
+
+<div class="clients-shell">
+
+    <section class="clients-hero">
+
+        <div class="clients-hero-copy">
+
+            <div class="clients-eyebrow">
+                <span class="clients-eyebrow-dot"></span>
+                Control de clientes
+            </div>
+
+            <h2 class="clients-title">
+                Clientes registrados
+            </h2>
+
+            <p class="clients-description">
+                Administra desde un solo lugar la información,
+                configuración y operación de cada cliente de NegocioListo.
+            </p>
+
+        </div>
+
+        <div class="clients-hero-actions">
+
+            <a
+                href="{% url 'core:empresa_crear' %}"
+                class="clients-new-button"
+            >
+                <span class="clients-new-icon">+</span>
+                Nuevo cliente
+            </a>
+
+        </div>
+
+    </section>
+
+
+    <div class="clients-summary">
+
+        <div class="clients-summary-card">
+
+            <div class="clients-summary-icon">
+                C
+            </div>
+
+            <div>
+                <p class="clients-summary-label">
+                    Clientes
+                </p>
+
+                <p class="clients-summary-number">
+                    {{ empresas|length }}
+                </p>
+
+                <p class="clients-summary-text">
+                    Registrados en la plataforma
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="clients-info-card">
+
+            <div class="clients-info-mark">
+                ✓
+            </div>
+
+            <div>
+                <p class="clients-info-title">
+                    Administración centralizada
+                </p>
+
+                <p class="clients-info-text">
+                    Desde cada cliente puedes consultar su información,
+                    licenciamiento, instalaciones, bots y canales asociados.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="clients-section-head">
+
+        <div>
+            <h3 class="clients-section-title">
+                Directorio de clientes
+            </h3>
+
+            <p class="clients-section-caption">
+                Selecciona un cliente para consultar su operación.
+            </p>
+        </div>
+
+    </div>
+
+
+    {% if empresas %}
+
+    <div class="clients-grid">
+
+        {% for empresa in empresas %}
+
+        <article class="client-card">
+
+            <div class="client-card-top">
+
+                <div class="client-identity">
+
+                    <div class="client-avatar">
+                        {{ empresa.nombre|slice:":1" }}
+                    </div>
+
+                    <div class="client-name-wrap">
+
+                        <h3 class="client-name">
+                            {{ empresa.nombre }}
+                        </h3>
+
+                        {% if empresa.razon_social %}
+                        <p class="client-company-name">
+                            {{ empresa.razon_social }}
+                        </p>
+                        {% else %}
+                        <p class="client-company-name">
+                            Cliente NegocioListo
+                        </p>
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+
+                <span class="client-status {{ empresa.estado }}">
+                    {{ empresa.get_estado_display }}
+                </span>
+
+            </div>
+
+
+            <div class="client-details">
+
+                <div class="client-detail">
+                    <span class="client-detail-label">
+                        RFC
+                    </span>
+
+                    <span class="client-detail-value">
+                        {{ empresa.rfc|default:"—" }}
+                    </span>
+                </div>
+
+
+                <div class="client-detail">
+                    <span class="client-detail-label">
+                        Teléfono
+                    </span>
+
+                    <span class="client-detail-value">
+                        {{ empresa.telefono|default:"—" }}
+                    </span>
+                </div>
+
+
+                <div class="client-detail">
+                    <span class="client-detail-label">
+                        Correo electrónico
+                    </span>
+
+                    <span class="client-detail-value">
+                        {{ empresa.email|default:"—" }}
+                    </span>
+                </div>
+
+
+                <div class="client-detail">
+                    <span class="client-detail-label">
+                        Operación
+                    </span>
+
+                    <span class="client-detail-value">
+                        Gestión centralizada
+                    </span>
+                </div>
+
+            </div>
+
+
+            <div class="client-actions">
+
+                <a
+                    href="{% url 'core:empresa_editar' empresa.pk %}"
+                    class="client-action"
+                >
+                    Editar
+                </a>
+
+                <a
+                    href="{% url 'core:empresa_detalle' empresa.pk %}"
+                    class="client-action primary"
+                >
+                    Ver cliente →
+                </a>
+
+            </div>
+
+        </article>
+
+        {% endfor %}
+
+    </div>
+
+    {% else %}
+
+    <div class="clients-empty">
+
+        <div class="clients-empty-icon">
+            +
+        </div>
+
+        <h3>
+            Aún no hay clientes registrados
+        </h3>
+
+        <p>
+            Crea el primer cliente para comenzar a operar
+            NegocioListo.
+        </p>
+
+        <a
+            href="{% url 'core:empresa_crear' %}"
+            class="clients-new-button"
+        >
+            + Crear cliente
+        </a>
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

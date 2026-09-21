@@ -1,0 +1,49 @@
+==================================================
+HITO 10 - UPTIME KUMA - VALIDACION FINAL
+Fecha: Mon Aug 10 14:55:07 CST 2026
+==================================================
+
+===== UPTIME KUMA =====
+NAME              IMAGE                        COMMAND                  SERVICE       CREATED      STATUS                PORTS
+tnl-uptime-kuma   louislam/uptime-kuma:2.3.2   "/usr/bin/dumb-init …"   uptime-kuma   2 days ago   Up 2 days (healthy)   127.0.0.1:8084->3001/tcp
+
+===== ESTADO KUMA =====
+Status=running | ExitCode=0 | Restarting=false | Health=healthy
+
+===== HTTP KUMA =====
+HTTP Uptime Kuma: 302
+
+===== PUERTO KUMA =====
+LISTEN 0      4096       127.0.0.1:8084      0.0.0.0:*    users:(("docker-proxy",pid=312652,fd=8))               
+
+===== TYPEBOT VIEWER RECUPERADO =====
+Status=running | ExitCode=0 | Restarting=false
+
+===== SERVICIOS TUNEGOCIOLISTO =====
+NAMES                 STATUS                PORTS
+tnl-uptime-kuma       Up 2 days (healthy)   127.0.0.1:8084->3001/tcp
+tnl-n8n-runners       Up 2 days             5680/tcp
+tnl-n8n               Up 2 days             127.0.0.1:8083->5678/tcp
+tnl-evolution         Up 3 days             127.0.0.1:8082->8080/tcp
+tnl-typebot-viewer    Up 5 minutes          127.0.0.1:8081->3000/tcp
+tnl-typebot-builder   Up 3 days             127.0.0.1:8080->3000/tcp
+tnl-redis             Up 3 days (healthy)   6379/tcp
+tnl-postgresql        Up 3 days (healthy)   5432/tcp
+
+===== VOLUMEN KUMA =====
+2.2M	/opt/tunegociolisto/infrastructure/volumes/uptime-kuma
+
+===== MONITORES CONFIGURADOS =====
+PostgreSQL - NegocioListo
+Redis - NegocioListo
+Typebot Builder - NegocioListo
+Typebot Viewer - NegocioListo
+Evolution API - NegocioListo
+n8n - NegocioListo
+
+===== PRUEBA CONTROLADA =====
+Typebot Viewer detenido manualmente.
+Uptime Kuma detecto indisponibilidad.
+Typebot Viewer iniciado nuevamente.
+Uptime Kuma detecto recuperacion.
+Sin afectacion de PostgreSQL, Redis, Builder, Evolution o n8n.

@@ -1,0 +1,70 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+
+{% include "core/_plantillas_maestras_styles.html" %}
+
+<div class="pm-shell pm-form">
+
+    <div class="pm-heading">
+
+        <div>
+
+            <p class="pm-eyebrow">
+                {{ plantilla.nombre }}
+                v{{ plantilla.version }}
+            </p>
+
+            <h1 class="pm-title">
+                {{ titulo }}
+            </h1>
+
+        </div>
+
+        <a
+            class="pm-button"
+            href="{% url 'core:plantilla_maestra_detalle' plantilla.pk %}"
+        >
+            Cancelar
+        </a>
+
+    </div>
+
+
+    <form method="post">
+
+        {% csrf_token %}
+
+        {% for field in form %}
+
+            <div class="pm-field">
+
+                <label for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.errors %}
+                    <div class="pm-errors">
+                        {{ field.errors }}
+                    </div>
+                {% endif %}
+
+            </div>
+
+        {% endfor %}
+
+
+        <button
+            type="submit"
+            class="pm-button primary"
+        >
+            Guardar variable
+        </button>
+
+    </form>
+
+</div>
+
+{% endblock %}

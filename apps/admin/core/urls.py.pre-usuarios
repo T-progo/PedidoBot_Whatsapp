@@ -1,0 +1,50 @@
+from django.contrib.auth import views as auth_views
+from django.urls import path
+
+from . import views
+
+
+app_name = "core"
+
+
+urlpatterns = [
+
+    path(
+        "",
+        views.dashboard,
+        name="dashboard",
+    ),
+
+    path(
+        "login/",
+        auth_views.LoginView.as_view(
+            template_name="core/login.html",
+            redirect_authenticated_user=True,
+        ),
+        name="login",
+    ),
+
+    path(
+        "logout/",
+        auth_views.LogoutView.as_view(),
+        name="logout",
+    ),
+
+    path(
+        "empresas/",
+        views.empresa_lista,
+        name="empresa_lista",
+    ),
+
+    path(
+        "empresas/nueva/",
+        views.empresa_crear,
+        name="empresa_crear",
+    ),
+
+    path(
+        "empresas/<int:pk>/editar/",
+        views.empresa_editar,
+        name="empresa_editar",
+    ),
+]

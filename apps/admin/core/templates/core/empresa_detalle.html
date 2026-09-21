@@ -1,0 +1,3282 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+{{ empresa.nombre }} | NegocioListo
+{% endblock %}
+
+{% block content %}
+
+<style>
+    .cliente-shell {
+        width: 100%;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    .cliente-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 30px;
+    }
+
+    .cliente-eyebrow {
+        margin: 0 0 10px;
+        color: var(--green);
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .cliente-title {
+        margin: 0;
+        font-size: clamp(30px, 3vw, 44px);
+        line-height: 1.1;
+    }
+
+    .cliente-subtitle {
+        margin: 12px 0 0;
+        opacity: .72;
+        font-size: 16px;
+    }
+
+    .cliente-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .cliente-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border: 1px solid rgba(148, 163, 184, .20);
+        border-radius: 13px;
+        color: inherit;
+        text-decoration: none;
+        font-weight: 700;
+        background: var(--button-secondary-bg);
+    }
+
+    .cliente-btn:hover {
+        border-color: var(--green-border);
+    }
+
+    .cliente-btn.primary {
+        border-color: var(--green);
+        background: var(--green);
+        color: var(--accent-contrast);
+    }
+
+    .cliente-status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .cliente-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .cliente-status.ok {
+        color: var(--green);
+        background: var(--green-soft);
+    }
+
+    .cliente-status.warn {
+        color: var(--warning);
+        background: var(--warning-soft);
+    }
+
+    .cliente-status.error {
+        color: var(--danger);
+        background: var(--danger-soft);
+    }
+
+    .cliente-section {
+        margin-top: 34px;
+    }
+
+    .cliente-section-title {
+        margin: 0 0 16px;
+        font-size: 24px;
+    }
+
+    .cliente-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .cliente-card {
+        min-width: 0;
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 17px;
+        background: var(--surface);
+    }
+
+    .cliente-label {
+        margin-bottom: 9px;
+        color: var(--label);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .cliente-value {
+        font-size: 16px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .resumen-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .resumen-card {
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--surface);
+    }
+
+    .resumen-number {
+        margin-top: 6px;
+        font-size: 27px;
+        font-weight: 800;
+    }
+
+    .licencia-box {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 17px;
+        background: var(--surface);
+    }
+
+    .instalaciones {
+        display: grid;
+        gap: 14px;
+    }
+
+    .instalacion-card {
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: 17px;
+        background: var(--surface);
+    }
+
+    .instalacion-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .instalacion-name {
+        margin: 0;
+        font-size: 19px;
+    }
+
+    .instalacion-meta {
+        margin-top: 6px;
+        opacity: .68;
+        font-size: 13px;
+    }
+
+    .instalacion-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .instalacion-data {
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: 13px;
+        background: var(--surface-2);
+    }
+
+    .instalacion-error {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid var(--danger-border);
+        border-radius: 12px;
+        color: var(--danger-text);
+        background: var(--danger-soft);
+        overflow-wrap: anywhere;
+    }
+
+    .usuarios-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .usuarios-table th,
+    .usuarios-table td {
+        padding: 14px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .usuarios-table th {
+        color: var(--label);
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .cliente-empty {
+        padding: 24px;
+        border: 1px dashed var(--border-strong);
+        border-radius: 16px;
+        opacity: .72;
+    }
+
+    @media (max-width: 1100px) {
+        .cliente-grid,
+        .licencia-box {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .resumen-grid,
+        .instalacion-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 700px) {
+        .cliente-top {
+            flex-direction: column;
+        }
+
+        .cliente-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .cliente-grid,
+        .licencia-box,
+        .resumen-grid,
+        .instalacion-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .usuarios-table {
+            min-width: 620px;
+        }
+
+        .usuarios-scroll {
+            overflow-x: auto;
+        }
+    }
+
+
+    /* =======================================================
+       NEGOCIOLISTO-WHATSAPP-UI-V2
+       ======================================================= */
+
+    .whatsapp-grid {
+        display: grid;
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+        gap: 14px;
+    }
+
+    .whatsapp-card {
+        padding: 20px;
+        border:
+            1px solid
+            var(--border);
+        border-radius: 17px;
+        background:
+            var(--surface);
+    }
+
+    .whatsapp-card-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content:
+            space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .whatsapp-card h3 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .whatsapp-meta {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .whatsapp-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .whatsapp-status.connected {
+        color: var(--green);
+        background:
+            var(--green-soft);
+    }
+
+    .whatsapp-status.pending {
+        color: var(--warning);
+        background:
+            var(--warning-soft);
+    }
+
+    .whatsapp-connect-button {
+        cursor: pointer;
+    }
+
+    .whatsapp-connect-button:disabled {
+        opacity: .55;
+        cursor: wait;
+    }
+
+    .nl-whatsapp-qr-shell {
+        display: grid;
+        place-items: center;
+        gap: 14px;
+        padding: 10px 0 4px;
+    }
+
+    .nl-whatsapp-qr {
+        width:
+            min(320px, 72vw);
+        height: auto;
+        display: block;
+        padding: 10px;
+        border-radius: 16px;
+        background: #ffffff;
+    }
+
+    .nl-whatsapp-help {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+        text-align: center;
+    }
+
+
+    .whatsapp-info-grid {
+        display: grid;
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(0, 1fr)
+            );
+        gap: 10px;
+        margin: 16px 0;
+    }
+
+    .whatsapp-info {
+        min-width: 0;
+        padding: 14px;
+        border:
+            1px solid
+            var(--border);
+        border-radius: 13px;
+        background:
+            var(--surface-2);
+    }
+
+    .whatsapp-info-value {
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .whatsapp-live {
+        font-weight: 800;
+        line-height: 1.45;
+    }
+
+    .whatsapp-live[data-state="checking"] {
+        color: var(--muted);
+    }
+
+    .whatsapp-live[data-state="connected"] {
+        color: var(--green);
+    }
+
+    .whatsapp-live[data-state="disconnected"] {
+        color: var(--warning);
+    }
+
+    .whatsapp-live[data-state="missing"],
+    .whatsapp-live[data-state="error"] {
+        color: var(--danger-text);
+    }
+
+    .whatsapp-description {
+        margin:
+            0
+            0
+            16px;
+    }
+
+    .whatsapp-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+    }
+
+    @media (max-width: 800px) {
+
+        .whatsapp-grid {
+            grid-template-columns:
+                1fr;
+        }
+
+        .whatsapp-card-head {
+            flex-direction: column;
+        }
+
+        .whatsapp-info-grid {
+            grid-template-columns:
+                1fr;
+        }
+
+
+    }
+
+</style>
+
+
+<div class="cliente-shell">
+
+    <div class="cliente-top">
+
+        <div>
+            <p class="cliente-eyebrow">
+                Cliente
+            </p>
+
+            <h1 class="cliente-title">
+                {{ empresa.nombre }}
+            </h1>
+
+            <p class="cliente-subtitle">
+                Control integral del cliente, licenciamiento e instalaciones.
+            </p>
+
+            <div class="cliente-status-row">
+
+                {% if empresa.estado == "activa" %}
+                    <span class="cliente-status ok">
+                        ● Empresa activa
+                    </span>
+                {% else %}
+                    <span class="cliente-status warn">
+                        ● {{ empresa.get_estado_display|default:empresa.estado }}
+                    </span>
+                {% endif %}
+
+                {% if licencia_actual %}
+                    <span class="cliente-status ok">
+                        ● Licencia vigente
+                    </span>
+                {% else %}
+                    <span class="cliente-status error">
+                        ● Sin licencia activa vigente
+                    </span>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <div class="cliente-actions">
+
+            <a
+                href="{% url 'core:empresa_lista' %}"
+                class="cliente-btn"
+            >
+                Volver
+            </a>
+
+            <a
+                href="{% url 'core:empresa_editar' empresa.pk %}"
+                class="cliente-btn primary"
+            >
+                Editar cliente
+            </a>
+
+            <button
+                type="button"
+                class="cliente-btn primary"
+                id="empresa-aprovisionar-button"
+            >
+                + Instalar solución
+            </button>
+
+        
+            <!-- TNL-CLIENT-LIFECYCLE-UI-V1 -->
+
+            <a
+                href="{% url 'core:empresa_licencia_crear' empresa.id %}"
+                class="cliente-btn"
+            >
+                Renovar licencia
+            </a>
+
+
+            {% if empresa.estado == "activa" %}
+
+                <form
+                    method="post"
+                    action="{% url 'core:empresa_desactivar_cliente' empresa.id %}"
+                    style="margin: 0;"
+                    onsubmit="return confirm('¿Desactivar este cliente? Se cerrarán sus sesiones y se pausarán sus procesos, pero sus datos y conexiones se conservarán.');"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="cliente-btn"
+                        style="cursor:pointer;"
+                    >
+                        Desactivar cliente
+                    </button>
+                </form>
+
+            {% else %}
+
+                <form
+                    method="post"
+                    action="{% url 'core:empresa_reactivar_cliente' empresa.id %}"
+                    style="margin: 0;"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="cliente-btn"
+                        style="cursor:pointer;"
+                    >
+                        Reactivar cliente
+                    </button>
+                </form>
+
+            {% endif %}
+
+</div>
+
+    </div>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Datos generales
+        </h2>
+
+        <div class="cliente-grid">
+
+            <div class="cliente-card">
+                <div class="cliente-label">Nombre</div>
+                <div class="cliente-value">
+                    {{ empresa.nombre }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Razón social</div>
+                <div class="cliente-value">
+                    {{ empresa.razon_social|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">RFC</div>
+                <div class="cliente-value">
+                    {{ empresa.rfc|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Correo</div>
+                <div class="cliente-value">
+                    {{ empresa.email|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Teléfono</div>
+                <div class="cliente-value">
+                    {{ empresa.telefono|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Estado</div>
+                <div class="cliente-value">
+                    {{ empresa.get_estado_display|default:empresa.estado }}
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Resumen operativo
+        </h2>
+
+        <div class="resumen-grid">
+
+            <div class="resumen-card">
+                <div class="cliente-label">Usuarios</div>
+                <div class="resumen-number">{{ resumen.usuarios }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Instalaciones</div>
+                <div class="resumen-number">{{ resumen.instalaciones }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Bots</div>
+                <div class="resumen-number">{{ resumen.bots }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Canales</div>
+                <div class="resumen-number">{{ resumen.canales }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Catálogos</div>
+                <div class="resumen-number">{{ resumen.catalogos }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Productos</div>
+                <div class="resumen-number">{{ resumen.productos }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Pedidos</div>
+                <div class="resumen-number">{{ resumen.pedidos }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Plantillas privadas</div>
+                <div class="resumen-number">{{ resumen.plantillas }}</div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <div
+            style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:16px;
+                flex-wrap:wrap;
+                margin-bottom:18px;
+            "
+        >
+
+            <h2
+                class="cliente-section-title"
+                style="margin-bottom:0;"
+            >
+                Licenciamiento
+            </h2>
+
+            <a
+                href="{% url 'core:empresa_licencia_crear' empresa.pk %}"
+                class="cliente-btn primary"
+            >
+                {% if licencia_actual %}
+                    + Nueva / renovar licencia
+                {% else %}
+                    + Crear licencia
+                {% endif %}
+            </a>
+
+        </div>
+
+        {% if licencia_actual %}
+
+            <div class="licencia-box">
+
+                <div>
+                    <div class="cliente-label">Licencia</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.nombre }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cliente-label">Estado</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.get_estado_display }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cliente-label">Inicio</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.fecha_inicio|date:"d/m/Y" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cliente-label">Vencimiento</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.fecha_fin|date:"d/m/Y" }}
+                    </div>
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                La empresa no tiene una licencia activa y vigente en este momento.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+    
+
+
+    
+        <!-- TNL-CLIENT-CONNECTION-RESET-UI-V1 -->
+        <section
+            id="restablecer-conexiones"
+            class="cliente-section"
+        >
+
+            <div class="cliente-section-head">
+
+                <div>
+
+                    <h2>
+                        Restablecer conexiones
+                    </h2>
+
+                    <p>
+                        Elimina las vinculaciones técnicas
+                        actuales para comenzar nuevamente
+                        con WhatsApp, Mercado Pago y
+                        Google Calendar.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="whatsapp-grid">
+
+                <div class="whatsapp-card">
+
+                    <div class="whatsapp-card-head">
+
+                        <div>
+
+                            <strong>
+                                Acción de recuperación
+                            </strong>
+
+                            <div class="muted">
+                                No elimina empresa, licencia,
+                                usuarios, catálogo, pedidos,
+                                pagos, citas, agenda, IA ni
+                                aceptación de términos.
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <p class="muted">
+                        WhatsApp perderá su sesión actual
+                        y necesitará un QR nuevo.
+                        Mercado Pago y Google Calendar
+                        necesitarán una nueva autorización.
+                    </p>
+
+
+                    <form
+                        method="post"
+                        action="{% url 'core:empresa_restablecer_conexiones' empresa.id %}"
+                        style="margin-top:18px;"
+                    >
+
+                        {% csrf_token %}
+
+                        <label
+                            class="cliente-label"
+                            for="id_reset_conexiones"
+                        >
+                            Escribe RESTABLECER para confirmar
+                        </label>
+
+                        <input
+                            id="id_reset_conexiones"
+                            name="confirmacion"
+                            type="text"
+                            autocomplete="off"
+                            required
+                            class="form-control"
+                            placeholder="RESTABLECER"
+                            style="margin-top:7px;"
+                        >
+
+                        <button
+                            type="submit"
+                            class="cliente-btn"
+                            style="margin-top:12px; cursor:pointer;"
+                            onclick="return confirm('Esta acción eliminará las conexiones actuales de WhatsApp, Mercado Pago y Google Calendar. ¿Continuar?');"
+                        >
+                            Restablecer conexiones
+                        </button>
+
+                    </form>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- TNL-CLIENT-DELETION-UI-V1 -->
+        <section
+            id="eliminar-cliente"
+            class="cliente-section"
+            style="
+                border:1px solid rgba(220,53,69,.45);
+            "
+        >
+
+            <div class="cliente-section-head">
+
+                <div>
+
+                    <h2>
+                        Eliminar cliente definitivamente
+                    </h2>
+
+                    <p>
+                        Elimina el tenant, usuarios,
+                        conexiones, datos comerciales,
+                        configuración, historial local
+                        y recursos privados asociados.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div
+                class="whatsapp-card"
+                style="
+                    border:1px solid rgba(220,53,69,.45);
+                "
+            >
+
+                <strong>
+                    Zona de eliminación permanente
+                </strong>
+
+                <p class="muted">
+                    Esta acción no puede deshacerse
+                    desde el panel. No modifica las
+                    Plantillas Maestras de NegocioListo.
+                </p>
+
+                <p class="muted">
+                    Los respaldos administrativos
+                    históricos del servidor no se
+                    eliminan con esta operación.
+                </p>
+
+
+                <form
+                    method="post"
+                    action="{% url 'core:empresa_eliminar_definitivamente' empresa.id %}"
+                    style="margin-top:18px;"
+                    onsubmit="
+                        return confirm(
+                            '¿Confirmas la ELIMINACIÓN DEFINITIVA de este cliente? Esta acción no puede deshacerse desde el sistema.'
+                        );
+                    "
+                >
+
+                    {% csrf_token %}
+
+
+                    <label
+                        class="cliente-label"
+                        for="id_delete_phrase"
+                    >
+                        Escribe exactamente:
+                        ELIMINAR CLIENTE
+                    </label>
+
+                    <input
+                        id="id_delete_phrase"
+                        name="confirmacion"
+                        type="text"
+                        autocomplete="off"
+                        required
+                        class="form-control"
+                        placeholder="ELIMINAR CLIENTE"
+                        style="margin-top:7px;"
+                    >
+
+
+                    <label
+                        class="cliente-label"
+                        for="id_delete_empresa"
+                        style="margin-top:14px;"
+                    >
+                        Confirma también el ID
+                        de esta empresa:
+                        {{ empresa.id }}
+                    </label>
+
+                    <input
+                        id="id_delete_empresa"
+                        name="empresa_id_confirmacion"
+                        type="number"
+                        min="1"
+                        step="1"
+                        autocomplete="off"
+                        required
+                        class="form-control"
+                        placeholder="{{ empresa.id }}"
+                        style="margin-top:7px;"
+                    >
+
+
+                    <button
+                        type="submit"
+                        class="cliente-btn"
+                        style="
+                            margin-top:14px;
+                            cursor:pointer;
+                            border-color:#dc3545;
+                        "
+                    >
+                        Eliminar cliente definitivamente
+                    </button>
+
+                </form>
+
+            </div>
+
+        </section>
+
+
+        <!-- TNL-IA-EMPRESA-UI-V1 -->
+        <!-- TNL-IA-BOLSA-ADMIN-EDITABLE-V1 -->
+        <section
+            id="inteligencia-artificial"
+            class="cliente-section"
+        >
+            <div class="cliente-section-head">
+                <div>
+                    <h2>Inteligencia Artificial</h2>
+                    <p>
+                        Control de consumo mediante bolsas
+                        configurables por empresa.
+                        La bolsa base predeterminada es
+                        de 1,000 palabras.
+                    </p>
+                </div>
+            </div>
+
+            <div class="whatsapp-grid">
+
+                <div class="whatsapp-card">
+
+                    <div class="whatsapp-card-head">
+
+                        <div>
+                            <strong>Motor de IA</strong>
+
+                            <div class="muted">
+                                Consumo comercial controlado
+                                por NegocioListo.
+                            </div>
+                        </div>
+
+
+                        <div>
+
+                            {% if estado_ia.estado == "activa" %}
+
+                                <span class="status-badge status-ok">
+                                    Activa
+                                </span>
+
+                            {% elif estado_ia.estado == "pausada_agotada" %}
+
+                                <span class="status-badge">
+                                    Bolsa agotada
+                                </span>
+
+                            {% elif estado_ia.configurada %}
+
+                                <span class="status-badge">
+                                    Inactiva
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-badge">
+                                    No configurada
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Proveedor</span>
+
+                        <strong>
+                            {% if estado_ia.proveedor == "openai" %}
+                                OpenAI
+                            {% else %}
+                                —
+                            {% endif %}
+                        </strong>
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Modelo</span>
+
+                        <strong>
+                            {{ estado_ia.modelo|default:"—" }}
+                        </strong>
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Bolsa actual</span>
+
+                        <strong>
+                            {% if estado_ia.bolsa_actual_id %}
+                                {{ estado_ia.cantidad_palabras }}
+                                palabras
+                            {% else %}
+                                —
+                            {% endif %}
+                        </strong>
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Consumidas</span>
+
+                        <strong>
+                            {{ estado_ia.palabras_consumidas }}
+                        </strong>
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Disponibles</span>
+
+                        <strong>
+                            {{ estado_ia.palabras_disponibles }}
+                        </strong>
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Uso de bolsa</span>
+
+                        <strong>
+                            {{ porcentaje_ia }}%
+                        </strong>
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+                        <span>Uso de IA</span>
+
+                        <strong>
+                            {% if estado_ia.puede_usar_ia %}
+                                Permitido
+                            {% else %}
+                                Bloqueado
+                            {% endif %}
+                        </strong>
+                    </div>
+
+
+                    {% if estado_ia.bolsa_activa_id %}
+
+                        <form
+                            method="post"
+                            action="{% url 'core:empresa_ia_actualizar_bolsa' empresa.id %}"
+                            style="margin-top: 18px;"
+                        >
+
+                            {% csrf_token %}
+
+                            <div
+                                class="cliente-label"
+                                style="margin-bottom: 7px;"
+                            >
+                                Cantidad asignada a la bolsa
+                            </div>
+
+                            <input
+                                type="number"
+                                name="cantidad_palabras"
+                                value="{{ estado_ia.cantidad_palabras }}"
+                                min="1"
+                                max="2000000000"
+                                step="1"
+                                required
+                                class="form-control"
+                                inputmode="numeric"
+                            >
+
+                            <div
+                                class="muted"
+                                style="margin-top: 7px;"
+                            >
+                                Puede aumentar o reducir
+                                el límite. No puede ser
+                                menor a las
+                                {{ estado_ia.palabras_consumidas }}
+                                palabras ya consumidas.
+                                Si lo iguala al consumo,
+                                la bolsa quedará agotada.
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="cliente-btn"
+                                style="margin-top: 12px;"
+                            >
+                                Guardar cantidad de bolsa
+                            </button>
+
+                        </form>
+
+                    {% else %}
+
+                        <form
+                            method="post"
+                            action="{% url 'core:empresa_ia_activar_bolsa' empresa.id %}"
+                            style="margin-top: 18px;"
+                        >
+
+                            {% csrf_token %}
+
+                            <div
+                                class="cliente-label"
+                                style="margin-bottom: 7px;"
+                            >
+                                Palabras de la nueva bolsa
+                            </div>
+
+                            <input
+                                type="number"
+                                name="cantidad_palabras"
+                                value="1000"
+                                min="1"
+                                max="2000000000"
+                                step="1"
+                                required
+                                class="form-control"
+                                inputmode="numeric"
+                            >
+
+                            <div
+                                class="muted"
+                                style="margin-top: 7px;"
+                            >
+                                El valor predeterminado es
+                                1,000 palabras, pero
+                                Administración puede asignar
+                                otra cantidad a esta empresa.
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="cliente-btn"
+                                style="margin-top: 12px;"
+                            >
+                                Activar nueva bolsa
+                            </button>
+
+                        </form>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- TNL-GOOGLE-CALENDAR-EMPRESA-UI-V1 -->
+        <section
+            id="google-calendar"
+            class="cliente-section"
+        >
+            <div class="cliente-section-head">
+
+                <div>
+                    <h2>Google Calendar</h2>
+
+                    <p>
+                        Agenda y disponibilidad
+                        de citas de esta empresa.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="whatsapp-grid">
+
+                <div class="whatsapp-card">
+
+                    <div class="whatsapp-card-head">
+
+                        <div>
+
+                            <strong>
+                                Agenda de citas
+                            </strong>
+
+                            <div class="muted">
+                                Conexión individual
+                                por empresa.
+                            </div>
+
+                        </div>
+
+
+                        <div>
+
+                            {% if estado_google_calendar.conectada %}
+
+                                <span class="status-badge status-ok">
+                                    Conectada
+                                </span>
+
+                            {% elif estado_google_calendar.estado == "error" %}
+
+                                <span class="status-badge">
+                                    Error
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-badge">
+                                    Desconectada
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+
+                        <span>
+                            Cuenta Google
+                        </span>
+
+                        <strong>
+                            {{ estado_google_calendar.cuenta_email|default:"—" }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+
+                        <span>
+                            Calendario
+                        </span>
+
+                        <strong>
+
+                            {% if estado_google_calendar.calendar_nombre %}
+
+                                {{ estado_google_calendar.calendar_nombre }}
+
+                            {% elif estado_google_calendar.calendar_id %}
+
+                                {{ estado_google_calendar.calendar_id }}
+
+                            {% else %}
+
+                                —
+
+                            {% endif %}
+
+                        </strong>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+
+                        <span>
+                            Zona horaria
+                        </span>
+
+                        <strong>
+                            {{ estado_google_calendar.zona_horaria }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+
+                        <span>
+                            Citas registradas
+                        </span>
+
+                        <strong>
+                            {{ estado_google_calendar.citas_total }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+
+                        <span>
+                            OAuth de plataforma
+                        </span>
+
+                        <strong>
+
+                            {% if estado_google_calendar.oauth_configurado %}
+
+                                Listo
+
+                            {% else %}
+
+                                Credenciales pendientes
+
+                            {% endif %}
+
+                        </strong>
+
+                    </div>
+
+
+                    <div class="whatsapp-kv">
+
+                        <span>
+                            URI de redirección OAuth
+                        </span>
+
+                        <strong
+                            style="
+                                word-break: break-all;
+                                text-align: right;
+                            "
+                        >
+                            {{ estado_google_calendar.redirect_uri }}
+                        </strong>
+
+                    </div>
+
+
+                    {% if estado_google_calendar.conectada %}
+
+                        <div
+                            class="muted"
+                            style="margin-top: 16px;"
+                        >
+                            Google Calendar está
+                            habilitado para esta empresa.
+                        </div>
+
+                    {% else %}
+
+                        <!-- TNL-GOOGLE-CALENDAR-OAUTH-BUTTON-V1 -->
+
+                        {% if estado_google_calendar.oauth_configurado %}
+
+                            <a
+                                href="{% url 'core:empresa_google_calendar_conectar' empresa.pk %}"
+                                class="cliente-btn"
+                                style="
+                                    margin-top: 16px;
+                                    display: inline-block;
+                                    text-decoration: none;
+                                "
+                            >
+                                Conectar Google Calendar
+                            </a>
+
+                        {% else %}
+
+                            <button
+                                type="button"
+                                class="cliente-btn"
+                                style="
+                                    margin-top: 16px;
+                                    opacity: .55;
+                                    cursor: not-allowed;
+                                "
+                                disabled
+                            >
+                                Conectar Google Calendar
+                            </button>
+
+                        {% endif %}
+
+
+                        {% if not estado_google_calendar.oauth_configurado %}
+
+                            <div
+                                class="muted"
+                                style="margin-top: 8px;"
+                            >
+                                Primero debemos cargar
+                                las credenciales OAuth
+                                de Google Cloud.
+                            </div>
+
+                        {% else %}
+
+                            <div
+                                class="muted"
+                                style="margin-top: 8px;"
+                            >
+                                OAuth está preparado.
+                                Ya puedes autorizar
+                                el calendario de esta empresa.
+                            </div>
+
+                        {% endif %}
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        
+        <!-- TNL-AGENDA-EMPRESA-LINK-V1 -->
+        <div
+            class="whatsapp-actions"
+            style="margin-top: 18px;"
+        >
+            <a
+                href="{% url 'core:empresa_agenda_configurar' empresa.pk %}"
+                class="cliente-btn primary"
+            >
+                Configurar agenda y horarios
+            </a>
+        </div>
+
+</section>
+
+<!-- TNL-MERCADOPAGO-EMPRESA-UI-V1 -->
+    <section
+        id="pasarela-pagos"
+        class="cliente-section"
+    >
+
+        <h2 class="cliente-section-title">
+            Pasarela de pagos
+        </h2>
+
+
+        <div class="whatsapp-grid">
+
+            <div class="whatsapp-card">
+
+                <div class="whatsapp-card-head">
+
+                    <div>
+
+                        <h3>
+                            Mercado Pago
+                        </h3>
+
+                        <div class="whatsapp-meta">
+                            Método digital de cobro
+                        </div>
+
+                    </div>
+
+
+                    {% if configuracion_mercadopago %}
+
+                        {% if configuracion_mercadopago.estado_conexion == "conectada" %}
+
+                            <span class="whatsapp-status connected">
+                                Conectado
+                            </span>
+
+                        {% else %}
+
+                            <span class="whatsapp-status pending">
+                                {{ configuracion_mercadopago.get_estado_conexion_display }}
+                            </span>
+
+                        {% endif %}
+
+                    {% else %}
+
+                        <span class="whatsapp-status pending">
+                            No configurado
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+
+                <div class="whatsapp-info-grid">
+
+                    <div class="whatsapp-info">
+
+                        <div class="cliente-label">
+                            Ambiente
+                        </div>
+
+                        <div class="whatsapp-info-value">
+
+                            {% if configuracion_mercadopago %}
+
+                                {{ configuracion_mercadopago.get_modo_display }}
+
+                            {% else %}
+
+                                Pruebas
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="whatsapp-info">
+
+                        <div class="cliente-label">
+                            Método digital
+                        </div>
+
+                        <div class="whatsapp-info-value">
+
+                            {% if configuracion_mercadopago.habilitada and configuracion_mercadopago.estado_conexion == "conectada" %}
+
+                                Activo
+
+                            {% else %}
+
+                                Inactivo
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="whatsapp-info">
+
+                        <div class="cliente-label">
+                            Cuenta
+                        </div>
+
+                        <div class="whatsapp-info-value">
+
+                            {% if configuracion_mercadopago.estado_conexion == "conectada" %}
+
+                                Vinculada
+
+                            {% else %}
+
+                                Sin vincular
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="whatsapp-info">
+
+                        <div class="cliente-label">
+                            Última validación
+                        </div>
+
+                        <div class="whatsapp-info-value">
+
+                            {% if configuracion_mercadopago.ultima_validacion_en %}
+
+                                {{ configuracion_mercadopago.ultima_validacion_en|date:"d/m/Y H:i" }}
+
+                            {% else %}
+
+                                —
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <p
+                    class="
+                        cliente-subtitle
+                        whatsapp-description
+                    "
+                >
+                    Configura Mercado Pago como
+                    pasarela digital de cobro para
+                    los pedidos de esta empresa.
+                </p>
+
+
+                <div class="whatsapp-actions">
+
+                    <a
+                        href="{% url 'core:empresa_mercadopago_configurar' empresa.pk %}"
+                        class="cliente-btn primary"
+                    >
+                        Configurar Mercado Pago
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+        <!-- NEGOCIOLISTO-WHATSAPP-UI-V2 -->
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            WhatsApp
+        </h2>
+
+        {% if canales_whatsapp %}
+
+            <div class="whatsapp-grid">
+
+                {% for item in canales_whatsapp %}
+
+                    <div
+                        class="whatsapp-card"
+                        data-whatsapp-card
+                        data-whatsapp-status-url="{% url 'core:empresa_whatsapp_estado' empresa.pk item.canal.pk %}"
+                    >
+
+                        <div class="whatsapp-card-head">
+
+                            <div>
+
+                                <h3>
+                                    {{ item.canal.nombre|default:"WhatsApp" }}
+                                </h3>
+
+                                <div class="whatsapp-meta">
+                                    Bot:
+                                    {{ item.bot.nombre }}
+                                </div>
+
+                            </div>
+
+
+                            {% if item.canal.activo %}
+
+                                <span
+                                    class="whatsapp-status connected"
+                                    data-whatsapp-status
+                                >
+                                    Canal activo
+                                </span>
+
+                            {% else %}
+
+                                <span
+                                    class="whatsapp-status pending"
+                                    data-whatsapp-status
+                                >
+                                    Canal pendiente
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+
+                        <div class="whatsapp-info-grid">
+
+                            <div class="whatsapp-info">
+
+                                <div class="cliente-label">
+                                    Instancia
+                                </div>
+
+                                <div class="whatsapp-info-value">
+                                    {{ item.instance_name }}
+                                </div>
+
+                            </div>
+
+
+                            <div class="whatsapp-info">
+
+                                <div class="cliente-label">
+                                    Evolution
+                                </div>
+
+                                <div
+                                    class="whatsapp-live"
+                                    data-whatsapp-live
+                                    data-state="checking"
+                                >
+                                    Verificando…
+                                </div>
+
+                            </div>
+
+
+                            <div class="whatsapp-info">
+
+                                <div class="cliente-label">
+                                    Bot
+                                </div>
+
+                                <div class="whatsapp-info-value">
+                                    {{ item.bot.nombre }}
+                                </div>
+
+                            </div>
+
+
+                            <div class="whatsapp-info">
+
+                                <div class="cliente-label">
+                                    Estado del canal
+                                </div>
+
+                                <div class="whatsapp-info-value">
+
+                                    {% if item.canal.activo %}
+                                        Activo
+                                    {% else %}
+                                        Pendiente
+                                    {% endif %}
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        {% if item.canal.activo %}
+
+                            <p class="cliente-subtitle whatsapp-description">
+                                El canal está habilitado en NegocioListo.
+                                El estado de conexión mostrado arriba
+                                se consulta directamente en Evolution.
+                            </p>
+
+                        {% else %}
+
+                            <p class="cliente-subtitle whatsapp-description">
+                                Vincula el WhatsApp del cliente
+                                escaneando un código QR seguro
+                                desde este panel.
+                            </p>
+
+                        {% endif %}
+
+
+                        <div class="whatsapp-actions">
+
+                            {% if not item.canal.activo %}
+
+                                <button
+                                    type="button"
+                                    class="
+                                        cliente-btn
+                                        primary
+                                        whatsapp-connect-button
+                                    "
+                                    data-whatsapp-connect
+                                    data-connect-url="{% url 'core:empresa_whatsapp_conectar' empresa.pk item.canal.pk %}"
+                                    data-status-url="{% url 'core:empresa_whatsapp_estado' empresa.pk item.canal.pk %}"
+                                    data-activate-url="{% url 'core:empresa_whatsapp_activar' empresa.pk item.canal.pk %}"
+                                >
+                                    Conectar WhatsApp
+                                </button>
+
+                            {% endif %}
+
+
+                            <a
+                                href="{% url 'core:canal_editar' item.canal.pk %}"
+                                class="cliente-btn"
+                            >
+                                Editar canal
+                            </a>
+
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                Este cliente todavía
+                no tiene un canal WhatsApp.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+<section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Soluciones instaladas
+        </h2>
+
+        {% if instalaciones %}
+
+            <div class="instalaciones">
+
+                {% for item in instalaciones %}
+
+                    <div class="instalacion-card">
+
+                        <div class="instalacion-head">
+
+                            <div>
+                                <h3 class="instalacion-name">
+                                    {{ item.instalacion.plantilla_maestra.nombre }}
+                                    v{{ item.instalacion.version_instalada }}
+                                </h3>
+
+                                <div class="instalacion-meta">
+                                    Instalación #{{ item.instalacion.id }}
+                                </div>
+                            </div>
+
+                            {% if item.instalacion.estado == "lista" %}
+
+                                <span class="cliente-status ok">
+                                    Lista
+                                </span>
+
+                            {% elif item.instalacion.estado == "error" %}
+
+                                <span class="cliente-status error">
+                                    Error
+                                </span>
+
+                            {% elif item.instalacion.estado == "aprovisionando" %}
+
+                                <span class="cliente-status warn">
+                                    Aprovisionando
+                                </span>
+
+                            {% else %}
+
+                                <span class="cliente-status warn">
+                                    {{ item.instalacion.get_estado_display }}
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+                        <div class="instalacion-grid">
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Plantilla privada
+                                </div>
+                                <div class="cliente-value">
+                                    {% if item.plantilla %}
+                                        {{ item.plantilla.nombre }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Variables
+                                </div>
+                                <div class="cliente-value">
+                                    {{ item.variables }}
+                                </div>
+                            </div>
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Bot
+                                </div>
+                                <div class="cliente-value">
+                                    {% if item.bot %}
+                                        {{ item.bot.nombre }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Catálogo
+                                </div>
+                                <div class="cliente-value">
+                                    {% if item.catalogo %}
+                                        {{ item.catalogo.nombre }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {% if item.instalacion.ultimo_error %}
+
+                            <div class="instalacion-error">
+                                <strong>Último error:</strong><br>
+                                {{ item.instalacion.ultimo_error }}
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                Este cliente todavía no tiene soluciones instaladas.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Usuarios
+        </h2>
+
+        {% if usuarios %}
+
+            <div class="cliente-card usuarios-scroll">
+
+                <table class="usuarios-table">
+
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Correo</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for perfil in usuarios %}
+
+                            <tr>
+                                <td>
+                                    {{ perfil.usuario.username }}
+                                </td>
+
+                                <td>
+                                    {{ perfil.usuario.email|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ perfil.get_rol_display }}
+                                </td>
+
+                                <td>
+                                    {% if perfil.activo %}
+                                        Activo
+                                    {% else %}
+                                        Inactivo
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                No hay usuarios asociados a esta empresa.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+</div>
+
+
+<!-- EMPRESA-APROVISIONAR-SWEETALERT-V1 -->
+
+<form
+    id="empresa-aprovisionar-csrf"
+    style="display:none;"
+>
+    {% csrf_token %}
+</form>
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        const boton = document.getElementById(
+            "empresa-aprovisionar-button"
+        );
+
+        if (!boton) {
+            return;
+        }
+
+
+        const plantillas = {
+            {% for pm in plantillas_maestras %}
+                "{{ pm.id }}":
+                    "{{ pm.nombre|escapejs }} v{{ pm.version }}{% if pm.tipo %} · {{ pm.get_tipo_display|escapejs }}{% endif %}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        };
+
+
+        const csrfInput = document.querySelector(
+            "#empresa-aprovisionar-csrf "
+            + "input[name='csrfmiddlewaretoken']"
+        );
+
+
+        boton.addEventListener(
+            "click",
+            async function () {
+
+                if (typeof Swal === "undefined") {
+
+                    console.error(
+                        "SweetAlert2 no está disponible."
+                    );
+
+                    return;
+                }
+
+
+                if (
+                    Object.keys(
+                        plantillas
+                    ).length === 0
+                ) {
+
+                    await Swal.fire({
+                        icon: "info",
+                        title: "Sin plantillas disponibles",
+                        text:
+                            "No existen plantillas maestras "
+                            + "publicadas y activas.",
+                        confirmButtonText: "Entendido",
+                        confirmButtonColor: "#49dfad",
+                        background: "#0e1d2a",
+                        color: "#f8fafc"
+                    });
+
+                    return;
+                }
+
+
+                const seleccion = await Swal.fire({
+
+                    icon: "question",
+
+                    title: "Instalar solución",
+
+                    html:
+                        "<div style='text-align:left;"
+                        + "line-height:1.6'>"
+                        + "<strong>Empresa:</strong> "
+                        + "{{ empresa.nombre|escapejs }}"
+                        + "<br>"
+                        + "<strong>Licencia:</strong> "
+                        + "{% if licencia_actual %}"
+                        + "{{ licencia_actual.nombre|escapejs }}"
+                        + " · vence "
+                        + "{{ licencia_actual.fecha_fin|date:'d/m/Y' }}"
+                        + "{% else %}"
+                        + "Sin licencia activa vigente"
+                        + "{% endif %}"
+                        + "</div>",
+
+                    input: "select",
+
+                    inputOptions: plantillas,
+
+                    inputPlaceholder:
+                        "Selecciona una plantilla",
+
+                    showCancelButton: true,
+
+                    confirmButtonText: "Continuar",
+
+                    cancelButtonText: "Cancelar",
+
+                    confirmButtonColor: "#49dfad",
+
+                    cancelButtonColor: "#475569",
+
+                    background: "#0e1d2a",
+
+                    color: "#f8fafc",
+
+                    inputValidator: function (value) {
+
+                        if (!value) {
+                            return (
+                                "Selecciona una plantilla."
+                            );
+                        }
+                    }
+
+                });
+
+
+                if (!seleccion.isConfirmed) {
+                    return;
+                }
+
+
+                const plantillaId = seleccion.value;
+
+                const etiqueta = (
+                    plantillas[
+                        plantillaId
+                    ]
+                    || "Plantilla seleccionada"
+                );
+
+
+                const confirmacion = await Swal.fire({
+
+                    icon: "warning",
+
+                    title: "¿Instalar solución?",
+
+                    html:
+                        "<strong>"
+                        + etiqueta
+                        + "</strong>"
+                        + "<br><br>"
+                        + "Se validará la licencia y, "
+                        + "si corresponde, se crearán:"
+                        + "<br><br>"
+                        + "• Plantilla privada"
+                        + "<br>"
+                        + "• Variables"
+                        + "<br>"
+                        + "• Bot"
+                        + "<br>"
+                        + "• Catálogo",
+
+                    showCancelButton: true,
+
+                    confirmButtonText:
+                        "Sí, instalar",
+
+                    cancelButtonText:
+                        "Cancelar",
+
+                    confirmButtonColor:
+                        "#49dfad",
+
+                    cancelButtonColor:
+                        "#475569",
+
+                    background:
+                        "#0e1d2a",
+
+                    color:
+                        "#f8fafc"
+
+                });
+
+
+                if (!confirmacion.isConfirmed) {
+                    return;
+                }
+
+
+                Swal.fire({
+
+                    title:
+                        "Instalando solución...",
+
+                    text:
+                        "Validando licencia y "
+                        + "creando recursos.",
+
+                    allowOutsideClick:
+                        false,
+
+                    allowEscapeKey:
+                        false,
+
+                    showConfirmButton:
+                        false,
+
+                    background:
+                        "#0e1d2a",
+
+                    color:
+                        "#f8fafc",
+
+                    didOpen: function () {
+                        Swal.showLoading();
+                    }
+
+                });
+
+
+                try {
+
+                    const response = await fetch(
+
+                        "{% url 'core:empresa_aprovisionar' empresa.pk %}",
+
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+
+                                "X-CSRFToken":
+                                    csrfInput
+                                    ? csrfInput.value
+                                    : ""
+                            },
+
+                            body: JSON.stringify({
+                                plantilla_maestra_id:
+                                    plantillaId
+                            })
+                        }
+
+                    );
+
+
+                    let data = {};
+
+                    try {
+                        data = await response.json();
+                    }
+                    catch (jsonError) {
+
+                        throw new Error(
+                            "El servidor devolvió "
+                            + "una respuesta no válida."
+                        );
+                    }
+
+
+                    if (
+                        !response.ok
+                        || !data.ok
+                    ) {
+
+                        const detalle = (
+                            data.detail
+                            ? "<br><br><small>"
+                              + data.detail
+                              + "</small>"
+                            : ""
+                        );
+
+
+                        await Swal.fire({
+
+                            icon: "error",
+
+                            title:
+                                "No se pudo instalar",
+
+                            html:
+                                (
+                                    data.message
+                                    || "Ocurrió un error."
+                                )
+                                + detalle,
+
+                            confirmButtonText:
+                                "Entendido",
+
+                            confirmButtonColor:
+                                "#49dfad",
+
+                            background:
+                                "#0e1d2a",
+
+                            color:
+                                "#f8fafc"
+
+                        });
+
+                        return;
+                    }
+
+
+                    if (data.idempotente) {
+
+                        await Swal.fire({
+
+                            icon: "info",
+
+                            title:
+                                "Plantilla ya instalada",
+
+                            text:
+                                data.message,
+
+                            confirmButtonText:
+                                "Continuar",
+
+                            confirmButtonColor:
+                                "#49dfad",
+
+                            background:
+                                "#0e1d2a",
+
+                            color:
+                                "#f8fafc"
+
+                        });
+
+                    }
+                    else {
+
+                        await Swal.fire({
+
+                            icon: "success",
+
+                            title:
+                                "Instalación completada",
+
+                            html:
+                                "<strong>"
+                                + data.message
+                                + "</strong>"
+                                + "<br><br>"
+                                + "Instalación #"
+                                + data.instalacion.id
+                                + "<br>"
+                                + "Estado: "
+                                + data.instalacion.estado,
+
+                            confirmButtonText:
+                                "Continuar",
+
+                            confirmButtonColor:
+                                "#49dfad",
+
+                            background:
+                                "#0e1d2a",
+
+                            color:
+                                "#f8fafc"
+
+                        });
+
+                    }
+
+
+                    window.location.reload();
+
+                }
+                catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+
+                    await Swal.fire({
+
+                        icon: "error",
+
+                        title:
+                            "Error de comunicación",
+
+                        text:
+                            error.message
+                            || (
+                                "No fue posible "
+                                + "comunicarse con "
+                                + "el servidor."
+                            ),
+
+                        confirmButtonText:
+                            "Entendido",
+
+                        confirmButtonColor:
+                            "#49dfad",
+
+                        background:
+                            "#0e1d2a",
+
+                        color:
+                            "#f8fafc"
+
+                    });
+
+                }
+
+            }
+        );
+
+    }
+);
+</script>
+
+
+
+<script>
+/* NEGOCIOLISTO-WHATSAPP-UI-V1 */
+
+(function () {
+
+    "use strict";
+
+
+    function csrfToken() {
+
+        const name =
+            "csrftoken=";
+
+        const parts =
+            document.cookie
+                .split(";");
+
+
+        for (
+            const rawPart
+            of parts
+        ) {
+
+            const part =
+                rawPart.trim();
+
+
+            if (
+                part.startsWith(
+                    name
+                )
+            ) {
+
+                return decodeURIComponent(
+                    part.substring(
+                        name.length
+                    )
+                );
+
+            }
+
+        }
+
+
+        return "";
+
+    }
+
+
+    async function requestJson(
+        url,
+        method
+    ) {
+
+        const options = {
+            method: method,
+            credentials:
+                "same-origin",
+            headers: {
+                "Accept":
+                    "application/json",
+            },
+        };
+
+
+        if (method === "POST") {
+
+            options.headers[
+                "X-CSRFToken"
+            ] = csrfToken();
+
+        }
+
+
+        const response =
+            await fetch(
+                url.trim(),
+                options
+            );
+
+
+        let data = {};
+
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch (error) {
+
+            data = {};
+
+        }
+
+
+        if (
+            !response.ok
+            ||
+            data.ok === false
+        ) {
+
+            throw new Error(
+                data.message
+                ||
+                (
+                    "La operación "
+                    + "no pudo completarse."
+                )
+            );
+
+        }
+
+
+        return data;
+
+    }
+
+
+    async function activateChannel(
+        activateUrl
+    ) {
+
+        return requestJson(
+            activateUrl,
+            "POST"
+        );
+
+    }
+
+
+    document
+        .querySelectorAll(
+            "[data-whatsapp-connect]"
+        )
+        .forEach(
+            function (button) {
+
+                button.addEventListener(
+                    "click",
+                    async function () {
+
+                        const connectUrl =
+                            button.dataset
+                                .connectUrl;
+
+                        const statusUrl =
+                            button.dataset
+                                .statusUrl;
+
+                        const activateUrl =
+                            button.dataset
+                                .activateUrl;
+
+
+                        button.disabled =
+                            true;
+
+
+                        try {
+
+                            const connect =
+                                await requestJson(
+                                    connectUrl,
+                                    "POST"
+                                );
+
+
+                            if (
+                                connect.connected
+                            ) {
+
+                                await activateChannel(
+                                    activateUrl
+                                );
+
+
+                                await Swal.fire({
+                                    icon:
+                                        "success",
+                                    title:
+                                        "WhatsApp conectado",
+                                    text:
+                                        "El canal quedó activo.",
+                                });
+
+
+                                window.location.reload();
+
+                                return;
+
+                            }
+
+
+                            if (!connect.qr) {
+
+                                throw new Error(
+                                    "Evolution no entregó "
+                                    + "un QR disponible."
+                                );
+
+                            }
+
+
+                            /* NEGOCIOLISTO-WHATSAPP-QR-REFRESH-V1 */
+
+                            let timer = null;
+
+                            let qrTimer = null;
+
+                            let qrRefreshing =
+                                false;
+
+                            let checking =
+                                false;
+
+                            let completed =
+                                false;
+
+
+                            await Swal.fire({
+
+                                title:
+                                    "Conectar WhatsApp",
+
+                                html:
+                                    (
+                                        '<div class="nl-whatsapp-qr-shell">'
+                                        +
+                                        '<img id="nl-whatsapp-qr" '
+                                        +
+                                        'class="nl-whatsapp-qr" '
+                                        +
+                                        'alt="QR para vincular WhatsApp">'
+                                        +
+                                        '<p class="nl-whatsapp-help">'
+                                        +
+                                        'En WhatsApp abre '
+                                        +
+                                        '<strong>Dispositivos vinculados</strong>, '
+                                        +
+                                        'elige <strong>Vincular un dispositivo</strong> '
+                                        +
+                                        'y escanea este código. El QR se actualizará automáticamente si vence.'
+                                        +
+                                        '</p>'
+                                        +
+                                        '<p class="nl-whatsapp-help" '
+                                        +
+                                        'id="nl-whatsapp-state">'
+                                        +
+                                        'Esperando vinculación…'
+                                        +
+                                        '</p>'
+                                        +
+                                        '</div>'
+                                    ),
+
+                                showConfirmButton:
+                                    false,
+
+                                showCancelButton:
+                                    true,
+
+                                cancelButtonText:
+                                    "Cerrar",
+
+                                allowOutsideClick:
+                                    false,
+
+
+                                didOpen:
+                                    function () {
+
+                                        const qr =
+                                            document.getElementById(
+                                                "nl-whatsapp-qr"
+                                            );
+
+                                        qr.src =
+                                            connect.qr;
+
+
+                                        timer =
+                                            window.setInterval(
+                                                async function () {
+
+                                                    if (
+                                                        checking
+                                                        ||
+                                                        completed
+                                                    ) {
+                                                        return;
+                                                    }
+
+
+                                                    checking =
+                                                        true;
+
+
+                                                    try {
+
+                                                        const status =
+                                                            await requestJson(
+                                                                statusUrl,
+                                                                "GET"
+                                                            );
+
+
+                                                        const label =
+                                                            document.getElementById(
+                                                                "nl-whatsapp-state"
+                                                            );
+
+
+                                                        if (label) {
+
+                                                            label.textContent =
+                                                                (
+                                                                    status.connected
+                                                                    ?
+                                                                    "WhatsApp vinculado. Activando canal…"
+                                                                    :
+                                                                    "Estado: "
+                                                                    + (
+                                                                        status.state
+                                                                        ||
+                                                                        "esperando"
+                                                                    )
+                                                                );
+
+                                                        }
+
+
+                                                        if (
+                                                            status.connected
+                                                        ) {
+
+                                                            completed =
+                                                                true;
+
+
+                                                            window.clearInterval(
+                                                                timer
+                                                            );
+
+
+                                                            if (qrTimer) {
+
+                                                                window.clearInterval(
+                                                                    qrTimer
+                                                                );
+
+                                                            }
+
+
+                                                            await activateChannel(
+                                                                activateUrl
+                                                            );
+
+
+                                                            Swal.close();
+
+
+                                                            await Swal.fire({
+                                                                icon:
+                                                                    "success",
+
+                                                                title:
+                                                                    "WhatsApp conectado",
+
+                                                                text:
+                                                                    "La instancia está abierta y el canal quedó activo.",
+                                                            });
+
+
+                                                            window.location.reload();
+
+                                                        }
+
+                                                    } catch (error) {
+
+                                                        const label =
+                                                            document.getElementById(
+                                                                "nl-whatsapp-state"
+                                                            );
+
+
+                                                        if (label) {
+
+                                                            label.textContent =
+                                                                "Esperando conexión…";
+
+                                                        }
+
+                                                    } finally {
+
+                                                        checking =
+                                                            false;
+
+                                                    }
+
+                                                },
+                                                2500
+                                            );
+
+
+                                        /*
+                                         * Mientras la instancia siga
+                                         * esperando vinculación,
+                                         * solicitamos periódicamente
+                                         * el QR vigente a Evolution.
+                                         *
+                                         * No recrea la instancia.
+                                         * No activa el canal.
+                                         */
+                                        qrTimer =
+                                            window.setInterval(
+                                                async function () {
+
+                                                    if (
+                                                        completed
+                                                        ||
+                                                        qrRefreshing
+                                                    ) {
+
+                                                        return;
+
+                                                    }
+
+
+                                                    qrRefreshing =
+                                                        true;
+
+
+                                                    try {
+
+                                                        const refreshed =
+                                                            await requestJson(
+                                                                connectUrl,
+                                                                "POST"
+                                                            );
+
+
+                                                        if (
+                                                            refreshed.qr
+                                                            &&
+                                                            !refreshed.connected
+                                                        ) {
+
+                                                            const qrImage =
+                                                                document.getElementById(
+                                                                    "nl-whatsapp-qr"
+                                                                );
+
+
+                                                            if (qrImage) {
+
+                                                                qrImage.src =
+                                                                    refreshed.qr;
+
+                                                            }
+
+
+                                                            const label =
+                                                                document.getElementById(
+                                                                    "nl-whatsapp-state"
+                                                                );
+
+
+                                                            if (label) {
+
+                                                                label.textContent =
+                                                                    "QR actualizado. Esperando vinculación…";
+
+                                                            }
+
+                                                        }
+
+
+                                                    } catch (error) {
+
+                                                        /*
+                                                         * Un fallo temporal
+                                                         * al renovar NO debe
+                                                         * cerrar el modal.
+                                                         *
+                                                         * El siguiente ciclo
+                                                         * volverá a intentar.
+                                                         */
+
+                                                        const label =
+                                                            document.getElementById(
+                                                                "nl-whatsapp-state"
+                                                            );
+
+
+                                                        if (label) {
+
+                                                            label.textContent =
+                                                                "Renovando código de conexión…";
+
+                                                        }
+
+
+                                                    } finally {
+
+                                                        qrRefreshing =
+                                                            false;
+
+                                                    }
+
+                                                },
+                                                15000
+                                            );
+
+                                    },
+
+
+                                willClose:
+                                    function () {
+
+                                        if (timer) {
+
+                                            window.clearInterval(
+                                                timer
+                                            );
+
+                                        }
+
+
+                                        if (qrTimer) {
+
+                                            window.clearInterval(
+                                                qrTimer
+                                            );
+
+                                        }
+
+                                    },
+
+                            });
+
+
+                        } catch (error) {
+
+                            await Swal.fire({
+                                icon:
+                                    "error",
+
+                                title:
+                                    "No se pudo conectar WhatsApp",
+
+                                text:
+                                    error.message,
+                            });
+
+
+                        } finally {
+
+                            button.disabled =
+                                false;
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+})();
+</script>
+
+
+
+<!-- NEGOCIOLISTO-WHATSAPP-LIVE-STATUS-V1 -->
+<script>
+(function () {
+
+    const cards =
+        document.querySelectorAll(
+            "[data-whatsapp-card]"
+            + "[data-whatsapp-status-url]"
+        );
+
+
+    if (!cards.length) {
+        return;
+    }
+
+
+    async function refreshStatus(card) {
+
+        const url =
+            (
+                card.dataset
+                    .whatsappStatusUrl
+                ||
+                ""
+            ).trim();
+
+        const label =
+            card.querySelector(
+                "[data-whatsapp-live]"
+            );
+
+
+        if (!url || !label) {
+            return;
+        }
+
+
+        label.textContent =
+            "Verificando…";
+
+        label.dataset.state =
+            "checking";
+
+
+        try {
+
+            const response =
+                await fetch(
+                    url,
+                    {
+                        method:
+                            "GET",
+
+                        credentials:
+                            "same-origin",
+
+                        cache:
+                            "no-store",
+
+                        headers: {
+                            "X-Requested-With":
+                                "XMLHttpRequest",
+                        },
+                    }
+                );
+
+
+            let data = null;
+
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (error) {
+
+                throw new Error(
+                    "Respuesta inválida."
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    (
+                        data
+                        &&
+                        data.message
+                    )
+                    ||
+                    "No se pudo consultar."
+                );
+
+            }
+
+
+            if (data.exists === false) {
+
+                label.textContent =
+                    "Instancia no creada";
+
+                label.dataset.state =
+                    "missing";
+
+                return;
+            }
+
+
+            if (data.connected === true) {
+
+                label.textContent =
+                    "● Conectado";
+
+                label.dataset.state =
+                    "connected";
+
+                return;
+            }
+
+
+            const state =
+                (
+                    data.state
+                    ||
+                    ""
+                ).trim();
+
+
+            label.textContent =
+                state
+                ?
+                "● Sin conexión (" + state + ")"
+                :
+                "● Sin conexión";
+
+            label.dataset.state =
+                "disconnected";
+
+
+        } catch (error) {
+
+            label.textContent =
+                "Estado no disponible";
+
+            label.dataset.state =
+                "error";
+
+        }
+
+    }
+
+
+    cards.forEach(
+        function (card) {
+            refreshStatus(card);
+        }
+    );
+
+})();
+</script>
+
+
+{% endblock %}

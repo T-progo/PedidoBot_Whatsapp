@@ -1,0 +1,313 @@
+from django.conf import settings
+from django.db import models
+
+
+class Empresa(models.Model):
+
+    class Estado(models.TextChoices):
+        ACTIVA = "activa", "Activa"
+        INACTIVA = "inactiva", "Inactiva"
+        SUSPENDIDA = "suspendida", "Suspendida"
+
+    nombre = models.CharField(
+        max_length=150
+    )
+
+    razon_social = models.CharField(
+        max_length=200,
+        blank=True
+    )
+
+    rfc = models.CharField(
+        max_length=20,
+        blank=True
+    )
+
+    email = models.EmailField(
+        blank=True
+    )
+
+    telefono = models.CharField(
+        max_length=30,
+        blank=True
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.ACTIVA
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "Empresa"
+        verbose_name_plural = "Empresas"
+
+    def __str__(self):
+        return self.nombre
+
+
+class PerfilUsuario(models.Model):
+
+    class Rol(models.TextChoices):
+        ADMINISTRADOR = "administrador", "Administrador"
+        CLIENTE = "cliente", "Cliente"
+        OPERADOR = "operador", "Operador"
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="perfil_negociolisto"
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="usuarios"
+    )
+
+    rol = models.CharField(
+        max_length=20,
+        choices=Rol.choices,
+        default=Rol.CLIENTE
+    )
+
+    activo = models.BooleanField(
+        default=True
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        verbose_name = "Perfil de usuario"
+        verbose_name_plural = "Perfiles de usuario"
+
+    def __str__(self):
+        return self.usuario.get_username()
+
+
+class Licencia(models.Model):
+
+    class Estado(models.TextChoices):
+        ACTIVA = "activa", "Activa"
+        SUSPENDIDA = "suspendida", "Suspendida"
+        VENCIDA = "vencida", "Vencida"
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="licencias"
+    )
+
+    nombre = models.CharField(
+        max_length=120
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.ACTIVA
+    )
+
+    fecha_inicio = models.DateField()
+
+    fecha_fin = models.DateField()
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["-fecha_fin"]
+        verbose_name = "Licencia"
+        verbose_name_plural = "Licencias"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"
+
+
+class Bot(models.Model):
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="bots"
+    )
+
+    nombre = models.CharField(
+        max_length=150
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    activo = models.BooleanField(
+        default=True
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["empresa", "nombre"]
+        verbose_name = "Bot"
+        verbose_name_plural = "Bots"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"
+
+
+class Canal(models.Model):
+
+    class Tipo(models.TextChoices):
+        WHATSAPP = "whatsapp", "WhatsApp"
+        MESSENGER = "messenger", "Messenger"
+        TELEGRAM = "telegram", "Telegram"
+
+    bot = models.ForeignKey(
+        Bot,
+        on_delete=models.CASCADE,
+        related_name="canales"
+    )
+
+    tipo = models.CharField(
+        max_length=20,
+        choices=Tipo.choices
+    )
+
+    nombre = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    identificador = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    activo = models.BooleanField(
+        default=True
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["bot", "tipo"]
+        verbose_name = "Canal"
+        verbose_name_plural = "Canales"
+
+    def __str__(self):
+        return f"{self.bot} - {self.get_tipo_display()}"
+
+
+# ============================================================
+# PLANTILLAS
+# ============================================================
+
+class Plantilla(models.Model):
+
+    TIPO_ABARROTES_FERRETERIA = "abarrotes_ferreteria"
+    TIPO_RESTAURANTE = "restaurante"
+    TIPO_CLINICA = "clinica"
+    TIPO_NEXOS = "nexos"
+    TIPO_PERSONALIZADA = "personalizada"
+
+    TIPOS = [
+        (
+            TIPO_ABARROTES_FERRETERIA,
+            "Abarrotes / Ferretería",
+        ),
+        (
+            TIPO_RESTAURANTE,
+            "Restaurante",
+        ),
+        (
+            TIPO_CLINICA,
+            "Clínica",
+        ),
+        (
+            TIPO_NEXOS,
+            "Nexos Estratégicos",
+        ),
+        (
+            TIPO_PERSONALIZADA,
+            "Personalizada",
+        ),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="plantillas",
+    )
+
+    nombre = models.CharField(
+        max_length=150,
+    )
+
+    tipo = models.CharField(
+        max_length=50,
+        choices=TIPOS,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    activa = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ["empresa", "nombre"]
+        verbose_name = "Plantilla"
+        verbose_name_plural = "Plantillas"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"

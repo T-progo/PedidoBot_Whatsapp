@@ -1,0 +1,11 @@
+[Unit]
+Description=NegocioListo - Verificar licencias y suspensiones cada 5 minutos
+
+[Timer]
+OnActiveSec=5min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=negociolisto-client-lifecycle.service
+
+[Install]
+WantedBy=timers.target

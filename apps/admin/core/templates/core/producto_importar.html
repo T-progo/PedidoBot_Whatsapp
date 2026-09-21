@@ -1,0 +1,384 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Importar productos | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Importar productos
+{% endblock %}
+
+{% block content %}
+
+<style>
+.tnl-import-grid {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(280px, 360px);
+    gap: 24px;
+    align-items: start;
+}
+
+.tnl-import-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 24px;
+}
+
+.tnl-import-field {
+    margin-bottom: 20px;
+}
+
+.tnl-import-field label {
+    display: block;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.tnl-import-help {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.tnl-import-errors {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 22px;
+}
+
+.tnl-import-ok {
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 22px;
+}
+
+.tnl-import-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tnl-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    color: #334155;
+    background: #fff;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.tnl-preview {
+    overflow-x: auto;
+    margin-top: 22px;
+}
+
+@media (max-width: 900px) {
+    .tnl-import-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Catálogo
+        </span>
+
+        <h2>
+            Alta masiva desde Excel
+        </h2>
+
+        <p>
+            Valida todos los productos
+            antes de importarlos.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:producto_lista' %}"
+        class="tnl-secondary"
+    >
+        Volver a productos
+    </a>
+
+</div>
+
+
+{% if errores_globales or errores_filas %}
+
+<div class="tnl-import-errors">
+
+    <strong>
+        El archivo contiene errores.
+    </strong>
+
+    <ul>
+
+        {% for error in errores_globales %}
+            <li>{{ error }}</li>
+        {% endfor %}
+
+        {% for error in errores_filas %}
+            <li>{{ error }}</li>
+        {% endfor %}
+
+    </ul>
+
+    <p>
+        No se creó ningún producto.
+    </p>
+
+</div>
+
+{% endif %}
+
+
+{% if importacion_lista %}
+
+<div class="tnl-import-ok">
+
+    <strong>
+        Archivo validado correctamente.
+    </strong>
+
+    <p>
+        {{ total_productos }}
+        producto{{ total_productos|pluralize }}
+        listo{{ total_productos|pluralize }}
+        para importar.
+    </p>
+
+    <p>
+        Destino:
+        <strong>
+            {{ catalogo.empresa.nombre }}
+            ·
+            {{ catalogo.nombre }}
+        </strong>
+    </p>
+
+</div>
+
+
+<div class="tnl-import-card">
+
+    <form method="post">
+
+        {% csrf_token %}
+
+        <input
+            type="hidden"
+            name="accion"
+            value="importar"
+        >
+
+        <input
+            type="hidden"
+            name="token"
+            value="{{ token }}"
+        >
+
+        <div class="tnl-import-actions">
+
+            <button
+                type="submit"
+                class="primary-link"
+            >
+                Importar
+                {{ total_productos }}
+                productos
+            </button>
+
+            <a
+                href="{% url 'core:producto_importar' %}"
+                class="tnl-secondary"
+            >
+                Cancelar
+            </a>
+
+        </div>
+
+    </form>
+
+
+    <div class="tnl-preview">
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>FILA</th>
+                    <th>SKU</th>
+                    <th>PRODUCTO</th>
+                    <th>PRECIO</th>
+                    <th>STOCK</th>
+                    <th>UNIDAD</th>
+                    <th>ACTIVO</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for fila in preview_filas %}
+
+                <tr>
+                    <td>{{ fila.fila }}</td>
+                    <td>{{ fila.sku }}</td>
+                    <td>{{ fila.nombre }}</td>
+                    <td>{{ fila.precio|floatformat:2 }}</td>
+                    <td>{{ fila.stock|floatformat:2 }}</td>
+                    <td>{{ fila.unidad }}</td>
+                    <td>
+                        {% if fila.activo %}
+                            Sí
+                        {% else %}
+                            No
+                        {% endif %}
+                    </td>
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+    {% if preview_restantes %}
+
+    <p class="tnl-import-help">
+        Se muestran las primeras 100 filas.
+        Quedan {{ preview_restantes }}
+        adicionales ya validadas.
+    </p>
+
+    {% endif %}
+
+</div>
+
+
+{% else %}
+
+<div class="tnl-import-grid">
+
+    <div class="tnl-import-card">
+
+        <form
+            method="post"
+            enctype="multipart/form-data"
+        >
+
+            {% csrf_token %}
+
+            <input
+                type="hidden"
+                name="accion"
+                value="validar"
+            >
+
+            <div class="tnl-import-field">
+
+                <label>
+                    {{ form.catalogo.label }}
+                </label>
+
+                {{ form.catalogo }}
+
+                {% if form.catalogo.errors %}
+                    <div class="form-error">
+                        {{ form.catalogo.errors|striptags }}
+                    </div>
+                {% endif %}
+
+            </div>
+
+
+            <div class="tnl-import-field">
+
+                <label>
+                    {{ form.archivo.label }}
+                </label>
+
+                {{ form.archivo }}
+
+                {% if form.archivo.errors %}
+                    <div class="form-error">
+                        {{ form.archivo.errors|striptags }}
+                    </div>
+                {% endif %}
+
+                <p class="tnl-import-help">
+                    Solo .xlsx · máximo 5 MB ·
+                    máximo 5,000 productos.
+                </p>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="primary-link"
+            >
+                Validar Excel
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <aside class="tnl-import-card">
+
+        <h3>
+            Plantilla oficial
+        </h3>
+
+        <p class="tnl-import-help">
+            Descarga el formato oficial,
+            captura tus productos y súbelo
+            nuevamente.
+        </p>
+
+        <a
+            href="{% url 'core:producto_importar_plantilla' %}"
+            class="tnl-secondary"
+        >
+            📊 Descargar plantilla Excel
+        </a>
+
+        <hr>
+
+        <p class="tnl-import-help">
+            El SKU es opcional. Puede contener
+            texto, números o ambos y puede
+            repetirse entre productos.
+        </p>
+
+        <p class="tnl-import-help">
+            Las imágenes se agregan desde
+            la ficha del producto y tienen
+            un máximo de 4 MB por imagen.
+        </p>
+
+    </aside>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

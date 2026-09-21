@@ -1,0 +1,575 @@
+{% extends "core/base.html" %}
+
+{% block title %}{{ pedido.numero }} | NegocioListo{% endblock %}
+
+{% block content %}
+
+<style>
+    .pedido-shell {
+        width: 100%;
+    }
+
+    .pedido-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-start;
+        margin-bottom: 30px;
+    }
+
+    .pedido-eyebrow {
+        margin: 0 0 10px;
+        color: #43dfa0;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .pedido-title {
+        margin: 0;
+        font-size: 36px;
+    }
+
+    .pedido-state {
+        display: inline-flex;
+        margin-top: 14px;
+        padding: 8px 13px;
+        border-radius: 999px;
+        background: rgba(148,163,184,.13);
+        font-weight: 800;
+    }
+
+    .pedido-state.confirmado,
+    .pedido-state.pagado,
+    .pedido-state.entregado {
+        color: #43dfa0;
+        background: rgba(67,223,160,.12);
+    }
+
+    .pedido-top-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .pedido-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 14px;
+        border: 1px solid rgba(148,163,184,.18);
+        background: transparent;
+        color: #fff;
+        font: inherit;
+        font-weight: 750;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .pedido-button.primary {
+        border-color: #43dfa0;
+        background: #43dfa0;
+        color: #07150f;
+        font-weight: 850;
+    }
+
+    .pedido-grid {
+        display: grid;
+        grid-template-columns: repeat(3,minmax(0,1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .pedido-info {
+        padding: 20px;
+        border: 1px solid rgba(148,163,184,.15);
+        border-radius: 17px;
+        background: rgba(15,28,40,.64);
+    }
+
+    .pedido-info-label {
+        margin-bottom: 7px;
+        color: #91a6c5;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .pedido-info-value {
+        font-size: 16px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .pedido-section-title {
+        margin: 38px 0 18px;
+        font-size: 26px;
+    }
+
+    .pedido-lines-card {
+        overflow-x: auto;
+        padding: 26px;
+        border: 1px solid rgba(148,163,184,.16);
+        border-radius: 22px;
+        background: rgba(15,28,40,.70);
+    }
+
+    .pedido-table {
+        width: 100%;
+        min-width: 920px;
+        border-collapse: collapse;
+    }
+
+    .pedido-table th {
+        padding: 14px 14px 17px;
+        border-bottom: 1px solid rgba(148,163,184,.23);
+        color: #91a6c5;
+        font-size: 12px;
+        text-align: left;
+        text-transform: uppercase;
+    }
+
+    .pedido-table td {
+        padding: 20px 14px;
+        border-bottom: 1px solid rgba(148,163,184,.10);
+    }
+
+    .pedido-table tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .pedido-line-actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    .pedido-link {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: #43dfa0;
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .pedido-link.danger {
+        color: #ff8585;
+    }
+
+    .pedido-totals {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 24px;
+    }
+
+    .pedido-totals-box {
+        width: min(100%, 390px);
+    }
+
+    .pedido-total-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 30px;
+        padding: 10px 0;
+    }
+
+    .pedido-total-row.grand {
+        margin-top: 8px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(148,163,184,.20);
+        font-size: 22px;
+        font-weight: 850;
+    }
+
+    .pedido-empty {
+        padding: 55px 20px;
+        text-align: center;
+        color: #91a6c5;
+    }
+
+    .pedido-notes {
+        white-space: pre-wrap;
+    }
+
+    @media (max-width: 1000px) {
+        .pedido-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+        }
+    }
+
+    @media (max-width: 700px) {
+        .pedido-top {
+            flex-direction: column;
+        }
+
+        .pedido-top-actions {
+            justify-content: flex-start;
+        }
+
+        .pedido-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="pedido-shell">
+
+    <div class="pedido-top">
+
+        <div>
+
+            <p class="pedido-eyebrow">
+                Pedido
+            </p>
+
+            <h2 class="pedido-title">
+                {{ pedido.numero }}
+            </h2>
+
+            <span class="pedido-state {{ pedido.estado }}">
+                {{ pedido.get_estado_display }}
+            </span>
+
+        </div>
+
+        <div class="pedido-top-actions">
+
+            <a
+                href="{% url 'core:pedido_lista' %}"
+                class="pedido-button"
+            >
+                Volver
+            </a>
+
+            {% if editable %}
+
+                <a
+                    href="{% url 'core:pedido_editar' pedido.pk %}"
+                    class="pedido-button"
+                >
+                    Editar datos
+                </a>
+
+                <a
+                    href="{% url 'core:pedido_producto_agregar' pedido.pk %}"
+                    class="pedido-button primary"
+                >
+                    + Agregar producto
+                </a>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <div class="pedido-grid">
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Empresa</div>
+            <div class="pedido-info-value">
+                {{ pedido.empresa.nombre }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Cliente</div>
+            <div class="pedido-info-value">
+                {{ pedido.cliente_nombre }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Teléfono</div>
+            <div class="pedido-info-value">
+                {{ pedido.cliente_telefono|default:"—" }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Correo</div>
+            <div class="pedido-info-value">
+                {{ pedido.cliente_email|default:"—" }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Moneda</div>
+            <div class="pedido-info-value">
+                {{ pedido.moneda }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Canal</div>
+            <div class="pedido-info-value">
+                {% if pedido.canal %}
+                    {{ pedido.canal.get_tipo_display }}
+                    {% if pedido.canal.nombre %}
+                        · {{ pedido.canal.nombre }}
+                    {% endif %}
+                {% else %}
+                    Sin canal
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Creado</div>
+            <div class="pedido-info-value">
+                {{ pedido.creado_en|date:"d/m/Y H:i" }}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Confirmado</div>
+            <div class="pedido-info-value">
+                {% if pedido.confirmado_en %}
+                    {{ pedido.confirmado_en|date:"d/m/Y H:i" }}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">Identificador externo</div>
+            <div class="pedido-info-value">
+                {{ pedido.identificador_externo|default:"—" }}
+            </div>
+        </div>
+
+    </div>
+
+
+    {% if pedido.direccion_entrega %}
+
+        <div class="pedido-info" style="margin-bottom:16px;">
+            <div class="pedido-info-label">
+                Dirección de entrega
+            </div>
+
+            <div class="pedido-info-value">
+                {{ pedido.direccion_entrega }}
+            </div>
+        </div>
+
+    {% endif %}
+
+
+    {% if pedido.notas %}
+
+        <div class="pedido-info">
+            <div class="pedido-info-label">
+                Notas
+            </div>
+
+            <div class="pedido-info-value pedido-notes">
+                {{ pedido.notas }}
+            </div>
+        </div>
+
+    {% endif %}
+
+
+    <h3 class="pedido-section-title">
+        Productos
+    </h3>
+
+    <div class="pedido-lines-card">
+
+        {% if detalles %}
+
+            <table class="pedido-table">
+
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio unitario</th>
+                        <th>Descuento</th>
+                        <th>Importe</th>
+
+                        {% if editable %}
+                            <th>Acciones</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for detalle in detalles %}
+
+                        <tr>
+
+                            <td>
+                                {{ detalle.sku }}
+                            </td>
+
+                            <td>
+                                {{ detalle.nombre_producto }}
+                            </td>
+
+                            <td>
+                                {{ detalle.cantidad }}
+                            </td>
+
+                            <td>
+                                {{ pedido.moneda }}
+                                {{ detalle.precio_unitario }}
+                            </td>
+
+                            <td>
+                                {{ pedido.moneda }}
+                                {{ detalle.descuento }}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ pedido.moneda }}
+                                    {{ detalle.importe }}
+                                </strong>
+                            </td>
+
+                            {% if editable %}
+
+                                <td>
+                                    <div class="pedido-line-actions">
+
+                                        <a
+                                            href="{% url 'core:pedido_producto_editar' detalle.pk %}"
+                                            class="pedido-link"
+                                        >
+                                            Editar
+                                        </a>
+
+                                        <form
+                                            method="post"
+                                            action="{% url 'core:pedido_producto_eliminar' detalle.pk %}"
+                                            onsubmit="return confirm('¿Eliminar este producto del pedido?');"
+                                        >
+
+                                            {% csrf_token %}
+
+                                            <button
+                                                type="submit"
+                                                class="pedido-link danger"
+                                            >
+                                                Eliminar
+                                            </button>
+
+                                        </form>
+
+                                    </div>
+                                </td>
+
+                            {% endif %}
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        {% else %}
+
+            <div class="pedido-empty">
+
+                Este pedido todavía no contiene productos.
+
+                {% if editable %}
+                    <br><br>
+
+                    <a
+                        href="{% url 'core:pedido_producto_agregar' pedido.pk %}"
+                        class="pedido-button primary"
+                    >
+                        Agregar primer producto
+                    </a>
+                {% endif %}
+
+            </div>
+
+        {% endif %}
+
+
+        <div class="pedido-totals">
+
+            <div class="pedido-totals-box">
+
+                <div class="pedido-total-row">
+                    <span>Subtotal</span>
+                    <strong>
+                        {{ pedido.moneda }}
+                        {{ pedido.subtotal }}
+                    </strong>
+                </div>
+
+                <div class="pedido-total-row">
+                    <span>Descuento</span>
+                    <strong>
+                        {{ pedido.moneda }}
+                        {{ pedido.descuento }}
+                    </strong>
+                </div>
+
+                <div class="pedido-total-row grand">
+                    <span>Total</span>
+                    <span>
+                        {{ pedido.moneda }}
+                        {{ pedido.total }}
+                    </span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {% if editable and detalles %}
+
+        <div
+            style="
+                display:flex;
+                justify-content:flex-end;
+                margin-top:24px;
+            "
+        >
+
+            <form
+                method="post"
+                action="{% url 'core:pedido_confirmar' pedido.pk %}"
+                onsubmit="return confirm('¿Confirmar {{ pedido.numero }}? Esta operación descontará inventario y no puede repetirse.');"
+            >
+
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="pedido-button primary"
+                >
+                    Confirmar pedido
+                </button>
+
+            </form>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,307 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{% block title %}NegocioListo{% endblock %}</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'core/css/app.css' %}"
+    >
+
+    <!-- TOAST-MESSAGES-V2 -->
+    <style>
+        .global-messages {
+            position: fixed !important;
+            top: 24px !important;
+            right: 24px !important;
+            z-index: 2147483647 !important;
+
+            width: min(520px, calc(100vw - 48px)) !important;
+
+            margin: 0 !important;
+            padding: 0 !important;
+
+            pointer-events: none !important;
+        }
+
+        .global-message {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+
+            width: 100% !important;
+            box-sizing: border-box !important;
+
+            margin: 0 0 12px 0 !important;
+            padding: 16px 18px !important;
+
+            border-radius: 14px !important;
+
+            box-shadow:
+                0 18px 45px rgba(0, 0, 0, .35) !important;
+
+            pointer-events: auto !important;
+
+            animation: negocioToastIn .22s ease-out;
+        }
+
+        .global-message.error {
+            border:
+                1px solid rgba(255, 105, 105, .60) !important;
+
+            background:
+                rgba(74, 20, 25, .98) !important;
+
+            color:
+                #ffb4b4 !important;
+        }
+
+        .global-message.success {
+            border:
+                1px solid rgba(67, 223, 160, .55) !important;
+
+            background:
+                rgba(10, 55, 43, .98) !important;
+
+            color:
+                #79e9b9 !important;
+        }
+
+        .global-message.warning {
+            border:
+                1px solid rgba(245, 204, 106, .55) !important;
+
+            background:
+                rgba(63, 49, 15, .98) !important;
+
+            color:
+                #f5d783 !important;
+        }
+
+        .global-message.info {
+            border:
+                1px solid rgba(100, 180, 255, .55) !important;
+
+            background:
+                rgba(18, 45, 72, .98) !important;
+
+            color:
+                #aad4ff !important;
+        }
+
+        .global-message-text {
+            color: inherit !important;
+            font-size: 15px !important;
+            font-weight: 600 !important;
+            line-height: 1.45 !important;
+        }
+
+        @keyframes negocioToastIn {
+            from {
+                opacity: 0;
+                transform: translateY(-12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .global-messages {
+                top: 14px !important;
+                left: 14px !important;
+                right: 14px !important;
+                width: auto !important;
+            }
+        }
+    </style>
+
+
+    <!-- SWEETALERT2-NEGOCIOLISTO -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+</head>
+
+<body>
+
+<!-- GLOBAL DJANGO MESSAGES -->
+                {% if messages %}
+                    <div class="global-messages">
+                        {% for message in messages %}
+                            <div class="global-message {% if message.tags %}{{ message.tags }}{% endif %}">
+                                <div class="global-message-text">
+                                    {{ message }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+
+
+<div class="app-shell">
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-mark">N</div>
+
+            <div>
+                <strong>NegocioListo</strong>
+                <span>Administración</span>
+            </div>
+        </div>
+
+                <nav class="menu">
+
+            <a
+                class="menu-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                href="{% url 'core:dashboard' %}"
+            >
+                Inicio
+            </a>
+
+            <a
+                class="menu-item {% if request.resolver_match.url_name == 'empresa_lista' or request.resolver_match.url_name == 'empresa_crear' or request.resolver_match.url_name == 'empresa_editar' %}active{% endif %}"
+                href="{% url 'core:empresa_lista' %}"
+            >
+                Empresas
+            </a>
+
+            <a
+                    href="{% url 'core:usuario_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'usuario_lista' or request.resolver_match.url_name == 'usuario_crear' or request.resolver_match.url_name == 'usuario_editar' %} active{% endif %}"
+                >
+                    Usuarios
+                </a>
+
+            <a
+                    href="{% url 'core:licencia_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'licencia_lista' or request.resolver_match.url_name == 'licencia_crear' or request.resolver_match.url_name == 'licencia_editar' %} active{% endif %}"
+                >
+                    Licencias
+                </a>
+
+            <a
+                    href="{% url 'core:bot_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'bot_lista' or request.resolver_match.url_name == 'bot_crear' or request.resolver_match.url_name == 'bot_editar' %} active{% endif %}"
+                >
+                    Bots
+                </a>
+
+            <a
+                    href="{% url 'core:canal_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'canal_lista' or request.resolver_match.url_name == 'canal_crear' or request.resolver_match.url_name == 'canal_editar' %} active{% endif %}"
+                >
+                    Canales
+                </a>
+
+                <a
+                    href="{% url 'core:plantilla_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'plantilla_lista' or request.resolver_match.url_name == 'plantilla_crear' or request.resolver_match.url_name == 'plantilla_editar' %} active{% endif %}"
+                >
+                    Plantillas
+                </a>
+
+                <a
+                    href="{% url 'core:variable_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'variable_lista' or request.resolver_match.url_name == 'variable_crear' or request.resolver_match.url_name == 'variable_editar' %} active{% endif %}"
+                >
+                    Variables
+                </a>
+
+                <a
+                    href="{% url 'core:catalogo_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'catalogo_lista' or request.resolver_match.url_name == 'catalogo_crear' or request.resolver_match.url_name == 'catalogo_editar' %} active{% endif %}"
+                >
+                    Catálogos
+                </a>
+
+                <a
+                    href="{% url 'core:producto_lista' %}"
+                    class="menu-item{% if request.resolver_match.url_name == 'producto_lista' or request.resolver_match.url_name == 'producto_crear' or request.resolver_match.url_name == 'producto_editar' %} active{% endif %}"
+                >
+                    Productos
+                </a>
+
+        
+            <a
+                href="{% url 'core:pedido_lista' %}"
+                class="menu-item{% if request.resolver_match.url_name == 'pedido_lista' or request.resolver_match.url_name == 'pedido_crear' or request.resolver_match.url_name == 'pedido_detalle' or request.resolver_match.url_name == 'pedido_editar' or request.resolver_match.url_name == 'pedido_producto_agregar' or request.resolver_match.url_name == 'pedido_producto_editar' or request.resolver_match.url_name == 'pedido_producto_eliminar' or request.resolver_match.url_name == 'pedido_confirmar' %} active{% endif %}"
+            >
+                Pedidos
+            </a>
+
+</nav>
+
+        <div class="sidebar-footer">
+
+            <div class="user-info">
+                <span>Sesión</span>
+                <strong>{{ request.user.username }}</strong>
+            </div>
+
+            <form
+                method="post"
+                action="{% url 'core:logout' %}"
+            >
+                {% csrf_token %}
+
+                <button
+                    class="logout-button"
+                    type="submit"
+                >
+                    Cerrar sesión
+                </button>
+            </form>
+
+        </div>
+
+    </aside>
+
+
+    <main class="main-content">
+
+        <header class="topbar">
+
+            <div>
+                <span class="eyebrow">
+                    Plataforma
+                </span>
+
+                <h1>
+                    {% block page_title %}
+                    Administración
+                    {% endblock %}
+                </h1>
+            </div>
+
+            <div class="status-chip">
+                Plataforma operativa
+            </div>
+
+        </header>
+
+
+        <section class="content">
+
+            
+                
+
+{% block content %}
+            {% endblock %}
+
+        </section>
+
+    </main>
+
+</div>
+
+</body>
+</html>

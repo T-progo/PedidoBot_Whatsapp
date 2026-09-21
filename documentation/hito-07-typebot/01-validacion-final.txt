@@ -1,0 +1,50 @@
+==================================================
+HITO 07 - TYPEBOT BUILDER + VIEWER
+Fecha: Fri Aug  7 12:47:15 CST 2026
+==================================================
+
+===== CONTENEDORES TYPEBOT =====
+NAME                  IMAGE                                 COMMAND                  SERVICE           CREATED          STATUS          PORTS
+tnl-typebot-builder   baptistearno/typebot-builder:3.17.2   "/bin/sh -c ./${SCOP…"   typebot-builder   20 minutes ago   Up 20 minutes   127.0.0.1:8080->3000/tcp
+tnl-typebot-viewer    baptistearno/typebot-viewer:3.17.2    "/bin/sh -c ./${SCOP…"   typebot-viewer    10 minutes ago   Up 10 minutes   127.0.0.1:8081->3000/tcp
+
+===== BUILDER =====
+Status=running | ExitCode=0 | Restarting=false
+
+===== VIEWER =====
+Status=running | ExitCode=0 | Restarting=false
+
+===== PUERTOS LOCALES =====
+LISTEN 0      4096       127.0.0.1:8080      0.0.0.0:*    users:(("docker-proxy",pid=232362,fd=8))               
+LISTEN 0      4096       127.0.0.1:8081      0.0.0.0:*    users:(("docker-proxy",pid=235364,fd=8))               
+
+===== HTTP BUILDER =====
+HTTP Builder: 307
+
+===== HTTP VIEWER =====
+HTTP Viewer: 404
+
+===== BASE TYPEBOT =====
+ tablas_typebot 
+----------------
+             32
+(1 row)
+
+
+===== MIGRACIONES PRISMA =====
+ migraciones_aplicadas 
+-----------------------
+                    82
+(1 row)
+
+
+===== POSTGRESQL =====
+running | health=healthy
+
+===== REDIS =====
+running | health=healthy
+
+===== URLs CONFIGURADAS =====
+NEXTAUTH_URL=https://builder.negociolisto.com.mx
+NEXT_PUBLIC_VIEWER_URL=https://bot.negociolisto.com.mx
+ADMIN_EMAIL=admin@negociolisto.com.mx

@@ -1,0 +1,134 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Plantillas | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Plantillas
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Automatización
+        </span>
+
+        <h2>
+            Plantillas registradas
+        </h2>
+
+        <p>
+            Gestiona las plantillas de automatización asignadas a las empresas de NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:plantilla_crear' %}"
+        class="primary-link"
+    >
+        + Nueva plantilla
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if plantillas %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>EMPRESA</th>
+                    <th>PLANTILLA</th>
+                    <th>TIPO</th>
+                    <th>IDENTIFICADOR EXTERNO</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for plantilla in plantillas %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ plantilla.empresa.nombre }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ plantilla.nombre }}
+                        </td>
+
+                        <td>
+                            {{ plantilla.get_tipo_display }}
+                        </td>
+
+                        <td>
+                            {% if plantilla.identificador_externo %}
+                                {{ plantilla.identificador_externo }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if plantilla.activa %}
+                                Activa
+                            {% else %}
+                                Inactiva
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:plantilla_editar' plantilla.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>
+                No hay plantillas registradas
+            </h3>
+
+            <p>
+                Registra la primera plantilla para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:plantilla_crear' %}"
+                class="primary-link"
+            >
+                Crear plantilla
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

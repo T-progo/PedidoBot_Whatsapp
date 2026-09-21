@@ -1,0 +1,70 @@
+services:
+
+  rustfs-permissions:
+    image: alpine:latest
+    container_name: tnl-rustfs-permissions
+    restart: "no"
+
+    command:
+      - sh
+      - -c
+      - |
+        chown -R 10001:10001 /data /logs
+        chmod 750 /data /logs
+        echo "Permisos RustFS preparados."
+
+    volumes:
+      - /opt/tunegociolisto/volumes/storage/rustfs/data:/data
+      - /opt/tunegociolisto/volumes/storage/rustfs/logs:/logs
+
+    networks:
+      - backend
+
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: tnl-rustfs
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/storage.env
+
+    volumes:
+      - /opt/tunegociolisto/volumes/storage/rustfs/data:/data
+      - /opt/tunegociolisto/volumes/storage/rustfs/logs:/logs
+
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+    networks:
+      - backend
+
+    depends_on:
+      rustfs-permissions:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "sh",
+          "-ec",
+          "curl -fsS http://127.0.0.1:9000/health"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+
+networks:
+  backend:
+    external: true
+    name: tunegociolisto-backend

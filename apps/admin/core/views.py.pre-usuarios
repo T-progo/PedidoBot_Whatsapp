@@ -1,0 +1,116 @@
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import EmpresaForm
+from .models import (
+    Bot,
+    Canal,
+    Empresa,
+    Licencia,
+    PerfilUsuario,
+)
+
+
+@login_required
+def dashboard(request):
+
+    context = {
+        "total_empresas": Empresa.objects.count(),
+        "total_usuarios": PerfilUsuario.objects.count(),
+        "total_licencias": Licencia.objects.count(),
+        "total_bots": Bot.objects.count(),
+        "total_canales": Canal.objects.count(),
+    }
+
+    return render(
+        request,
+        "core/dashboard.html",
+        context,
+    )
+
+
+@login_required
+def empresa_lista(request):
+
+    empresas = Empresa.objects.all()
+
+    context = {
+        "empresas": empresas,
+    }
+
+    return render(
+        request,
+        "core/empresa_lista.html",
+        context,
+    )
+
+
+@login_required
+def empresa_crear(request):
+
+    if request.method == "POST":
+        form = EmpresaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+        form = EmpresaForm()
+
+    context = {
+        "form": form,
+        "titulo": "Nueva empresa",
+        "boton": "Guardar empresa",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+@login_required
+def empresa_editar(request, pk):
+
+    empresa = get_object_or_404(
+        Empresa,
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = EmpresaForm(
+            request.POST,
+            instance=empresa,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+
+        form = EmpresaForm(
+            instance=empresa,
+        )
+
+    context = {
+        "form": form,
+        "empresa": empresa,
+        "titulo": "Editar empresa",
+        "boton": "Guardar cambios",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )

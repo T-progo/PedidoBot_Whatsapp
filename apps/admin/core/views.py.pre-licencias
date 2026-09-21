@@ -1,0 +1,255 @@
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
+
+from .forms import EmpresaForm, UsuarioCrearForm, UsuarioEditarForm
+from .models import (
+    Bot,
+    Canal,
+    Empresa,
+    Licencia,
+    PerfilUsuario,
+)
+
+
+@login_required
+def dashboard(request):
+
+    context = {
+        "total_empresas": Empresa.objects.count(),
+        "total_usuarios": PerfilUsuario.objects.count(),
+        "total_licencias": Licencia.objects.count(),
+        "total_bots": Bot.objects.count(),
+        "total_canales": Canal.objects.count(),
+    }
+
+    return render(
+        request,
+        "core/dashboard.html",
+        context,
+    )
+
+
+@login_required
+def empresa_lista(request):
+
+    empresas = Empresa.objects.all()
+
+    context = {
+        "empresas": empresas,
+    }
+
+    return render(
+        request,
+        "core/empresa_lista.html",
+        context,
+    )
+
+
+@login_required
+def empresa_crear(request):
+
+    if request.method == "POST":
+        form = EmpresaForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+        form = EmpresaForm()
+
+    context = {
+        "form": form,
+        "titulo": "Nueva empresa",
+        "boton": "Guardar empresa",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+@login_required
+def empresa_editar(request, pk):
+
+    empresa = get_object_or_404(
+        Empresa,
+        pk=pk,
+    )
+
+    if request.method == "POST":
+
+        form = EmpresaForm(
+            request.POST,
+            instance=empresa,
+        )
+
+        if form.is_valid():
+            form.save()
+
+            return redirect(
+                "core:empresa_lista"
+            )
+
+    else:
+
+        form = EmpresaForm(
+            instance=empresa,
+        )
+
+    context = {
+        "form": form,
+        "empresa": empresa,
+        "titulo": "Editar empresa",
+        "boton": "Guardar cambios",
+    }
+
+    return render(
+        request,
+        "core/empresa_form.html",
+        context,
+    )
+
+
+
+# =========================================================
+# USUARIOS
+# =========================================================
+
+@login_required
+def usuario_lista(request):
+
+    perfiles = (
+        PerfilUsuario.objects
+        .select_related("usuario", "empresa")
+        .order_by("usuario__username")
+    )
+
+    return render(
+        request,
+        "core/usuario_lista.html",
+        {
+            "perfiles": perfiles,
+        },
+    )
+
+
+@login_required
+@transaction.atomic
+def usuario_crear(request):
+
+    if request.method == "POST":
+
+        form = UsuarioCrearForm(request.POST)
+
+        if form.is_valid():
+
+            activo = form.cleaned_data["activo"]
+
+            usuario = get_user_model().objects.create_user(
+                username=form.cleaned_data["username"],
+                email=form.cleaned_data["email"],
+                password=form.cleaned_data["password1"],
+                first_name=form.cleaned_data["first_name"],
+                last_name=form.cleaned_data["last_name"],
+                is_active=activo,
+            )
+
+            PerfilUsuario.objects.create(
+                usuario=usuario,
+                empresa=form.cleaned_data["empresa"],
+                rol=form.cleaned_data["rol"],
+                activo=activo,
+            )
+
+            return redirect("core:usuario_lista")
+
+    else:
+
+        form = UsuarioCrearForm()
+
+    return render(
+        request,
+        "core/usuario_form.html",
+        {
+            "form": form,
+            "titulo": "Nuevo usuario",
+            "boton": "Guardar usuario",
+            "modo": "crear",
+        },
+    )
+
+
+@login_required
+@transaction.atomic
+def usuario_editar(request, pk):
+
+    perfil = get_object_or_404(
+        PerfilUsuario.objects.select_related(
+            "usuario",
+            "empresa",
+        ),
+        pk=pk,
+    )
+
+    usuario = perfil.usuario
+
+    if request.method == "POST":
+
+        form = UsuarioEditarForm(
+            request.POST,
+        )
+
+        if form.is_valid():
+
+            usuario.first_name = form.cleaned_data["first_name"]
+            usuario.last_name = form.cleaned_data["last_name"]
+            usuario.email = form.cleaned_data["email"]
+            usuario.is_active = form.cleaned_data["activo"]
+
+            nueva_password = form.cleaned_data.get("password1")
+
+            if nueva_password:
+                usuario.set_password(nueva_password)
+
+            usuario.save()
+
+            perfil.empresa = form.cleaned_data["empresa"]
+            perfil.rol = form.cleaned_data["rol"]
+            perfil.activo = form.cleaned_data["activo"]
+            perfil.save()
+
+            return redirect("core:usuario_lista")
+
+    else:
+
+        form = UsuarioEditarForm(
+            initial={
+                "first_name": usuario.first_name,
+                "last_name": usuario.last_name,
+                "email": usuario.email,
+                "empresa": perfil.empresa,
+                "rol": perfil.rol,
+                "activo": perfil.activo,
+            }
+        )
+
+    return render(
+        request,
+        "core/usuario_form.html",
+        {
+            "form": form,
+            "perfil": perfil,
+            "usuario_obj": usuario,
+            "titulo": "Editar usuario",
+            "boton": "Guardar cambios",
+            "modo": "editar",
+        },
+    )

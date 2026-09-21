@@ -1,0 +1,108 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Panel | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Resumen general
+{% endblock %}
+
+{% block content %}
+
+<div class="welcome-card">
+
+    <div>
+        <span class="eyebrow">
+            Administración central
+        </span>
+
+        <h2>
+            Bienvenido a NegocioListo
+        </h2>
+
+        <p>
+            Gestiona desde un solo lugar las empresas,
+            usuarios, licencias, bots y canales de la plataforma.
+        </p>
+    </div>
+
+</div>
+
+
+<div class="stats-grid">
+
+    <article class="stat-card">
+        <span>Empresas</span>
+        <strong>{{ total_empresas }}</strong>
+        <small>Registradas</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Usuarios</span>
+        <strong>{{ total_usuarios }}</strong>
+        <small>Con perfil</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Licencias</span>
+        <strong>{{ total_licencias }}</strong>
+        <small>Registradas</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Bots</span>
+        <strong>{{ total_bots }}</strong>
+        <small>Configurados</small>
+    </article>
+
+    <article class="stat-card">
+        <span>Canales</span>
+        <strong>{{ total_canales }}</strong>
+        <small>Conectados</small>
+    </article>
+
+</div>
+
+
+<div class="panel-card">
+
+    <div class="panel-header">
+        <div>
+            <span class="eyebrow">
+                Sistema
+            </span>
+
+            <h3>
+                Estado de Administración
+            </h3>
+        </div>
+
+        <span class="status-online">
+            Operativo
+        </span>
+    </div>
+
+
+    <div class="system-grid">
+
+        <div>
+            <span>Base de datos</span>
+            <strong>PostgreSQL</strong>
+        </div>
+
+        <div>
+            <span>Aplicación</span>
+            <strong>Django</strong>
+        </div>
+
+        <div>
+            <span>Entorno</span>
+            <strong>Producción</strong>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

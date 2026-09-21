@@ -1,0 +1,102 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+{{ titulo }} | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+{{ titulo }}
+{% endblock %}
+
+{% block content %}
+
+<div class="form-container">
+
+    <div>
+
+        <span class="eyebrow">
+            Bots
+        </span>
+
+        <h2>
+            {{ titulo }}
+        </h2>
+
+        {% if modo == "crear" %}
+            <p>
+                Ingresa la información del bot.
+            </p>
+        {% else %}
+            <p>
+                Actualiza la información del bot.
+            </p>
+        {% endif %}
+
+    </div>
+
+
+    <form method="post" novalidate>
+
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="field-error">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+
+        <div class="form-grid">
+
+            {% for field in form %}
+
+                <div class="form-group">
+
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <div class="field-help">
+                            {{ field.help_text|safe }}
+                        </div>
+                    {% endif %}
+
+                    {% if field.errors %}
+                        <div class="field-error">
+                            {{ field.errors|striptags }}
+                        </div>
+                    {% endif %}
+
+                </div>
+
+            {% endfor %}
+
+        </div>
+
+
+        <div class="form-actions">
+
+            <a
+                href="{% url 'core:bot_lista' %}"
+                class="secondary-link"
+            >
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="primary-button form-submit"
+            >
+                {{ boton }}
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+{% endblock %}

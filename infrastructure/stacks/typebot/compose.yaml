@@ -1,0 +1,48 @@
+services:
+
+  typebot-builder:
+    image: baptistearno/typebot-builder:3.17.2
+    container_name: tnl-typebot-builder
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/typebot.env
+
+    ports:
+      - "127.0.0.1:8080:3000"
+
+    networks:
+      - backend
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+
+  typebot-viewer:
+    image: baptistearno/typebot-viewer:3.17.2
+    container_name: tnl-typebot-viewer
+    restart: unless-stopped
+
+    env_file:
+      - /opt/tunegociolisto/infrastructure/env/typebot.env
+
+    ports:
+      - "127.0.0.1:8081:3000"
+
+    networks:
+      - backend
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+
+networks:
+  backend:
+    external: true
+    name: tunegociolisto-backend

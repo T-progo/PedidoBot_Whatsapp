@@ -1,0 +1,716 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+{{ empresa.nombre }} | NegocioListo
+{% endblock %}
+
+{% block content %}
+
+<style>
+    .cliente-shell {
+        width: 100%;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    .cliente-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 30px;
+    }
+
+    .cliente-eyebrow {
+        margin: 0 0 10px;
+        color: #49dfad;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .cliente-title {
+        margin: 0;
+        font-size: clamp(30px, 3vw, 44px);
+        line-height: 1.1;
+    }
+
+    .cliente-subtitle {
+        margin: 12px 0 0;
+        opacity: .72;
+        font-size: 16px;
+    }
+
+    .cliente-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .cliente-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border: 1px solid rgba(148, 163, 184, .20);
+        border-radius: 13px;
+        color: inherit;
+        text-decoration: none;
+        font-weight: 700;
+        background: rgba(15, 23, 42, .30);
+    }
+
+    .cliente-btn:hover {
+        border-color: rgba(73, 223, 173, .60);
+    }
+
+    .cliente-btn.primary {
+        border-color: #49dfad;
+        background: #49dfad;
+        color: #04141a;
+    }
+
+    .cliente-status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .cliente-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .cliente-status.ok {
+        color: #49dfad;
+        background: rgba(16, 185, 129, .14);
+    }
+
+    .cliente-status.warn {
+        color: #fbbf24;
+        background: rgba(245, 158, 11, .14);
+    }
+
+    .cliente-status.error {
+        color: #fb7185;
+        background: rgba(244, 63, 94, .14);
+    }
+
+    .cliente-section {
+        margin-top: 34px;
+    }
+
+    .cliente-section-title {
+        margin: 0 0 16px;
+        font-size: 24px;
+    }
+
+    .cliente-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .cliente-card {
+        min-width: 0;
+        padding: 20px;
+        border: 1px solid rgba(148, 163, 184, .17);
+        border-radius: 17px;
+        background: rgba(15, 29, 43, .72);
+    }
+
+    .cliente-label {
+        margin-bottom: 9px;
+        color: #96b7e4;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .cliente-value {
+        font-size: 16px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+    }
+
+    .resumen-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .resumen-card {
+        padding: 18px;
+        border: 1px solid rgba(148, 163, 184, .17);
+        border-radius: 16px;
+        background: rgba(15, 29, 43, .72);
+    }
+
+    .resumen-number {
+        margin-top: 6px;
+        font-size: 27px;
+        font-weight: 800;
+    }
+
+    .licencia-box {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        padding: 20px;
+        border: 1px solid rgba(148, 163, 184, .17);
+        border-radius: 17px;
+        background: rgba(15, 29, 43, .72);
+    }
+
+    .instalaciones {
+        display: grid;
+        gap: 14px;
+    }
+
+    .instalacion-card {
+        padding: 20px;
+        border: 1px solid rgba(148, 163, 184, .17);
+        border-radius: 17px;
+        background: rgba(15, 29, 43, .72);
+    }
+
+    .instalacion-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .instalacion-name {
+        margin: 0;
+        font-size: 19px;
+    }
+
+    .instalacion-meta {
+        margin-top: 6px;
+        opacity: .68;
+        font-size: 13px;
+    }
+
+    .instalacion-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .instalacion-data {
+        padding: 14px;
+        border: 1px solid rgba(148, 163, 184, .12);
+        border-radius: 13px;
+        background: rgba(2, 12, 20, .28);
+    }
+
+    .instalacion-error {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid rgba(248, 113, 113, .45);
+        border-radius: 12px;
+        color: #fecaca;
+        background: rgba(127, 29, 29, .20);
+        overflow-wrap: anywhere;
+    }
+
+    .usuarios-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .usuarios-table th,
+    .usuarios-table td {
+        padding: 14px 12px;
+        text-align: left;
+        border-bottom: 1px solid rgba(148, 163, 184, .13);
+    }
+
+    .usuarios-table th {
+        color: #96b7e4;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    .cliente-empty {
+        padding: 24px;
+        border: 1px dashed rgba(148, 163, 184, .22);
+        border-radius: 16px;
+        opacity: .72;
+    }
+
+    @media (max-width: 1100px) {
+        .cliente-grid,
+        .licencia-box {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .resumen-grid,
+        .instalacion-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 700px) {
+        .cliente-top {
+            flex-direction: column;
+        }
+
+        .cliente-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .cliente-grid,
+        .licencia-box,
+        .resumen-grid,
+        .instalacion-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .usuarios-table {
+            min-width: 620px;
+        }
+
+        .usuarios-scroll {
+            overflow-x: auto;
+        }
+    }
+</style>
+
+
+<div class="cliente-shell">
+
+    <div class="cliente-top">
+
+        <div>
+            <p class="cliente-eyebrow">
+                Cliente / Empresa
+            </p>
+
+            <h1 class="cliente-title">
+                {{ empresa.nombre }}
+            </h1>
+
+            <p class="cliente-subtitle">
+                Control integral de cuenta, licenciamiento y automatizaciones.
+            </p>
+
+            <div class="cliente-status-row">
+
+                {% if empresa.estado == "activa" %}
+                    <span class="cliente-status ok">
+                        ● Empresa activa
+                    </span>
+                {% else %}
+                    <span class="cliente-status warn">
+                        ● {{ empresa.get_estado_display|default:empresa.estado }}
+                    </span>
+                {% endif %}
+
+                {% if licencia_actual %}
+                    <span class="cliente-status ok">
+                        ● Licencia vigente
+                    </span>
+                {% else %}
+                    <span class="cliente-status error">
+                        ● Sin licencia activa vigente
+                    </span>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <div class="cliente-actions">
+
+            <a
+                href="{% url 'core:empresa_lista' %}"
+                class="cliente-btn"
+            >
+                Volver
+            </a>
+
+            <a
+                href="{% url 'core:empresa_editar' empresa.pk %}"
+                class="cliente-btn primary"
+            >
+                Editar empresa
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Datos generales
+        </h2>
+
+        <div class="cliente-grid">
+
+            <div class="cliente-card">
+                <div class="cliente-label">Nombre</div>
+                <div class="cliente-value">
+                    {{ empresa.nombre }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Razón social</div>
+                <div class="cliente-value">
+                    {{ empresa.razon_social|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">RFC</div>
+                <div class="cliente-value">
+                    {{ empresa.rfc|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Correo</div>
+                <div class="cliente-value">
+                    {{ empresa.email|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Teléfono</div>
+                <div class="cliente-value">
+                    {{ empresa.telefono|default:"—" }}
+                </div>
+            </div>
+
+            <div class="cliente-card">
+                <div class="cliente-label">Estado</div>
+                <div class="cliente-value">
+                    {{ empresa.get_estado_display|default:empresa.estado }}
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Resumen operativo
+        </h2>
+
+        <div class="resumen-grid">
+
+            <div class="resumen-card">
+                <div class="cliente-label">Usuarios</div>
+                <div class="resumen-number">{{ resumen.usuarios }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Instalaciones</div>
+                <div class="resumen-number">{{ resumen.instalaciones }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Bots</div>
+                <div class="resumen-number">{{ resumen.bots }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Canales</div>
+                <div class="resumen-number">{{ resumen.canales }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Catálogos</div>
+                <div class="resumen-number">{{ resumen.catalogos }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Productos</div>
+                <div class="resumen-number">{{ resumen.productos }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Pedidos</div>
+                <div class="resumen-number">{{ resumen.pedidos }}</div>
+            </div>
+
+            <div class="resumen-card">
+                <div class="cliente-label">Plantillas privadas</div>
+                <div class="resumen-number">{{ resumen.plantillas }}</div>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Licenciamiento
+        </h2>
+
+        {% if licencia_actual %}
+
+            <div class="licencia-box">
+
+                <div>
+                    <div class="cliente-label">Licencia</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.nombre }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cliente-label">Estado</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.get_estado_display }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cliente-label">Inicio</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.fecha_inicio|date:"d/m/Y" }}
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cliente-label">Vencimiento</div>
+                    <div class="cliente-value">
+                        {{ licencia_actual.fecha_fin|date:"d/m/Y" }}
+                    </div>
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                La empresa no tiene una licencia activa y vigente en este momento.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Automatizaciones instaladas
+        </h2>
+
+        {% if instalaciones %}
+
+            <div class="instalaciones">
+
+                {% for item in instalaciones %}
+
+                    <div class="instalacion-card">
+
+                        <div class="instalacion-head">
+
+                            <div>
+                                <h3 class="instalacion-name">
+                                    {{ item.instalacion.plantilla_maestra.nombre }}
+                                    v{{ item.instalacion.version_instalada }}
+                                </h3>
+
+                                <div class="instalacion-meta">
+                                    Instalación #{{ item.instalacion.id }}
+                                </div>
+                            </div>
+
+                            {% if item.instalacion.estado == "lista" %}
+
+                                <span class="cliente-status ok">
+                                    Lista
+                                </span>
+
+                            {% elif item.instalacion.estado == "error" %}
+
+                                <span class="cliente-status error">
+                                    Error
+                                </span>
+
+                            {% elif item.instalacion.estado == "aprovisionando" %}
+
+                                <span class="cliente-status warn">
+                                    Aprovisionando
+                                </span>
+
+                            {% else %}
+
+                                <span class="cliente-status warn">
+                                    {{ item.instalacion.get_estado_display }}
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+                        <div class="instalacion-grid">
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Plantilla privada
+                                </div>
+                                <div class="cliente-value">
+                                    {% if item.plantilla %}
+                                        {{ item.plantilla.nombre }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Variables
+                                </div>
+                                <div class="cliente-value">
+                                    {{ item.variables }}
+                                </div>
+                            </div>
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Bot
+                                </div>
+                                <div class="cliente-value">
+                                    {% if item.bot %}
+                                        {{ item.bot.nombre }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="instalacion-data">
+                                <div class="cliente-label">
+                                    Catálogo
+                                </div>
+                                <div class="cliente-value">
+                                    {% if item.catalogo %}
+                                        {{ item.catalogo.nombre }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {% if item.instalacion.ultimo_error %}
+
+                            <div class="instalacion-error">
+                                <strong>Último error:</strong><br>
+                                {{ item.instalacion.ultimo_error }}
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                Esta empresa todavía no tiene plantillas maestras aprovisionadas.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+    <section class="cliente-section">
+
+        <h2 class="cliente-section-title">
+            Usuarios
+        </h2>
+
+        {% if usuarios %}
+
+            <div class="cliente-card usuarios-scroll">
+
+                <table class="usuarios-table">
+
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Correo</th>
+                            <th>Rol</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for perfil in usuarios %}
+
+                            <tr>
+                                <td>
+                                    {{ perfil.usuario.username }}
+                                </td>
+
+                                <td>
+                                    {{ perfil.usuario.email|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ perfil.get_rol_display }}
+                                </td>
+
+                                <td>
+                                    {% if perfil.activo %}
+                                        Activo
+                                    {% else %}
+                                        Inactivo
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        {% else %}
+
+            <div class="cliente-empty">
+                No hay usuarios asociados a esta empresa.
+            </div>
+
+        {% endif %}
+
+    </section>
+
+</div>
+
+{% endblock %}

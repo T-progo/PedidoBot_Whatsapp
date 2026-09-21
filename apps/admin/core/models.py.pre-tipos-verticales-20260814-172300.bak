@@ -1,0 +1,1157 @@
+import uuid
+from django.conf import settings
+from django.db import models
+
+
+class Empresa(models.Model):
+
+    class Estado(models.TextChoices):
+        ACTIVA = "activa", "Activa"
+        INACTIVA = "inactiva", "Inactiva"
+        SUSPENDIDA = "suspendida", "Suspendida"
+
+    nombre = models.CharField(
+        max_length=150
+    )
+
+    razon_social = models.CharField(
+        max_length=200,
+        blank=True
+    )
+
+    rfc = models.CharField(
+        max_length=20,
+        blank=True
+    )
+
+    email = models.EmailField(
+        blank=True
+    )
+
+    telefono = models.CharField(
+        max_length=30,
+        blank=True
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.ACTIVA
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["nombre"]
+        verbose_name = "Empresa"
+        verbose_name_plural = "Empresas"
+
+    def __str__(self):
+        return self.nombre
+
+
+class PerfilUsuario(models.Model):
+
+    class Rol(models.TextChoices):
+        ADMINISTRADOR = "administrador", "Administrador"
+        CLIENTE = "cliente", "Cliente"
+        OPERADOR = "operador", "Operador"
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="perfil_negociolisto"
+    )
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="usuarios"
+    )
+
+    rol = models.CharField(
+        max_length=20,
+        choices=Rol.choices,
+        default=Rol.CLIENTE
+    )
+
+    activo = models.BooleanField(
+        default=True
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        verbose_name = "Perfil de usuario"
+        verbose_name_plural = "Perfiles de usuario"
+
+    def __str__(self):
+        return self.usuario.get_username()
+
+
+class Licencia(models.Model):
+
+    class Estado(models.TextChoices):
+        ACTIVA = "activa", "Activa"
+        SUSPENDIDA = "suspendida", "Suspendida"
+        VENCIDA = "vencida", "Vencida"
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="licencias"
+    )
+
+    nombre = models.CharField(
+        max_length=120
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.ACTIVA
+    )
+
+    fecha_inicio = models.DateField()
+
+    fecha_fin = models.DateField()
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["-fecha_fin"]
+        verbose_name = "Licencia"
+        verbose_name_plural = "Licencias"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"
+
+
+class Bot(models.Model):
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="bots"
+    )
+
+    plantilla = models.ForeignKey(
+        "Plantilla",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bots",
+    )
+
+    nombre = models.CharField(
+        max_length=150
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    activo = models.BooleanField(
+        default=True
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["empresa", "nombre"]
+        verbose_name = "Bot"
+        verbose_name_plural = "Bots"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"
+
+
+class Canal(models.Model):
+
+    class Tipo(models.TextChoices):
+        WHATSAPP = "whatsapp", "WhatsApp"
+        MESSENGER = "messenger", "Messenger"
+        TELEGRAM = "telegram", "Telegram"
+
+    bot = models.ForeignKey(
+        Bot,
+        on_delete=models.CASCADE,
+        related_name="canales"
+    )
+
+    tipo = models.CharField(
+        max_length=20,
+        choices=Tipo.choices
+    )
+
+    nombre = models.CharField(
+        max_length=150,
+        blank=True
+    )
+
+    identificador = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    activo = models.BooleanField(
+        default=True
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        ordering = ["bot", "tipo"]
+        verbose_name = "Canal"
+        verbose_name_plural = "Canales"
+
+    def __str__(self):
+        return f"{self.bot} - {self.get_tipo_display()}"
+
+
+# ============================================================
+# PLANTILLAS
+# ============================================================
+
+class Plantilla(models.Model):
+
+    TIPO_ABARROTES_FERRETERIA = "abarrotes_ferreteria"
+    TIPO_RESTAURANTE = "restaurante"
+    TIPO_CLINICA = "clinica"
+    TIPO_NEXOS = "nexos"
+    TIPO_PERSONALIZADA = "personalizada"
+
+    TIPOS = [
+        (
+            TIPO_ABARROTES_FERRETERIA,
+            "Abarrotes / Ferretería",
+        ),
+        (
+            TIPO_RESTAURANTE,
+            "Restaurante",
+        ),
+        (
+            TIPO_CLINICA,
+            "Clínica",
+        ),
+        (
+            TIPO_NEXOS,
+            "Nexos Estratégicos",
+        ),
+        (
+            TIPO_PERSONALIZADA,
+            "Personalizada",
+        ),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="plantillas",
+    )
+
+    nombre = models.CharField(
+        max_length=150,
+    )
+
+    tipo = models.CharField(
+        max_length=50,
+        choices=TIPOS,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    activa = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        ordering = ["empresa", "nombre"]
+        verbose_name = "Plantilla"
+        verbose_name_plural = "Plantillas"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"
+
+
+# ============================================================
+# VARIABLES
+# ============================================================
+
+class Variable(models.Model):
+
+    plantilla = models.ForeignKey(
+        Plantilla,
+        on_delete=models.CASCADE,
+        related_name="variables",
+    )
+
+    clave = models.CharField(
+        max_length=150,
+    )
+
+    valor = models.TextField(
+        blank=True,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    activa = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "plantilla",
+            "clave",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "plantilla",
+                    "clave",
+                ],
+                name="uniq_variable_plantilla_clave",
+            ),
+        ]
+
+        verbose_name = "Variable"
+        verbose_name_plural = "Variables"
+
+    def __str__(self):
+        return f"{self.plantilla} - {self.clave}"
+
+
+# ============================================================
+# CATALOGOS
+# ============================================================
+
+class Catalogo(models.Model):
+
+    MONEDAS = [
+        ("MXN", "Peso mexicano (MXN)"),
+        ("USD", "Dólar estadounidense (USD)"),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="catalogos",
+    )
+
+    plantilla = models.ForeignKey(
+        "Plantilla",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="catalogos",
+    )
+
+    nombre = models.CharField(
+        max_length=150,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    moneda = models.CharField(
+        max_length=3,
+        choices=MONEDAS,
+        default="MXN",
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    activo = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "empresa",
+            "nombre",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "empresa",
+                    "nombre",
+                ],
+                name="uniq_catalogo_empresa_nombre",
+            ),
+        ]
+
+        verbose_name = "Catálogo"
+        verbose_name_plural = "Catálogos"
+
+    def __str__(self):
+        return f"{self.empresa} - {self.nombre}"
+
+
+# ============================================================
+# PRODUCTOS
+# ============================================================
+
+class Producto(models.Model):
+
+    catalogo = models.ForeignKey(
+        Catalogo,
+        on_delete=models.CASCADE,
+        related_name="productos",
+    )
+
+    sku = models.CharField(
+        max_length=100,
+    )
+
+    nombre = models.CharField(
+        max_length=200,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    precio = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+    )
+
+    stock = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+    )
+
+    unidad = models.CharField(
+        max_length=50,
+        default="pieza",
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    activo = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "catalogo",
+            "nombre",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "catalogo",
+                    "sku",
+                ],
+                name="uniq_producto_catalogo_sku",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    precio__gte=0
+                ),
+                name="producto_precio_no_negativo",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    stock__gte=0
+                ),
+                name="producto_stock_no_negativo",
+            ),
+        ]
+
+        verbose_name = "Producto"
+        verbose_name_plural = "Productos"
+
+    def __str__(self):
+        return f"{self.sku} - {self.nombre}"
+
+
+# ============================================================
+# PEDIDOS
+# ============================================================
+
+class Pedido(models.Model):
+
+    ESTADOS = [
+        ("carrito", "Carrito"),
+        ("pendiente", "Pendiente"),
+        ("confirmado", "Confirmado"),
+        ("pagado", "Pagado"),
+        ("preparando", "Preparando"),
+        ("enviado", "Enviado"),
+        ("entregado", "Entregado"),
+        ("cancelado", "Cancelado"),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="pedidos",
+    )
+
+    canal = models.ForeignKey(
+        Canal,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pedidos",
+    )
+
+    numero = models.CharField(
+        max_length=50,
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=ESTADOS,
+        default="carrito",
+    )
+
+    cliente_nombre = models.CharField(
+        max_length=200,
+        blank=True,
+    )
+
+    cliente_telefono = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+
+    cliente_email = models.EmailField(
+        blank=True,
+    )
+
+    direccion_entrega = models.TextField(
+        blank=True,
+    )
+
+    notas = models.TextField(
+        blank=True,
+    )
+
+    moneda = models.CharField(
+        max_length=3,
+        default="MXN",
+    )
+
+    subtotal = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+    )
+
+    descuento = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+    )
+
+    total = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+    )
+
+    identificador_externo = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    confirmado_en = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "-creado_en",
+        ]
+
+        constraints = [
+
+            models.UniqueConstraint(
+                fields=[
+                    "empresa",
+                    "numero",
+                ],
+                name="uniq_pedido_empresa_numero",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    subtotal__gte=0
+                ),
+                name="pedido_subtotal_no_negativo",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    descuento__gte=0
+                ),
+                name="pedido_descuento_no_negativo",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    total__gte=0
+                ),
+                name="pedido_total_no_negativo",
+            ),
+        ]
+
+        verbose_name = "Pedido"
+        verbose_name_plural = "Pedidos"
+
+    def __str__(self):
+        return f"{self.numero} - {self.empresa}"
+
+
+# ============================================================
+# DETALLES DE PEDIDO
+# ============================================================
+
+class PedidoDetalle(models.Model):
+
+    pedido = models.ForeignKey(
+        Pedido,
+        on_delete=models.CASCADE,
+        related_name="detalles",
+    )
+
+    producto = models.ForeignKey(
+        Producto,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="detalles_pedido",
+    )
+
+    sku = models.CharField(
+        max_length=100,
+    )
+
+    nombre_producto = models.CharField(
+        max_length=200,
+    )
+
+    cantidad = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+    )
+
+    precio_unitario = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+    )
+
+    descuento = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        default=0,
+    )
+
+    importe = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "id",
+        ]
+
+        constraints = [
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    cantidad__gt=0
+                ),
+                name="pedido_detalle_cantidad_positiva",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    precio_unitario__gte=0
+                ),
+                name="pedido_detalle_precio_no_negativo",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    descuento__gte=0
+                ),
+                name="pedido_detalle_descuento_no_negativo",
+            ),
+
+            models.CheckConstraint(
+                condition=models.Q(
+                    importe__gte=0
+                ),
+                name="pedido_detalle_importe_no_negativo",
+            ),
+        ]
+
+        verbose_name = "Detalle de pedido"
+        verbose_name_plural = "Detalles de pedido"
+
+    def __str__(self):
+        return f"{self.pedido.numero} - {self.sku}"
+
+
+# ============================================================
+# MOTOR DE PLANTILLAS MAESTRAS
+# ============================================================
+
+
+class PlantillaMaestra(models.Model):
+
+    class Tipo(models.TextChoices):
+        ABARROTES = (
+            "abarrotes",
+            "Abarrotes / Ferretería",
+        )
+        RESTAURANTE = (
+            "restaurante",
+            "Restaurante",
+        )
+        CLINICA = (
+            "clinica",
+            "Clínica",
+        )
+        NEXOS = (
+            "nexos",
+            "Nexos Estratégicos",
+        )
+        PERSONALIZADA = (
+            "personalizada",
+            "Personalizada",
+        )
+
+    class Estado(models.TextChoices):
+        BORRADOR = (
+            "borrador",
+            "Borrador",
+        )
+        PUBLICADA = (
+            "publicada",
+            "Publicada",
+        )
+        RETIRADA = (
+            "retirada",
+            "Retirada",
+        )
+
+    nombre = models.CharField(
+        max_length=150,
+    )
+
+    slug = models.SlugField(
+        max_length=180,
+    )
+
+    tipo = models.CharField(
+        max_length=50,
+        choices=Tipo.choices,
+    )
+
+    version = models.PositiveIntegerField(
+        default=1,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    configuracion = models.JSONField(
+        default=dict,
+        blank=True,
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.BORRADOR,
+    )
+
+    activa = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "tipo",
+            "nombre",
+            "-version",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "slug",
+                    "version",
+                ],
+                name="uniq_plantilla_maestra_slug_version",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "tipo",
+                    "estado",
+                    "activa",
+                ],
+                name="idx_pm_tipo_estado_activa",
+            ),
+        ]
+
+        verbose_name = "Plantilla maestra"
+        verbose_name_plural = "Plantillas maestras"
+
+    def __str__(self):
+        return (
+            f"{self.nombre} "
+            f"v{self.version}"
+        )
+
+
+class PlantillaVariableMaestra(models.Model):
+
+    class TipoDato(models.TextChoices):
+        TEXTO = (
+            "texto",
+            "Texto",
+        )
+        NUMERO = (
+            "numero",
+            "Número",
+        )
+        BOOLEANO = (
+            "booleano",
+            "Sí / No",
+        )
+        FECHA = (
+            "fecha",
+            "Fecha",
+        )
+        HORA = (
+            "hora",
+            "Hora",
+        )
+        JSON = (
+            "json",
+            "JSON",
+        )
+
+    plantilla_maestra = models.ForeignKey(
+        PlantillaMaestra,
+        on_delete=models.CASCADE,
+        related_name="variables",
+    )
+
+    clave = models.CharField(
+        max_length=120,
+    )
+
+    nombre = models.CharField(
+        max_length=150,
+    )
+
+    tipo_dato = models.CharField(
+        max_length=20,
+        choices=TipoDato.choices,
+        default=TipoDato.TEXTO,
+    )
+
+    valor_default = models.TextField(
+        blank=True,
+    )
+
+    requerida = models.BooleanField(
+        default=False,
+    )
+
+    descripcion = models.TextField(
+        blank=True,
+    )
+
+    orden = models.PositiveIntegerField(
+        default=0,
+    )
+
+    activa = models.BooleanField(
+        default=True,
+    )
+
+    creado_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "plantilla_maestra",
+            "orden",
+            "clave",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "plantilla_maestra",
+                    "clave",
+                ],
+                name="uniq_pm_variable_clave",
+            ),
+        ]
+
+        verbose_name = "Variable maestra"
+        verbose_name_plural = "Variables maestras"
+
+    def __str__(self):
+        return (
+            f"{self.plantilla_maestra} "
+            f"- {self.clave}"
+        )
+
+
+class InstalacionPlantilla(models.Model):
+
+    class Estado(models.TextChoices):
+        PENDIENTE = (
+            "pendiente",
+            "Pendiente",
+        )
+        APROVISIONANDO = (
+            "aprovisionando",
+            "Aprovisionando",
+        )
+        LISTA = (
+            "lista",
+            "Lista",
+        )
+        ERROR = (
+            "error",
+            "Error",
+        )
+        SUSPENDIDA = (
+            "suspendida",
+            "Suspendida",
+        )
+
+    empresa = models.ForeignKey(
+        "Empresa",
+        on_delete=models.CASCADE,
+        related_name="instalaciones_plantilla",
+    )
+
+    licencia = models.ForeignKey(
+        "Licencia",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="instalaciones_plantilla",
+    )
+
+    plantilla_maestra = models.ForeignKey(
+        PlantillaMaestra,
+        on_delete=models.PROTECT,
+        related_name="instalaciones",
+    )
+
+    plantilla = models.OneToOneField(
+        "Plantilla",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="instalacion_maestra",
+    )
+
+    version_instalada = models.PositiveIntegerField(
+        default=1,
+    )
+
+    estado = models.CharField(
+        max_length=20,
+        choices=Estado.choices,
+        default=Estado.PENDIENTE,
+    )
+
+    clave_idempotencia = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+    )
+
+    ultimo_error = models.TextField(
+        blank=True,
+    )
+
+    iniciada_en = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    completada_en = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    actualizado_en = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+
+        ordering = [
+            "-iniciada_en",
+        ]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "empresa",
+                    "plantilla_maestra",
+                ],
+                name="uniq_instalacion_empresa_pm",
+            ),
+        ]
+
+        indexes = [
+            models.Index(
+                fields=[
+                    "empresa",
+                    "estado",
+                ],
+                name="idx_inst_empresa_estado",
+            ),
+        ]
+
+        verbose_name = "Instalación de plantilla"
+        verbose_name_plural = (
+            "Instalaciones de plantillas"
+        )
+
+    def __str__(self):
+        return (
+            f"{self.empresa} - "
+            f"{self.plantilla_maestra}"
+        )

@@ -1,0 +1,129 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Bots | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Bots
+{% endblock %}
+
+{% block content %}
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            Administración
+        </span>
+
+        <h2>
+            Bots registrados
+        </h2>
+
+        <p>
+            Gestiona los bots asignados a las empresas de NegocioListo.
+        </p>
+    </div>
+
+    <a
+        href="{% url 'core:bot_crear' %}"
+        class="primary-link"
+    >
+        + Nuevo bot
+    </a>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% if bots %}
+
+        <table class="data-table">
+
+            <thead>
+                <tr>
+                    <th>EMPRESA</th>
+                    <th>BOT</th>
+                    <th>IDENTIFICADOR EXTERNO</th>
+                    <th>ESTADO</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                {% for bot in bots %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ bot.empresa.nombre }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ bot.nombre }}
+                        </td>
+
+                        <td>
+                            {% if bot.identificador_externo %}
+                                {{ bot.identificador_externo }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if bot.activo %}
+                                Activo
+                            {% else %}
+                                Inactivo
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{% url 'core:bot_editar' bot.pk %}"
+                                class="action-link"
+                            >
+                                Editar
+                            </a>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    {% else %}
+
+        <div class="empty-state">
+
+            <h3>
+                No hay bots registrados
+            </h3>
+
+            <p>
+                Registra el primer bot para comenzar.
+            </p>
+
+            <a
+                href="{% url 'core:bot_crear' %}"
+                class="primary-link"
+            >
+                Crear bot
+            </a>
+
+        </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

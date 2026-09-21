@@ -1,0 +1,45 @@
+==================================================
+HITO 08 - EVOLUTION API - VALIDACION FINAL
+Fecha: Fri Aug  7 14:17:05 CST 2026
+==================================================
+
+===== EVOLUTION =====
+NAME            IMAGE                              COMMAND                  SERVICE     CREATED         STATUS         PORTS
+tnl-evolution   evoapicloud/evolution-api:v2.3.7   "/bin/bash -c '. ./D…"   evolution   7 minutes ago   Up 7 minutes   127.0.0.1:8082->8080/tcp
+
+===== ESTADO =====
+Status=running | ExitCode=0 | Restarting=false
+
+===== PUERTO LOCAL =====
+LISTEN 0      4096       127.0.0.1:8082      0.0.0.0:*    users:(("docker-proxy",pid=261176,fd=8))               
+
+===== HTTP LOCAL =====
+HTTP Evolution: 200
+
+===== POSTGRESQL =====
+running | health=healthy
+
+===== REDIS =====
+running | health=healthy
+
+===== SCHEMA EVOLUTION =====
+  schema_name  |  schema_owner  
+---------------+----------------
+ evolution_api | evolution_user
+(1 row)
+
+
+===== INSTANCIAS ACTUALES =====
+ registros_instance 
+--------------------
+                  0
+(1 row)
+
+
+===== SERVICIOS TNL =====
+NAMES                 STATUS                  PORTS
+tnl-evolution         Up 7 minutes            127.0.0.1:8082->8080/tcp
+tnl-typebot-viewer    Up 2 hours              127.0.0.1:8081->3000/tcp
+tnl-typebot-builder   Up 2 hours              127.0.0.1:8080->3000/tcp
+tnl-redis             Up 12 hours (healthy)   6379/tcp
+tnl-postgresql        Up 19 hours (healthy)   5432/tcp

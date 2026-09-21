@@ -1,0 +1,1759 @@
+{% extends "core/base.html" %}
+
+{% block title %}Pedidos | NegocioListo{% endblock %}
+
+{% block content %}
+
+<style>
+    .orders-shell {
+        width: 100%;
+    }
+
+    .orders-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-end;
+        margin-bottom: 44px;
+    }
+
+    .orders-eyebrow {
+        margin: 0 0 12px;
+        color: var(--green);
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .orders-title {
+        margin: 0;
+        font-size: clamp(28px, 3vw, 36px);
+        line-height: 1.15;
+    }
+
+    .orders-description {
+        margin: 18px 0 0;
+        font-size: 18px;
+        line-height: 1.55;
+    }
+
+    .order-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 54px;
+        padding: 0 24px;
+        border: 0;
+        border-radius: 15px;
+        background: var(--green);
+        color: var(--accent-contrast);
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .orders-card {
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+        margin-top: 28px;
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: var(--surface);
+    }
+
+    .orders-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+
+    .orders-table th {
+        padding: 16px 18px 20px;
+        border-bottom: 1px solid var(--border-strong);
+        color: var(--label);
+        font-size: 13px;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+
+    .orders-table td {
+        padding: 22px 14px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+        overflow-wrap: anywhere;
+    }
+
+    .orders-table th:nth-child(1),
+    .orders-table td:nth-child(1) {
+        width: 12%;
+    }
+
+    .orders-table th:nth-child(2),
+    .orders-table td:nth-child(2) {
+        width: 11%;
+    }
+
+    .orders-table th:nth-child(3),
+    .orders-table td:nth-child(3) {
+        width: 21%;
+    }
+
+    .orders-table th:nth-child(4),
+    .orders-table td:nth-child(4) {
+        width: 12%;
+    }
+
+    .orders-table th:nth-child(5),
+    .orders-table td:nth-child(5) {
+        width: 8%;
+    }
+
+    .orders-table th:nth-child(6),
+    .orders-table td:nth-child(6) {
+        width: 12%;
+    }
+
+    .orders-table th:nth-child(7),
+    .orders-table td:nth-child(7) {
+        width: 14%;
+    }
+
+    .orders-table th:nth-child(8),
+    .orders-table td:nth-child(8) {
+        width: 10%;
+    }
+
+    .orders-table tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .order-number {
+        color: var(--text);
+        font-weight: 800;
+        white-space: nowrap;
+    }
+
+    .order-action {
+        color: var(--green);
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .order-actions {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+    }
+
+    .order-state {
+        display: inline-flex;
+        padding: 7px 11px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 750;
+        white-space: nowrap;
+        background: var(--surface-2);
+    }
+
+    .order-state.confirmado,
+    .order-state.pagado,
+    .order-state.entregado {
+        color: var(--green);
+        background: var(--green-soft);
+    }
+
+    .order-state.cancelado {
+        color: var(--danger);
+        background: var(--danger-soft);
+    }
+
+    .order-state.pendiente {
+        color: var(--warning);
+        background: var(--warning-soft);
+    }
+
+    .order-state.preparando,
+    .order-state.enviado {
+        color: var(--info);
+        background: var(--info-soft);
+    }
+
+    /* TNL-PEDIDO-STATUS-RAPIDO-V1 */
+
+    .order-quick-status-form {
+        margin: 0;
+    }
+
+    .order-quick-status {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--green);
+        font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .order-quick-status:hover {
+        text-decoration: underline;
+    }
+
+    .orders-empty {
+        padding: 80px 24px;
+        text-align: center;
+    }
+
+    .orders-empty h3 {
+        margin: 0 0 10px;
+        font-size: 24px;
+    }
+
+    .orders-empty p {
+        margin: 0 0 28px;
+        color: var(--label);
+        font-size: 17px;
+    }
+
+    @media (max-width: 1100px) {
+        .orders-card {
+            overflow-x: auto;
+        }
+
+        .orders-table {
+            min-width: 980px;
+            table-layout: auto;
+        }
+
+        .orders-table th,
+        .orders-table td {
+            white-space: nowrap;
+        }
+
+        .orders-table td:nth-child(3) {
+            white-space: normal;
+            min-width: 180px;
+        }
+    }
+
+    @media (max-width: 760px) {
+        .orders-head {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .order-primary {
+            width: 100%;
+        }
+
+        .orders-card {
+            padding: 16px;
+            border-radius: 18px;
+        }
+    }
+
+    /* =======================================================
+       AJUSTE FINAL RESPONSIVE TABLA PEDIDOS
+       ======================================================= */
+
+    .orders-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .orders-table {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+    }
+
+    .orders-table th,
+    .orders-table td {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        padding-left: 10px !important;
+        padding-right: 10px !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .orders-table th:nth-child(1),
+    .orders-table td:nth-child(1) {
+        width: 11% !important;
+    }
+
+    .orders-table th:nth-child(2),
+    .orders-table td:nth-child(2) {
+        width: 10% !important;
+    }
+
+    .orders-table th:nth-child(3),
+    .orders-table td:nth-child(3) {
+        width: 20% !important;
+    }
+
+    .orders-table th:nth-child(4),
+    .orders-table td:nth-child(4) {
+        width: 11% !important;
+    }
+
+    .orders-table th:nth-child(5),
+    .orders-table td:nth-child(5) {
+        width: 8% !important;
+    }
+
+    .orders-table th:nth-child(6),
+    .orders-table td:nth-child(6) {
+        width: 12% !important;
+    }
+
+    .orders-table th:nth-child(7),
+    .orders-table td:nth-child(7) {
+        width: 15% !important;
+    }
+
+    .orders-table th:nth-child(8),
+    .orders-table td:nth-child(8) {
+        width: 13% !important;
+    }
+
+    .order-number {
+        white-space: nowrap !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+    }
+
+    .orders-table td:nth-child(3) {
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+    }
+
+    .orders-table td:nth-child(4),
+    .orders-table td:nth-child(5),
+    .orders-table td:nth-child(6),
+    .orders-table td:nth-child(7),
+    .orders-table td:nth-child(8) {
+        white-space: nowrap !important;
+    }
+
+    .order-actions {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 8px !important;
+    }
+
+    @media (max-width: 1000px) {
+
+        .orders-card {
+            overflow-x: auto !important;
+        }
+
+        .orders-table {
+            min-width: 900px !important;
+            table-layout: fixed !important;
+        }
+    }
+
+
+
+    /* =======================================================
+       TNL-PEDIDOS-RESPONSIVE-CARDS-V1
+       TNL-PEDIDOS-RESPONSIVE-BREAKPOINT-V2
+
+       Tabla completa en escritorio.
+       Tarjetas semánticas en tablet / móvil.
+       ======================================================= */
+
+    /*
+     * Laptop compacta:
+     * conservar tabla pero aprovechar mejor el ancho.
+     */
+    @media (min-width: 1181px) and (max-width: 1400px) {
+
+        .orders-head {
+            gap: 18px;
+            margin-bottom: 28px;
+        }
+
+        .orders-card {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+
+        .orders-table {
+            font-size: 13px;
+        }
+
+        .orders-table th,
+        .orders-table td {
+            padding-left: 7px !important;
+            padding-right: 7px !important;
+        }
+
+        .order-actions {
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+    }
+
+
+    /*
+     * Tablet y móvil:
+     * cada <tr> se convierte visualmente en una tarjeta.
+     *
+     * No existe scroll horizontal.
+     * No se ocultan datos.
+     */
+    @media (max-width: 1180px) {
+
+        .orders-shell {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+        }
+
+
+        .orders-head {
+            width: 100% !important;
+
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+
+            gap: 18px !important;
+
+            margin-bottom: 22px !important;
+        }
+
+
+        .orders-head > div {
+            width: 100%;
+            min-width: 0;
+        }
+
+
+        .orders-title,
+        .orders-description {
+            max-width: 100%;
+
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+
+
+        .orders-head .order-primary {
+            width: 100% !important;
+            min-height: 46px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            text-align: center;
+        }
+
+
+        /*
+         * El contenedor deja de comportarse como una caja de
+         * tabla y permite que las tarjetas usen todo el ancho.
+         */
+        .orders-card {
+            width: 100% !important;
+            max-width: 100% !important;
+
+            padding: 0 !important;
+
+            overflow: visible !important;
+
+            border: 0 !important;
+            border-radius: 0 !important;
+
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+
+        .orders-table {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+
+            display: block !important;
+
+            table-layout: auto !important;
+
+            border: 0 !important;
+            background: transparent !important;
+        }
+
+
+        .orders-table thead {
+            display: none !important;
+        }
+
+
+        .orders-table tbody {
+            width: 100% !important;
+
+            display: grid !important;
+
+            grid-template-columns:
+                minmax(0, 1fr);
+
+            gap: 14px;
+        }
+
+
+        .orders-table tbody tr {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+
+            display: block !important;
+
+            overflow: hidden !important;
+
+            border:
+                1px solid
+                var(--border) !important;
+
+            border-radius:
+                16px !important;
+
+            background:
+                var(--surface) !important;
+
+            box-shadow:
+                0 5px 18px
+                rgba(0, 0, 0, .08);
+        }
+
+
+        /*
+         * Cada celda pasa a ser:
+         *
+         * Label | Valor
+         */
+        .orders-table tbody td {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+
+            display: grid !important;
+
+            grid-template-columns:
+                92px
+                minmax(0, 1fr);
+
+            align-items: start;
+
+            gap: 12px;
+
+            padding:
+                11px
+                14px !important;
+
+            overflow: visible !important;
+
+            white-space: normal !important;
+
+            text-overflow: clip !important;
+
+            overflow-wrap: anywhere;
+            word-break: normal;
+
+            border-bottom:
+                1px solid
+                var(--border) !important;
+        }
+
+
+        .orders-table tbody td:last-child {
+            border-bottom: 0 !important;
+        }
+
+
+        .orders-table tbody td::before {
+            color: var(--muted);
+
+            font-size: 11px;
+            font-weight: 800;
+
+            line-height: 1.35;
+
+            letter-spacing: .045em;
+            text-transform: uppercase;
+        }
+
+
+        .orders-table tbody td:nth-child(1)::before {
+            content: "Número";
+        }
+
+        .orders-table tbody td:nth-child(2)::before {
+            content: "Empresa";
+        }
+
+        .orders-table tbody td:nth-child(3)::before {
+            content: "Cliente";
+        }
+
+        .orders-table tbody td:nth-child(4)::before {
+            content: "Estado";
+        }
+
+        .orders-table tbody td:nth-child(5)::before {
+            content: "Moneda";
+        }
+
+        .orders-table tbody td:nth-child(6)::before {
+            content: "Total";
+        }
+
+        .orders-table tbody td:nth-child(7)::before {
+            content: "Fecha";
+        }
+
+        .orders-table tbody td:nth-child(8)::before {
+            content: "Acciones";
+        }
+
+
+        .orders-table .order-number {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+
+        .orders-table .order-state {
+            max-width: 100%;
+
+            white-space: normal;
+
+            text-align: center;
+
+            overflow-wrap: anywhere;
+        }
+
+
+        /*
+         * Acciones y cambios rápidos de estado:
+         * controles grandes y utilizables por touch.
+         */
+        .orders-table .order-actions {
+            width: 100%;
+            min-width: 0;
+
+            display: flex !important;
+            flex-wrap: wrap !important;
+
+            align-items: stretch !important;
+
+            gap: 8px !important;
+        }
+
+
+        .orders-table .order-actions > a,
+        .orders-table .order-actions > button,
+        .orders-table .order-actions > form {
+            max-width: 100%;
+        }
+
+
+        .orders-table .order-actions > a {
+            min-height: 42px;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            padding:
+                9px
+                12px;
+
+            flex:
+                1
+                1
+                120px;
+
+            text-align: center;
+        }
+
+
+        .orders-table .order-quick-status-form {
+            width: 100% !important;
+
+            flex:
+                1
+                1
+                100%;
+
+            margin: 0 !important;
+        }
+
+
+        .orders-table .order-quick-status {
+            width: 100% !important;
+            min-height: 44px;
+
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+
+            padding:
+                10px
+                12px !important;
+
+            border:
+                1px solid
+                var(--green-border) !important;
+
+            border-radius:
+                10px !important;
+
+            background:
+                var(--green-soft) !important;
+
+            text-align: center !important;
+            text-decoration: none !important;
+
+            white-space: normal !important;
+
+            line-height: 1.3;
+        }
+
+
+        .orders-empty {
+            padding:
+                48px
+                18px !important;
+        }
+    }
+
+
+    /*
+     * Teléfonos angostos.
+     * El label se coloca encima del valor para que incluso
+     * nombres/números largos tengan el ancho completo.
+     */
+    @media (max-width: 420px) {
+
+        .orders-head {
+            gap: 14px !important;
+            margin-bottom: 18px !important;
+        }
+
+
+        .orders-title {
+            font-size:
+                clamp(
+                    22px,
+                    8vw,
+                    29px
+                );
+        }
+
+
+        .orders-table tbody {
+            gap: 11px;
+        }
+
+
+        .orders-table tbody tr {
+            border-radius:
+                14px !important;
+        }
+
+
+        .orders-table tbody td {
+            display: flex !important;
+
+            flex-direction: column !important;
+            align-items: stretch !important;
+
+            gap: 5px !important;
+
+            padding:
+                10px
+                12px !important;
+        }
+
+
+        .orders-table tbody td::before {
+            width: 100%;
+        }
+
+
+        .orders-table .order-state {
+            align-self: flex-start;
+        }
+
+
+        .orders-table .order-actions {
+            flex-direction: column !important;
+        }
+
+
+        .orders-table .order-actions > a,
+        .orders-table .order-actions > form,
+        .orders-table .order-quick-status {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+
+        .orders-table .order-actions > a,
+        .orders-table .order-quick-status {
+            min-height: 46px;
+        }
+    }
+
+
+    /*
+     * Pantallas extremadamente angostas.
+     */
+    @media (max-width: 340px) {
+
+        .orders-table tbody td {
+            padding:
+                9px
+                10px !important;
+        }
+
+
+        .orders-title {
+            font-size: 21px;
+        }
+    }
+
+
+
+
+    /* =======================================================
+       TNL-PEDIDOS-DUALVIEW-RESPONSIVE-V3
+       NO transforma celdas de tabla.
+       Desktop = tabla.
+       Tablet/móvil = cards HTML reales.
+       ======================================================= */
+
+
+    .orders-mobile-list-v3 {
+        display: none;
+    }
+
+
+    /*
+     * DESKTOP
+     *
+     * La tabla usa dimensionamiento natural.
+     * El número de pedido nunca invade Empresa.
+     */
+    @media (min-width: 1181px) {
+
+        .orders-card {
+            width: 100% !important;
+            max-width: 100% !important;
+
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+
+            -webkit-overflow-scrolling: touch;
+        }
+
+
+        .orders-table {
+            display: table !important;
+
+            width: 100% !important;
+            min-width: 1120px !important;
+            max-width: none !important;
+
+            table-layout: auto !important;
+            border-collapse: collapse !important;
+        }
+
+
+        .orders-table thead {
+            display: table-header-group !important;
+        }
+
+
+        .orders-table tbody {
+            display: table-row-group !important;
+        }
+
+
+        .orders-table tbody tr {
+            display: table-row !important;
+        }
+
+
+        .orders-table th,
+        .orders-table td {
+            display: table-cell !important;
+
+            width: auto !important;
+            max-width: none !important;
+            min-width: 0;
+
+            overflow: visible !important;
+            text-overflow: clip !important;
+
+            word-break: normal !important;
+        }
+
+
+        /*
+         * Número
+         */
+        .orders-table th:nth-child(1),
+        .orders-table td:nth-child(1) {
+            min-width: 185px !important;
+            white-space: nowrap !important;
+        }
+
+
+        /*
+         * Empresa
+         */
+        .orders-table th:nth-child(2),
+        .orders-table td:nth-child(2) {
+            min-width: 145px !important;
+        }
+
+
+        /*
+         * Cliente
+         */
+        .orders-table th:nth-child(3),
+        .orders-table td:nth-child(3) {
+            min-width: 210px !important;
+        }
+
+
+        /*
+         * Estado
+         */
+        .orders-table th:nth-child(4),
+        .orders-table td:nth-child(4) {
+            min-width: 130px !important;
+        }
+
+
+        /*
+         * Moneda
+         */
+        .orders-table th:nth-child(5),
+        .orders-table td:nth-child(5) {
+            min-width: 85px !important;
+            white-space: nowrap !important;
+        }
+
+
+        /*
+         * Total
+         */
+        .orders-table th:nth-child(6),
+        .orders-table td:nth-child(6) {
+            min-width: 95px !important;
+            white-space: nowrap !important;
+        }
+
+
+        /*
+         * Fecha
+         */
+        .orders-table th:nth-child(7),
+        .orders-table td:nth-child(7) {
+            min-width: 175px !important;
+            white-space: nowrap !important;
+        }
+
+
+        /*
+         * Acciones
+         */
+        .orders-table th:nth-child(8),
+        .orders-table td:nth-child(8) {
+            min-width: 165px !important;
+        }
+
+
+        .orders-table .order-number {
+            overflow-wrap: normal !important;
+            word-break: normal !important;
+            white-space: nowrap !important;
+        }
+
+
+        .orders-table .order-actions {
+            min-width: 140px;
+
+            display: flex !important;
+            flex-wrap: wrap !important;
+
+            gap: 8px !important;
+        }
+
+    }
+
+
+    /*
+     * TABLET + MOVIL
+     *
+     * Se oculta por completo la tabla.
+     * Aquí no hay <td> convertidos a grid.
+     */
+    @media (max-width: 1180px) {
+
+        .orders-table {
+            display: none !important;
+        }
+
+
+        .orders-card {
+            width: 100% !important;
+            max-width: 100% !important;
+
+            padding: 0 !important;
+
+            overflow: visible !important;
+
+            border: 0 !important;
+            border-radius: 0 !important;
+
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+
+        .orders-mobile-list-v3 {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+
+            display: grid !important;
+
+            grid-template-columns:
+                minmax(0, 1fr);
+
+            gap: 14px;
+        }
+
+
+        .order-mobile-card-v3 {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+
+            overflow: hidden;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                17px;
+
+            background:
+                var(--surface);
+
+            box-shadow:
+                0 5px 18px
+                rgba(0, 0, 0, .08);
+        }
+
+
+        .order-mobile-row-v3 {
+            width: 100%;
+            min-width: 0;
+
+            box-sizing: border-box;
+
+            display: grid;
+
+            grid-template-columns:
+                110px
+                minmax(0, 1fr);
+
+            align-items: start;
+
+            gap: 14px;
+
+            padding:
+                12px
+                15px;
+
+            border-bottom:
+                1px solid
+                var(--border);
+        }
+
+
+        .order-mobile-label-v3 {
+            min-width: 0;
+
+            color:
+                var(--label);
+
+            font-size: 12px;
+            font-weight: 850;
+
+            line-height: 1.35;
+
+            letter-spacing: .045em;
+
+            text-transform: uppercase;
+        }
+
+
+        .order-mobile-value-v3 {
+            width: 100%;
+            min-width: 0;
+
+            color:
+                var(--text);
+
+            line-height: 1.45;
+
+            overflow-wrap: anywhere;
+
+            /*
+             * Importante:
+             * NO usamos break-all.
+             */
+            word-break: normal;
+        }
+
+
+        .order-mobile-number-v3 {
+            font-weight: 850;
+
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+
+
+        .order-mobile-actions-row-v3 {
+            width: 100%;
+            min-width: 0;
+
+            box-sizing: border-box;
+
+            padding:
+                13px
+                15px
+                15px;
+        }
+
+
+        .order-mobile-actions-row-v3
+        > .order-mobile-label-v3 {
+            margin-bottom: 9px;
+        }
+
+
+        .order-mobile-actions-v3 {
+            width: 100%;
+            min-width: 0;
+        }
+
+
+        .order-mobile-actions-v3
+        .order-actions {
+            width: 100%;
+
+            display: flex !important;
+            flex-wrap: wrap !important;
+
+            align-items: stretch !important;
+
+            gap: 8px !important;
+        }
+
+
+        .order-mobile-actions-v3
+        .order-action {
+            min-height: 42px;
+
+            box-sizing: border-box;
+
+            display: inline-flex !important;
+
+            align-items: center;
+            justify-content: center;
+
+            flex:
+                1
+                1
+                120px;
+
+            padding:
+                9px
+                12px;
+
+            text-align: center;
+        }
+
+
+        .order-mobile-actions-v3
+        .order-quick-status-form {
+            width: 100% !important;
+
+            flex:
+                1
+                1
+                100%;
+
+            margin: 0 !important;
+        }
+
+
+        .order-mobile-actions-v3
+        .order-quick-status {
+            width: 100% !important;
+            min-height: 44px;
+
+            box-sizing: border-box;
+
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+
+            padding:
+                10px
+                12px !important;
+
+            border:
+                1px solid
+                var(--green-border) !important;
+
+            border-radius:
+                11px !important;
+
+            background:
+                var(--green-soft) !important;
+
+            text-align: center !important;
+            white-space: normal !important;
+        }
+
+
+        .orders-head {
+            min-width: 0 !important;
+        }
+
+
+        .orders-title,
+        .orders-description {
+            max-width: 100%;
+
+            overflow-wrap: anywhere;
+        }
+
+    }
+
+
+    /*
+     * CELULAR
+     */
+    @media (max-width: 560px) {
+
+        .orders-head {
+            gap: 14px !important;
+            margin-bottom: 18px !important;
+        }
+
+
+        .orders-head .order-primary {
+            width: 100% !important;
+            min-height: 46px;
+
+            text-align: center;
+        }
+
+
+        .order-mobile-row-v3 {
+            grid-template-columns:
+                92px
+                minmax(0, 1fr);
+
+            gap: 10px;
+
+            padding:
+                11px
+                12px;
+        }
+
+
+        .order-mobile-actions-row-v3 {
+            padding:
+                12px;
+        }
+
+    }
+
+
+    /*
+     * CELULAR PEQUEÑO
+     *
+     * Label arriba.
+     * Valor usa TODO el ancho.
+     */
+    @media (max-width: 420px) {
+
+        .order-mobile-card-v3 {
+            border-radius: 14px;
+        }
+
+
+        .order-mobile-row-v3 {
+            display: block;
+
+            padding:
+                11px
+                12px;
+        }
+
+
+        .order-mobile-label-v3 {
+            display: block;
+
+            margin-bottom:
+                5px;
+        }
+
+
+        .order-mobile-value-v3 {
+            display: block;
+
+            width: 100%;
+            max-width: 100%;
+
+            font-size: 15px;
+        }
+
+
+        .order-mobile-actions-v3
+        .order-actions {
+            flex-direction: column !important;
+        }
+
+
+        .order-mobile-actions-v3
+        .order-action,
+        .order-mobile-actions-v3
+        .order-quick-status-form,
+        .order-mobile-actions-v3
+        .order-quick-status {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+    }
+
+
+
+    /* TNL-RESTAURANTE-LISTA-R3-B2B1-V1 */
+
+    .order-kind-r3 {
+        margin-top: 5px;
+        color: var(--text-muted, #667085);
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .order-state.listo {
+        background: rgba(16,185,129,.12);
+        color: #047857;
+    }
+
+    .order-state.en_camino {
+        background: rgba(59,130,246,.12);
+        color: #1d4ed8;
+    }
+
+</style>
+
+<div class="orders-shell">
+
+    <div class="orders-head">
+
+        <div>
+            <p class="orders-eyebrow">Comercio</p>
+
+            <h2 class="orders-title">
+                Pedidos registrados
+            </h2>
+
+            <p class="orders-description">
+                Administra los pedidos comerciales de las empresas de NegocioListo.
+            </p>
+        </div>
+
+        {# TNL-PEDIDO-DUENO-TEMPLATE-V3 #}
+{% if not pedido_modo_cliente %}
+<a
+            href="{% url 'core:pedido_crear' %}"
+            class="order-primary"
+        >
+            + Nuevo pedido
+        </a>
+{% endif %}
+
+    </div>
+
+    <div class="orders-card">
+
+        {% if pedidos %}
+
+            <table class="orders-table">
+
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Empresa</th>
+                        <th>Cliente</th>
+                        <th>Estado</th>
+                        <th>Moneda</th>
+                        <th>Total</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for pedido in pedidos %}
+
+                        <tr>
+
+                            <td class="order-number">
+                                {{ pedido.numero }}
+
+                                {% if pedido.tipo_orden %}
+                                    <div class="order-kind-r3">
+                                        🍽 {{ pedido.get_tipo_orden_display }}
+                                        {% if pedido.tiempo_estimado_minutos %}
+                                            · ~{{ pedido.tiempo_estimado_minutos }} min
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{ pedido.empresa.nombre }}
+                            </td>
+
+                            <td>
+                                {{ pedido.cliente_nombre }}
+                            </td>
+
+                            <td>
+                                <span class="order-state {{ pedido.estado }}">
+                                    {{ pedido.get_estado_display }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ pedido.moneda }}
+                            </td>
+
+                            <td>
+                                {{ pedido.total|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                {{ pedido.creado_en|date:"d/m/Y H:i" }}
+                            </td>
+
+                            <td>
+                                <div class="order-actions">
+
+                                    <a
+                                        href="{% url 'core:pedido_detalle' pedido.pk %}"
+                                        class="order-action"
+                                    >
+                                        Ver
+                                    </a>
+
+                                    {% if pedido.estado == "carrito" and not pedido_modo_cliente %}
+
+                                        <a
+                                            href="{% url 'core:pedido_editar' pedido.pk %}"
+                                            class="order-action"
+                                        >
+                                            Editar
+                                        </a>
+
+                                    {% endif %}
+
+
+                                    {% if pedido.siguiente_estado_operativo_ui %}
+
+                                        <form
+                                            method="post"
+                                            action="{% url 'core:pedido_estado_rapido' pedido.pk pedido.siguiente_estado_operativo_ui %}"
+                                            class="order-quick-status-form"
+                                        >
+                                            {% csrf_token %}
+
+                                            <input
+                                                type="hidden"
+                                                name="origen"
+                                                value="lista"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="order-quick-status"
+                                            >
+                                                {% if pedido.siguiente_estado_operativo_ui == "preparando" %}
+                                                    🟡 Preparar
+                                                {% elif pedido.siguiente_estado_operativo_ui == "listo" %}
+                                                    🟢 Marcar listo
+                                                {% elif pedido.siguiente_estado_operativo_ui == "en_camino" %}
+                                                    🚚 En camino
+                                                {% elif pedido.siguiente_estado_operativo_ui == "enviado" %}
+                                                    🚚 Despachar
+                                                {% elif pedido.siguiente_estado_operativo_ui == "entregado" %}
+                                                    ✅ Entregar
+                                                {% else %}
+                                                    {{ pedido.siguiente_estado_label_ui }}
+                                                {% endif %}
+                                            </button>
+
+                                        </form>
+
+                                    {% endif %}
+
+                                </div>
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+            <!-- TNL-PEDIDOS-DUALVIEW-RESPONSIVE-V3 -->
+            <div
+                class="orders-mobile-list-v3"
+                aria-label="Pedidos registrados"
+            >
+
+                {% for pedido in pedidos %}
+
+                    <article class="order-mobile-card-v3">
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Número
+                            </div>
+
+                            <div class="order-mobile-value-v3 order-mobile-number-v3">
+                                {{ pedido.numero }}
+
+                                {% if pedido.tipo_orden %}
+                                    <div class="order-kind-r3">
+                                        🍽 {{ pedido.get_tipo_orden_display }}
+                                        {% if pedido.tiempo_estimado_minutos %}
+                                            · ~{{ pedido.tiempo_estimado_minutos }} min
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Empresa
+                            </div>
+
+                            <div class="order-mobile-value-v3">
+                                {{ pedido.empresa.nombre }}
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Cliente
+                            </div>
+
+                            <div class="order-mobile-value-v3">
+                                {{ pedido.cliente_nombre }}
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Estado
+                            </div>
+
+                            <div class="order-mobile-value-v3">
+                                <span class="order-state {{ pedido.estado }}">
+                                    {{ pedido.get_estado_display }}
+                                </span>
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Moneda
+                            </div>
+
+                            <div class="order-mobile-value-v3">
+                                {{ pedido.moneda }}
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Total
+                            </div>
+
+                            <div class="order-mobile-value-v3">
+                                {{ pedido.total|floatformat:2 }}
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-row-v3">
+                            <div class="order-mobile-label-v3">
+                                Fecha
+                            </div>
+
+                            <div class="order-mobile-value-v3">
+                                {{ pedido.creado_en|date:"d/m/Y H:i" }}
+                            </div>
+                        </div>
+
+
+                        <div class="order-mobile-actions-row-v3">
+
+                            <div class="order-mobile-label-v3">
+                                Acciones
+                            </div>
+
+                            <div class="order-mobile-actions-v3">
+<div class="order-actions">
+
+                                    <a
+                                        href="{% url 'core:pedido_detalle' pedido.pk %}"
+                                        class="order-action"
+                                    >
+                                        Ver
+                                    </a>
+
+                                    {% if pedido.estado == "carrito" and not pedido_modo_cliente %}
+
+                                        <a
+                                            href="{% url 'core:pedido_editar' pedido.pk %}"
+                                            class="order-action"
+                                        >
+                                            Editar
+                                        </a>
+
+                                    {% endif %}
+
+
+                                    {% if pedido.siguiente_estado_operativo_ui %}
+
+                                        <form
+                                            method="post"
+                                            action="{% url 'core:pedido_estado_rapido' pedido.pk pedido.siguiente_estado_operativo_ui %}"
+                                            class="order-quick-status-form"
+                                        >
+                                            {% csrf_token %}
+
+                                            <input
+                                                type="hidden"
+                                                name="origen"
+                                                value="lista"
+                                            >
+
+                                            <button
+                                                type="submit"
+                                                class="order-quick-status"
+                                            >
+                                                {% if pedido.siguiente_estado_operativo_ui == "preparando" %}
+                                                    🟡 Preparar
+                                                {% elif pedido.siguiente_estado_operativo_ui == "listo" %}
+                                                    🟢 Marcar listo
+                                                {% elif pedido.siguiente_estado_operativo_ui == "en_camino" %}
+                                                    🚚 En camino
+                                                {% elif pedido.siguiente_estado_operativo_ui == "enviado" %}
+                                                    🚚 Despachar
+                                                {% elif pedido.siguiente_estado_operativo_ui == "entregado" %}
+                                                    ✅ Entregar
+                                                {% else %}
+                                                    {{ pedido.siguiente_estado_label_ui }}
+                                                {% endif %}
+                                            </button>
+
+                                        </form>
+
+                                    {% endif %}
+
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+
+        {% else %}
+
+            <div class="orders-empty">
+
+                <h3>
+                    No hay pedidos registrados
+                </h3>
+
+                <p>
+                    Registra el primer pedido comercial para comenzar.
+                </p>
+
+                {# TNL-PEDIDO-DUENO-TEMPLATE-V3 #}
+{% if not pedido_modo_cliente %}
+<a
+                    href="{% url 'core:pedido_crear' %}"
+                    class="order-primary"
+                >
+                    Crear pedido
+                </a>
+{% endif %}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}

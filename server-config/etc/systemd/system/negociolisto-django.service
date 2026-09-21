@@ -1,0 +1,40 @@
+[Unit]
+Description=NegocioListo Django - Gunicorn Production
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+
+User=tnl
+Group=tnl
+
+WorkingDirectory=/opt/tunegociolisto/apps/admin
+
+Environment=HOME=/opt/tunegociolisto
+Environment=DJANGO_SETTINGS_MODULE=config.settings
+Environment=PYTHONUNBUFFERED=1
+Environment=PATH=/opt/tunegociolisto/apps/admin/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+UMask=0027
+
+ExecStart=/opt/tunegociolisto/apps/admin/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120 --graceful-timeout 30 --keep-alive 5 --no-control-socket --error-logfile - --capture-output --log-level info
+
+ExecReload=/bin/kill -s HUP $MAINPID
+
+KillSignal=SIGTERM
+TimeoutStartSec=60
+TimeoutStopSec=45
+
+Restart=on-failure
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+SyslogIdentifier=negociolisto-django
+
+[Install]
+WantedBy=multi-user.target

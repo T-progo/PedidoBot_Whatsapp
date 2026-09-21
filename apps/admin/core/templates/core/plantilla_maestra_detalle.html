@@ -1,0 +1,443 @@
+{% extends "core/base.html" %}
+
+{% block content %}
+
+{% include "core/_plantillas_maestras_styles.html" %}
+
+<div class="pm-shell">
+
+    <div class="pm-heading">
+
+        <div>
+
+            <p class="pm-eyebrow">
+                {{ plantilla.get_tipo_display }}
+            </p>
+
+            <h1 class="pm-title">
+                {{ plantilla.nombre }}
+                v{{ plantilla.version }}
+            </h1>
+
+            <p class="pm-subtitle">
+                {{ plantilla.slug }}
+            </p>
+
+        </div>
+
+
+        <div class="pm-actions">
+
+            <a
+                class="pm-button"
+                href="{% url 'core:plantilla_maestra_lista' %}"
+            >
+                Volver
+            </a>
+
+            <a
+                class="pm-button"
+                href="{% url 'core:plantilla_maestra_editar' plantilla.pk %}"
+            >
+                Editar
+            </a>
+
+            <form
+                method="post"
+                action="{% url 'core:plantilla_maestra_nueva_version' plantilla.pk %}"
+                class="pm-confirm-form"
+                data-title="¿Crear nueva versión?"
+                data-text="Se copiará la configuración y todas las variables como un nuevo borrador."
+            >
+                {% csrf_token %}
+
+                <button
+                    type="submit"
+                    class="pm-button"
+                >
+                    Nueva versión
+                </button>
+            </form>
+
+
+            {% if plantilla.estado == "publicada" %}
+
+                <form
+                    method="post"
+                    action="{% url 'core:plantilla_maestra_retirar' plantilla.pk %}"
+                    class="pm-confirm-form"
+                    data-title="¿Retirar plantilla?"
+                    data-text="Dejará de estar disponible para nuevas instalaciones."
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="pm-button danger"
+                    >
+                        Retirar
+                    </button>
+                </form>
+
+            {% else %}
+
+                <form
+                    method="post"
+                    action="{% url 'core:plantilla_maestra_publicar' plantilla.pk %}"
+                    class="pm-confirm-form"
+                    data-title="¿Publicar plantilla?"
+                    data-text="Quedará disponible para aprovisionamiento."
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="pm-button primary"
+                    >
+                        Publicar
+                    </button>
+                </form>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <div class="pm-grid">
+
+        <div class="pm-card">
+            <div class="pm-meta">
+                Estado
+            </div>
+
+            <div class="pm-stat">
+                {{ plantilla.get_estado_display }}
+            </div>
+        </div>
+
+        <div class="pm-card">
+            <div class="pm-meta">
+                Variables
+            </div>
+
+            <div class="pm-stat">
+                {{ variables|length }}
+            </div>
+        </div>
+
+        <div class="pm-card">
+            <div class="pm-meta">
+                Instalaciones
+            </div>
+
+            <div class="pm-stat">
+                {{ instalaciones|length }}
+            </div>
+        </div>
+
+    </div>
+
+
+    <section class="pm-section">
+
+        <div class="pm-heading">
+
+            <div>
+                <h2>
+                    Variables maestras
+                </h2>
+
+                <p class="pm-subtitle">
+                    Se copiarán a cada empresa
+                    durante el aprovisionamiento.
+                </p>
+            </div>
+
+            <a
+                class="pm-button primary"
+                href="{% url 'core:plantilla_variable_maestra_crear' plantilla.pk %}"
+            >
+                + Variable
+            </a>
+
+        </div>
+
+
+        <div class="pm-table-wrap">
+
+            <table class="pm-table">
+
+                <thead>
+                    <tr>
+                        <th>Orden</th>
+                        <th>Clave</th>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Default</th>
+                        <th>Requerida</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for variable in variables %}
+
+                        <tr>
+
+                            <td>
+                                {{ variable.orden }}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ variable.clave }}
+                                </strong>
+                            </td>
+
+                            <td>
+                                {{ variable.nombre }}
+                            </td>
+
+                            <td>
+                                {{ variable.get_tipo_dato_display }}
+                            </td>
+
+                            <td>
+                                {{ variable.valor_default|default:"—"|truncatechars:70 }}
+                            </td>
+
+                            <td>
+                                {% if variable.requerida %}
+                                    Sí
+                                {% else %}
+                                    No
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if variable.activa %}
+                                    <span class="pm-badge ok">
+                                        Activa
+                                    </span>
+                                {% else %}
+                                    <span class="pm-badge off">
+                                        Inactiva
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+
+                                <div class="pm-actions">
+
+                                    <a
+                                        class="pm-button"
+                                        href="{% url 'core:plantilla_variable_maestra_editar' variable.pk %}"
+                                    >
+                                        Editar
+                                    </a>
+
+                                    <form
+                                        method="post"
+                                        action="{% url 'core:plantilla_variable_maestra_eliminar' variable.pk %}"
+                                        class="pm-confirm-form"
+                                        data-title="¿Eliminar variable?"
+                                        data-text="La variable se eliminará de esta versión maestra."
+                                    >
+                                        {% csrf_token %}
+
+                                        <button
+                                            type="submit"
+                                            class="pm-button danger"
+                                        >
+                                            Eliminar
+                                        </button>
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+                            <td
+                                colspan="8"
+                                class="pm-empty"
+                            >
+                                La plantilla no contiene variables.
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+
+    <section class="pm-section">
+
+        <h2>
+            Instalaciones
+        </h2>
+
+        <div class="pm-table-wrap">
+
+            <table class="pm-table">
+
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Empresa</th>
+                        <th>Estado</th>
+                        <th>Plantilla privada</th>
+                        <th>Último error</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for instalacion in instalaciones %}
+
+                        <tr>
+
+                            <td>
+                                {{ instalacion.id }}
+                            </td>
+
+                            <td>
+                                <a
+                                    href="{% url 'core:empresa_detalle' instalacion.empresa.pk %}"
+                                    style="color:#49dfad;"
+                                >
+                                    {{ instalacion.empresa.nombre }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ instalacion.estado }}
+                            </td>
+
+                            <td>
+                                {{ instalacion.plantilla|default:"—" }}
+                            </td>
+
+                            <td>
+                                {{ instalacion.ultimo_error|default:"—"|truncatechars:120 }}
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+                            <td
+                                colspan="5"
+                                class="pm-empty"
+                            >
+                                Esta versión todavía no tiene instalaciones.
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<script>
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        document
+        .querySelectorAll(
+            ".pm-confirm-form"
+        )
+        .forEach(
+            function (form) {
+
+                form.addEventListener(
+                    "submit",
+                    async function (event) {
+
+                        event.preventDefault();
+
+                        const titulo =
+                            form.dataset.title
+                            || "¿Confirmar operación?";
+
+                        const texto =
+                            form.dataset.text
+                            || "";
+
+                        if (
+                            typeof Swal === "undefined"
+                        ) {
+
+                            if (
+                                window.confirm(
+                                    titulo + "\n\n" + texto
+                                )
+                            ) {
+                                form.submit();
+                            }
+
+                            return;
+                        }
+
+                        const result =
+                            await Swal.fire({
+                                icon: "warning",
+                                title: titulo,
+                                text: texto,
+                                showCancelButton: true,
+                                confirmButtonText:
+                                    "Sí, continuar",
+                                cancelButtonText:
+                                    "Cancelar",
+                                confirmButtonColor:
+                                    "#49dfad",
+                                cancelButtonColor:
+                                    "#475569",
+                                background:
+                                    "#0e1d2a",
+                                color:
+                                    "#f8fafc"
+                            });
+
+                        if (
+                            result.isConfirmed
+                        ) {
+                            form.submit();
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+    }
+);
+</script>
+
+{% endblock %}

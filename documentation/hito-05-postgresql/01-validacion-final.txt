@@ -1,0 +1,43 @@
+==================================================
+HITO 05 - POSTGRESQL
+Fecha: Thu Aug  6 19:28:29 CST 2026
+==================================================
+
+===== CONTENEDOR =====
+NAME             IMAGE                  COMMAND                  SERVICE      CREATED          STATUS                    PORTS
+tnl-postgresql   postgres:17-bookworm   "docker-entrypoint.s…"   postgresql   11 minutes ago   Up 11 minutes (healthy)   5432/tcp
+
+===== HEALTH =====
+running | health=healthy
+
+===== VERSION =====
+                                                           version                                                            
+------------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 17.10 (Debian 17.10-1.pgdg12+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+(1 row)
+
+
+===== BASES =====
+  datname  
+-----------
+ postgres
+ template0
+ template1
+ tnl_core
+(4 rows)
+
+
+===== TIMEZONE =====
+              now              |   current_setting   
+-------------------------------+---------------------
+ 2026-08-06 19:28:30.138522-06 | America/Mexico_City
+(1 row)
+
+
+===== EXPOSICION =====
+PostgreSQL NO expuesto en el host
+
+===== BACKUPS =====
+total 8.0K
+-rw------- 1 tnl tnl 3.1K Aug  6 19:14 tnl_core_20260806_191425.dump
+-rw------- 1 tnl tnl 3.1K Aug  6 19:20 tnl_core_20260806_191949.dump

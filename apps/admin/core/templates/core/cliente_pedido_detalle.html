@@ -1,0 +1,759 @@
+{% extends "core/cliente_portal_base.html" %}
+
+{% block cliente_content %}
+
+<div class="cp-container">
+
+    {% if messages %}
+        <div class="nl-client-order-messages">
+            {% for message in messages %}
+                <div class="nl-client-order-message">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+
+    <section class="nl-detail-head">
+
+        <div>
+
+            <div class="nl-detail-eyebrow">
+                Pedido
+            </div>
+
+            <h1>
+                {{ pedido.numero }}
+            </h1>
+
+            <span class="nl-detail-state {{ pedido.estado }}">
+                {{ pedido.get_estado_display }}
+            </span>
+
+        </div>
+
+
+        <div class="nl-detail-actions">
+
+            <a
+                class="nl-detail-btn"
+                href="{% url 'core:cliente_pedido_lista' %}"
+            >
+                ← Mis pedidos
+            </a>
+
+
+            {% if pedido.siguiente_estado_operativo_ui %}
+
+                <form
+                    method="post"
+                    action="{% url 'core:cliente_pedido_estado_rapido' pedido.pk pedido.siguiente_estado_operativo_ui %}"
+                >
+                    {% csrf_token %}
+
+                    <input
+                        type="hidden"
+                        name="origen"
+                        value="detalle"
+                    >
+
+                    <button
+                        class="nl-detail-btn primary"
+                        type="submit"
+                    >
+                        {% if pedido.siguiente_estado_operativo_ui == "preparando" %}
+                            Comenzar preparación
+                        {% elif pedido.siguiente_estado_operativo_ui == "listo" %}
+                            Marcar listo
+                        {% elif pedido.siguiente_estado_operativo_ui == "en_camino" %}
+                            Marcar en camino
+                        {% elif pedido.siguiente_estado_operativo_ui == "enviado" %}
+                            Despachar
+                        {% elif pedido.siguiente_estado_operativo_ui == "entregado" %}
+                            Marcar entregado
+                        {% else %}
+                            {{ pedido.siguiente_estado_label_ui }}
+                        {% endif %}
+                    </button>
+
+                </form>
+
+
+            {% endif %}
+
+
+            {% if es_pedido_restaurante and pedido.empresa_id == 7 %}
+
+                {% if pedido.estado == "pendiente" or pedido.estado == "confirmado" or pedido.estado == "pagado" or pedido.estado == "preparando" or pedido.estado == "listo" or pedido.estado == "en_camino" or pedido.estado == "enviado" %}
+
+                    <!-- TNL-RESTAURANTE-CANCELACION-PANEL-R6-V2 -->
+                    <form
+                        method="post"
+                        action="{% url 'core:cliente_pedido_estado_rapido' pedido.pk 'cancelado' %}"
+                        onsubmit="return confirm('¿Confirmas que deseas cancelar este pedido?');"
+                    >
+                        {% csrf_token %}
+
+                        <input
+                            type="hidden"
+                            name="origen"
+                            value="detalle"
+                        >
+
+                        <button
+                            class="nl-detail-btn"
+                            type="submit"
+                        >
+                            ❌ Cancelar pedido
+                        </button>
+
+                    </form>
+
+                {% endif %}
+
+            {% endif %}
+
+        </div>
+
+    </section>
+
+
+    <section class="nl-detail-grid">
+
+        {% if es_pedido_restaurante %}
+
+            <div class="nl-detail-info">
+
+                <span>
+                    Tipo de orden
+                </span>
+
+                <strong>
+                    {{ pedido.get_tipo_orden_display }}
+                </strong>
+
+            </div>
+
+            <div class="nl-detail-info">
+
+                <span>
+                    Tiempo estimado
+                </span>
+
+                <strong>
+                    {% if pedido.tiempo_estimado_minutos %}
+                        ~{{ pedido.tiempo_estimado_minutos }} min
+                    {% else %}
+                        —
+                    {% endif %}
+                </strong>
+
+            </div>
+
+        {% endif %}
+
+
+        <div class="nl-detail-info">
+            <span>Cliente</span>
+            <strong>
+                {{ pedido.cliente_nombre|default:"—" }}
+            </strong>
+        </div>
+
+        <div class="nl-detail-info">
+            <span>Teléfono</span>
+            <strong>
+                {{ pedido.cliente_telefono|default:"—" }}
+            </strong>
+        </div>
+
+        <div class="nl-detail-info">
+            <span>Correo</span>
+            <strong>
+                {{ pedido.cliente_email|default:"—" }}
+            </strong>
+        </div>
+
+        {% if es_pedido_restaurante and pedido.empresa_id == 7 %}
+
+            <!-- TNL-PAGO-DIRECTO-P2-V1 -->
+            <div class="nl-detail-info">
+                <span>Método de pago</span>
+                <strong>
+                    {% if pago_actual %}
+                        {{ pago_actual.metodo_label_ui }}
+                    {% else %}
+                        Sin registro de pago
+                    {% endif %}
+                </strong>
+            </div>
+
+            <div class="nl-detail-info">
+                <span>Estado del pago</span>
+                <strong>
+                    {% if pago_actual %}
+                        {{ pago_actual.estado_label_ui }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </strong>
+            </div>
+
+
+            {% if pago_actual.puede_marcar_pagado_ui %}
+
+                <!-- TNL-PAGO-DIRECTO-P3-V1 -->
+                <div class="nl-detail-info">
+                    <span>Acción de pago</span>
+
+                    <strong>
+                        <form
+                            method="post"
+                            action="{% url 'core:cliente_pedido_pago_marcar_pagado' pedido.pk %}"
+                            onsubmit="return confirm('¿Confirmas que este pago en efectivo o contra entrega ya fue recibido?');"
+                        >
+                            {% csrf_token %}
+
+                            <button
+                                class="nl-detail-btn primary"
+                                type="submit"
+                            >
+                                ✅ Marcar como pagado
+                            </button>
+                        </form>
+                    </strong>
+                </div>
+
+            {% endif %}
+
+        {% endif %}
+
+
+        <div class="nl-detail-info">
+            <span>Fecha</span>
+            <strong>
+                {{ pedido.creado_en|date:"d/m/Y H:i" }}
+            </strong>
+        </div>
+
+        <div class="nl-detail-info">
+            <span>Dirección</span>
+            <strong>
+                {{ pedido.direccion_entrega|default:"—" }}
+            </strong>
+        </div>
+
+        <div class="nl-detail-info">
+            <span>Notas</span>
+            <strong>
+                {{ pedido.notas|default:"—" }}
+            </strong>
+        </div>
+
+    </section>
+
+
+    <section class="nl-detail-products">
+
+        <h2>
+            Productos
+        </h2>
+
+        <div class="nl-detail-scroll">
+
+            <table class="nl-detail-table">
+
+                <thead>
+                    <tr>
+                        <th>SKU</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio</th>
+                        <th>Descuento</th>
+                        <th>Importe</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for detalle in detalles %}
+
+                        <tr>
+
+                            <td>
+                                {{ detalle.sku }}
+                            </td>
+
+                            <td>
+                                {{ detalle.nombre_producto }}
+
+                                    {% if es_pedido_restaurante %}
+
+                                        {% if detalle.modificadores_snapshot or detalle.extras_snapshot %}
+
+                                            <div class="nl-detail-config-r3">
+
+                                                {% for grupo in detalle.modificadores_snapshot %}
+
+                                                    <div>
+
+                                                        <strong>
+                                                            {{ grupo.grupo_nombre }}:
+                                                        </strong>
+
+                                                        {% for opcion in grupo.opciones %}
+
+                                                            <span class="nl-detail-option-r3">
+
+                                                                {{ opcion.nombre }}
+
+                                                                {% if opcion.precio_adicional != "0.0000" %}
+                                                                    · +${{ opcion.precio_adicional|floatformat:2 }}
+                                                                {% endif %}
+
+                                                            </span>
+
+                                                        {% endfor %}
+
+                                                    </div>
+
+                                                {% endfor %}
+
+
+                                                {% for grupo in detalle.extras_snapshot %}
+
+                                                    <div>
+
+                                                        <strong>
+                                                            {{ grupo.grupo_nombre }}:
+                                                        </strong>
+
+                                                        {% for opcion in grupo.opciones %}
+
+                                                            <span class="nl-detail-option-r3">
+
+                                                                {{ opcion.nombre }}
+
+                                                                {% if opcion.precio_adicional != "0.0000" %}
+                                                                    · +${{ opcion.precio_adicional|floatformat:2 }}
+                                                                {% endif %}
+
+                                                            </span>
+
+                                                        {% endfor %}
+
+                                                    </div>
+
+                                                {% endfor %}
+
+                                            </div>
+
+                                        {% endif %}
+
+                                    {% endif %}
+                            </td>
+
+                            <td>
+                                {{ detalle.cantidad }}
+                            </td>
+
+                            <td>
+                                ${{ detalle.precio_unitario|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                ${{ detalle.descuento|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                ${{ detalle.importe|floatformat:2 }}
+                            </td>
+
+                        </tr>
+
+                    {% empty %}
+
+                        <tr>
+                            <td colspan="6">
+                                Este pedido no tiene productos.
+                            </td>
+                        </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        {% if es_pedido_restaurante %}
+
+            <div class="nl-detail-breakdown-r3">
+
+                <div class="nl-detail-breakdown-row-r3">
+                    <span>Productos</span>
+                    <strong>
+                        ${{ pedido.subtotal_productos|floatformat:2 }}
+                    </strong>
+                </div>
+
+                <div class="nl-detail-breakdown-row-r3">
+                    <span>Modificadores</span>
+                    <strong>
+                        ${{ pedido.subtotal_modificadores|floatformat:2 }}
+                    </strong>
+                </div>
+
+                <div class="nl-detail-breakdown-row-r3">
+                    <span>Extras</span>
+                    <strong>
+                        ${{ pedido.subtotal_extras|floatformat:2 }}
+                    </strong>
+                </div>
+
+                <div class="nl-detail-breakdown-row-r3">
+                    <span>Envío</span>
+                    <strong>
+                        ${{ pedido.costo_envio|floatformat:2 }}
+                    </strong>
+                </div>
+
+                <div class="nl-detail-breakdown-row-r3">
+                    <span>Descuento</span>
+                    <strong>
+                        ${{ pedido.descuento|floatformat:2 }}
+                    </strong>
+                </div>
+
+            </div>
+
+        {% endif %}
+
+        <div class="nl-detail-total">
+            Total:
+            {{ pedido.moneda }}
+            ${{ pedido.total|floatformat:2 }}
+        </div>
+
+    </section>
+
+
+    <section class="nl-detail-history-r3">
+
+        <h2>
+            Historial de estados
+        </h2>
+
+        <div class="nl-detail-history-list-r3">
+
+            {% if pedido.confirmado_en %}
+
+                <div class="nl-detail-history-item-r3">
+
+                    <strong>
+                        Confirmado
+                    </strong>
+
+                    <span class="nl-detail-history-time-r3">
+                        {{ pedido.confirmado_en|date:"d/m/Y H:i" }}
+                    </span>
+
+                </div>
+
+            {% endif %}
+
+
+            {% for evento in eventos_estado %}
+
+                <div class="nl-detail-history-item-r3">
+
+                    <strong>
+                        {{ evento.estado_anterior_label_ui }}
+                        →
+                        {{ evento.estado_nuevo_label_ui }}
+                    </strong>
+
+                    <span class="nl-detail-history-time-r3">
+                        {{ evento.fecha|date:"d/m/Y H:i" }}
+                    </span>
+
+                </div>
+
+            {% empty %}
+
+                {% if not pedido.confirmado_en %}
+
+                    <div class="nl-detail-history-item-r3">
+
+                        <span class="nl-detail-history-time-r3">
+                            Todavía no hay cambios operativos registrados.
+                        </span>
+
+                    </div>
+
+                {% endif %}
+
+            {% endfor %}
+
+        </div>
+
+    </section>
+
+</div>
+
+
+<style>
+
+.nl-client-order-messages {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.nl-client-order-message {
+    padding: 14px 16px;
+    border: 1px solid var(--cp-border);
+    border-radius: 12px;
+    background: var(--cp-surface);
+    font-weight: 700;
+}
+
+.nl-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 24px;
+    border: 1px solid var(--cp-border);
+    border-radius: 20px;
+    background: var(--cp-surface);
+}
+
+.nl-detail-eyebrow {
+    margin-bottom: 7px;
+    color: var(--cp-green);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.nl-detail-head h1 {
+    margin: 0;
+    font-size: clamp(28px, 4vw, 38px);
+}
+
+.nl-detail-state {
+    display: inline-flex;
+    margin-top: 10px;
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: var(--cp-green-soft);
+    color: var(--cp-green-dark);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.nl-detail-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nl-detail-actions form {
+    margin: 0;
+}
+
+.nl-detail-btn {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 15px;
+    border: 1px solid var(--cp-border);
+    border-radius: 11px;
+    background: var(--cp-surface);
+    color: var(--cp-text);
+    text-decoration: none;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+}
+
+.nl-detail-btn.primary {
+    border-color: var(--cp-green);
+    background: var(--cp-green);
+    color: white;
+}
+
+.nl-detail-grid {
+    display: grid;
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.nl-detail-info {
+    padding: 18px;
+    border: 1px solid var(--cp-border);
+    border-radius: 15px;
+    background: var(--cp-surface);
+}
+
+.nl-detail-info span {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--cp-muted);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.nl-detail-info strong {
+    display: block;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+}
+
+.nl-detail-products {
+    margin-top: 24px;
+    padding: 22px;
+    border: 1px solid var(--cp-border);
+    border-radius: 20px;
+    background: var(--cp-surface);
+}
+
+.nl-detail-products h2 {
+    margin: 0 0 18px;
+}
+
+.nl-detail-scroll {
+    overflow-x: auto;
+}
+
+.nl-detail-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+}
+
+.nl-detail-table th {
+    padding: 12px 13px;
+    border-bottom: 1px solid var(--cp-border);
+    color: var(--cp-muted);
+    font-size: 11px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.nl-detail-table td {
+    padding: 15px 13px;
+    border-bottom: 1px solid var(--cp-border);
+}
+
+.nl-detail-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.nl-detail-total {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+    font-size: 22px;
+    font-weight: 900;
+}
+
+@media (max-width: 900px) {
+
+    .nl-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+/* TNL-RESTAURANTE-DETALLE-R3-B2B2-V1 */
+
+.nl-detail-state.listo {
+    background: rgba(16,185,129,.12);
+}
+
+.nl-detail-state.en_camino {
+    background: rgba(59,130,246,.12);
+}
+
+.nl-detail-config-r3 {
+    display: grid;
+    gap: 7px;
+    margin-top: 9px;
+    color: var(--cp-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.nl-detail-option-r3 {
+    display: inline-block;
+    margin: 3px 5px 2px 0;
+    padding: 4px 8px;
+    border: 1px solid var(--cp-border);
+    border-radius: 999px;
+}
+
+.nl-detail-breakdown-r3 {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+    margin-left: auto;
+    max-width: 390px;
+}
+
+.nl-detail-breakdown-row-r3 {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.nl-detail-history-r3 {
+    margin-top: 22px;
+    padding: 22px;
+    border: 1px solid var(--cp-border);
+    border-radius: 20px;
+    background: var(--cp-surface);
+}
+
+.nl-detail-history-list-r3 {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.nl-detail-history-item-r3 {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--cp-border);
+    border-radius: 12px;
+}
+
+.nl-detail-history-time-r3 {
+    color: var(--cp-muted);
+    font-size: 12px;
+}
+
+@media (max-width: 700px) {
+
+    .nl-detail-history-item-r3 {
+        flex-direction: column;
+    }
+}
+
+</style>
+
+{% endblock %}

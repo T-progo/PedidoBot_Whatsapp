@@ -1,0 +1,165 @@
+==================================================
+AUDITORÍA INICIAL TUNEGOCIOLISTO
+Fecha: Thu Aug  6 20:07:06 UTC 2026
+==================================================
+
+===== IDENTIDAD DEL SERVIDOR =====
+ Static hostname: server2
+       Icon name: computer-vm
+         Chassis: vm 🖴
+      Machine ID: 23ce14c2f6534b7abba860503a17b82c
+         Boot ID: 1ae67646fcfb413ba3031c24c0ff2781
+  Virtualization: kvm
+Operating System: Ubuntu 24.04.3 LTS
+          Kernel: Linux 6.8.0-88-generic
+    Architecture: x86-64
+ Hardware Vendor: Red Hat
+  Hardware Model: KVM
+Firmware Version: 1.16.3-4.el9.alma.1
+   Firmware Date: Tue 2014-04-01
+    Firmware Age: 12y 4month 6d
+server2
+root
+
+===== SISTEMA OPERATIVO =====
+PRETTY_NAME="Ubuntu 24.04.3 LTS"
+NAME="Ubuntu"
+VERSION_ID="24.04"
+VERSION="24.04.3 LTS (Noble Numbat)"
+VERSION_CODENAME=noble
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=noble
+LOGO=ubuntu-logo
+Distributor ID:	Ubuntu
+Description:	Ubuntu 24.04.3 LTS
+Release:	24.04
+Codename:	noble
+Linux server2 6.8.0-88-generic #89-Ubuntu SMP PREEMPT_DYNAMIC Sat Oct 11 01:02:46 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+
+===== CPU =====
+4
+CPU(s):                               4
+On-line CPU(s) list:                  0-3
+Model name:                           AMD Ryzen 9 7950X3D 16-Core Processor
+BIOS Model name:                      RHEL 7.6.0 PC (i440FX + PIIX, 1996)  CPU @ 2.0GHz
+Thread(s) per core:                   1
+Core(s) per socket:                   1
+Virtualization:                       AMD-V
+Virtualization type:                  full
+NUMA node0 CPU(s):                    0-3
+
+===== MEMORIA =====
+               total        used        free      shared  buff/cache   available
+Mem:           7.6Gi       472Mi       5.8Gi       1.0Mi       1.6Gi       7.1Gi
+Swap:             0B          0B          0B
+
+===== DISCO =====
+Filesystem     Type   Size  Used Avail Use% Mounted on
+tmpfs          tmpfs  776M 1012K  775M   1% /run
+/dev/sda1      ext4   174G  2.2G  172G   2% /
+tmpfs          tmpfs  3.8G     0  3.8G   0% /dev/shm
+tmpfs          tmpfs  5.0M     0  5.0M   0% /run/lock
+/dev/sda16     ext4   881M  117M  703M  15% /boot
+/dev/sda15     vfat   105M  6.2M   99M   6% /boot/efi
+tmpfs          tmpfs  776M   12K  776M   1% /run/user/0
+NAME    FSTYPE  FSVER            LABEL           UUID                                 FSAVAIL FSUSE% MOUNTPOINTS
+sda                                                                                                  
+├─sda1  ext4    1.0              cloudimg-rootfs 4306c488-13c8-447a-825d-3e9216876081  171.1G     1% /
+├─sda14                                                                                              
+├─sda15 vfat    FAT32            UEFI            8ADE-D31A                              98.2M     6% /boot/efi
+└─sda16 ext4    1.0              BOOT            6b4992d7-d421-40c9-907a-eff79bd4bf98  702.3M    13% /boot
+sr0     iso9660 Joliet Extension cidata          2026-08-05-15-30-10-00                              
+
+===== SWAP =====
+
+===== RED =====
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+eth0             UP             163.245.210.142/26 fe80::5054:ff:fed4:5a9e/64 
+default via 74.50.79.170 dev eth0 proto static onlink 
+163.245.210.128/26 dev eth0 proto kernel scope link src 163.245.210.142 
+
+===== IP PÚBLICA =====
+163.245.210.142
+
+===== DNS =====
+# This is /run/systemd/resolve/stub-resolv.conf managed by man:systemd-resolved(8).
+# Do not edit.
+#
+# This file might be symlinked as /etc/resolv.conf. If you're looking at
+# /etc/resolv.conf and seeing this text, you have followed the symlink.
+#
+# This is a dynamic resolv.conf file for connecting local clients to the
+# internal DNS stub resolver of systemd-resolved. This file lists all
+# configured search domains.
+#
+# Run "resolvectl status" to see details about the uplink DNS servers
+# currently in use.
+#
+# Third party programs should typically not access this file directly, but only
+# through the symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a
+# different way, replace this symlink by a static file or a different symlink.
+#
+# See man:systemd-resolved.service(8) for details about the supported modes of
+# operation for /etc/resolv.conf.
+
+nameserver 127.0.0.53
+options edns0 trust-ad
+search .
+
+===== PUERTOS ACTIVOS =====
+Netid State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess                                                  
+udp   UNCONN 0      0         127.0.0.54:53        0.0.0.0:*    users:(("systemd-resolve",pid=76775,fd=16))             
+udp   UNCONN 0      0      127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=76775,fd=14))             
+tcp   LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*    users:(("systemd-resolve",pid=76775,fd=17))             
+tcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*    users:(("sshd",pid=84088,fd=3),("systemd",pid=1,fd=203))
+tcp   LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*    users:(("systemd-resolve",pid=76775,fd=15))             
+tcp   LISTEN 0      4096            [::]:22           [::]:*    users:(("sshd",pid=84088,fd=4),("systemd",pid=1,fd=205))
+
+===== FIREWALL =====
+Status: inactive
+
+===== SERVICIOS ACTIVOS =====
+  UNIT                        LOAD   ACTIVE SUB     DESCRIPTION
+  cron.service                loaded active running Regular background program processing daemon
+  dbus.service                loaded active running D-Bus System Message Bus
+  getty@tty1.service          loaded active running Getty on tty1
+  ModemManager.service        loaded active running Modem Manager
+  multipathd.service          loaded active running Device-Mapper Multipath Device Controller
+  polkit.service              loaded active running Authorization Manager
+  qemu-guest-agent.service    loaded active running QEMU Guest Agent
+  rsyslog.service             loaded active running System Logging Service
+  serial-getty@ttyS0.service  loaded active running Serial Getty on ttyS0
+  ssh.service                 loaded active running OpenBSD Secure Shell server
+  systemd-hostnamed.service   loaded active running Hostname Service
+  systemd-journald.service    loaded active running Journal Service
+  systemd-logind.service      loaded active running User Login Management
+  systemd-networkd.service    loaded active running Network Configuration
+  systemd-resolved.service    loaded active running Network Name Resolution
+  systemd-timesyncd.service   loaded active running Network Time Synchronization
+  systemd-udevd.service       loaded active running Rule-based Manager for Device Events and Files
+  udisks2.service             loaded active running Disk Manager
+  unattended-upgrades.service loaded active running Unattended Upgrades Shutdown
+  user@0.service              loaded active running User Manager for UID 0
+
+Legend: LOAD   → Reflects whether the unit definition was properly loaded.
+        ACTIVE → The high-level unit activation state, i.e. generalization of SUB.
+        SUB    → The low-level unit activation state, values depend on unit type.
+
+20 loaded units listed.
+
+===== DOCKER =====
+Docker no instalado
+Docker Compose no instalado
+
+===== NGINX =====
+Command 'nginx' not found, but can be installed with:
+apt install nginx
+Nginx no instalado
+
+===== ACTUALIZACIONES =====
+49

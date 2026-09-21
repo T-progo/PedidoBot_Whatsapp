@@ -1,0 +1,23 @@
+==================================================
+HITO 01 - PASO 2 - SWAP COMPLETADA
+Fecha: Thu Aug  6 20:58:20 UTC 2026
+==================================================
+
+===== SWAP =====
+NAME      TYPE SIZE USED PRIO
+/swapfile file   8G   0B   -2
+
+===== MEMORIA =====
+               total        used        free      shared  buff/cache   available
+Mem:           7.6Gi       397Mi       7.1Gi       1.0Mi       301Mi       7.2Gi
+Swap:          8.0Gi          0B       8.0Gi
+
+===== CONFIGURACIÓN =====
+vm.swappiness = 10
+vm.vfs_cache_pressure = 50
+
+===== PERSISTENCIA =====
+4:/swapfile none swap sw 0 0
+
+===== RESPALDO FSTAB =====
+-rw-r--r-- 1 root root 146 Nov 26  2025 /etc/fstab.pre-swap-2026-08-06-204412.bak

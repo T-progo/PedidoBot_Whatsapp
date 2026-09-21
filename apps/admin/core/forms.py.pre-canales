@@ -1,0 +1,492 @@
+from django import forms
+from django.contrib.auth import get_user_model
+
+from .models import Empresa, PerfilUsuario
+
+
+User = get_user_model()
+
+
+class EmpresaForm(forms.ModelForm):
+
+    class Meta:
+        model = Empresa
+
+        fields = [
+            "nombre",
+            "razon_social",
+            "rfc",
+            "email",
+            "telefono",
+            "estado",
+        ]
+
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre comercial",
+                }
+            ),
+
+            "razon_social": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Razón social",
+                }
+            ),
+
+            "rfc": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "RFC",
+                }
+            ),
+
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "correo@empresa.com",
+                }
+            ),
+
+            "telefono": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Teléfono",
+                }
+            ),
+
+            "estado": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+        }
+
+        labels = {
+            "nombre": "Nombre",
+            "razon_social": "Razón social",
+            "rfc": "RFC",
+            "email": "Correo electrónico",
+            "telefono": "Teléfono",
+            "estado": "Estado",
+        }
+
+
+class UsuarioCrearForm(forms.Form):
+
+    username = forms.CharField(
+        label="Usuario",
+        max_length=150,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nombre de usuario",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+    first_name = forms.CharField(
+        label="Nombre",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nombre",
+            }
+        ),
+    )
+
+    last_name = forms.CharField(
+        label="Apellidos",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Apellidos",
+            }
+        ),
+    )
+
+    email = forms.EmailField(
+        label="Correo electrónico",
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "correo@empresa.com",
+            }
+        ),
+    )
+
+    empresa = forms.ModelChoiceField(
+        label="Empresa",
+        queryset=Empresa.objects.none(),
+        required=False,
+        empty_label="Administración central / Sin empresa",
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    rol = forms.ChoiceField(
+        label="Rol",
+        choices=PerfilUsuario._meta.get_field("rol").choices,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    activo = forms.BooleanField(
+        label="Usuario activo",
+        required=False,
+        initial=True,
+    )
+
+    password1 = forms.CharField(
+        label="Contraseña",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Contraseña",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    password2 = forms.CharField(
+        label="Confirmar contraseña",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Repite la contraseña",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = Empresa.objects.order_by(
+            "nombre"
+        )
+
+    def clean_username(self):
+        username = self.cleaned_data["username"].strip()
+
+        if User.objects.filter(
+            username__iexact=username
+        ).exists():
+            raise forms.ValidationError(
+                "Ya existe un usuario con este nombre."
+            )
+
+        return username
+
+    def clean(self):
+        cleaned = super().clean()
+
+        password1 = cleaned.get("password1")
+        password2 = cleaned.get("password2")
+
+        rol = cleaned.get("rol")
+        empresa = cleaned.get("empresa")
+
+        if password1 and password2:
+            if password1 != password2:
+                self.add_error(
+                    "password2",
+                    "Las contraseñas no coinciden.",
+                )
+
+        if rol in ("cliente", "operador") and not empresa:
+            self.add_error(
+                "empresa",
+                "Selecciona una empresa para este rol.",
+            )
+
+        return cleaned
+
+
+class UsuarioEditarForm(forms.Form):
+
+    first_name = forms.CharField(
+        label="Nombre",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Nombre",
+            }
+        ),
+    )
+
+    last_name = forms.CharField(
+        label="Apellidos",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Apellidos",
+            }
+        ),
+    )
+
+    email = forms.EmailField(
+        label="Correo electrónico",
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "correo@empresa.com",
+            }
+        ),
+    )
+
+    empresa = forms.ModelChoiceField(
+        label="Empresa",
+        queryset=Empresa.objects.none(),
+        required=False,
+        empty_label="Administración central / Sin empresa",
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    rol = forms.ChoiceField(
+        label="Rol",
+        choices=PerfilUsuario._meta.get_field("rol").choices,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+
+    activo = forms.BooleanField(
+        label="Usuario activo",
+        required=False,
+    )
+
+    password1 = forms.CharField(
+        label="Nueva contraseña",
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Dejar vacío para conservarla",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    password2 = forms.CharField(
+        label="Confirmar nueva contraseña",
+        required=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Repite la nueva contraseña",
+                "autocomplete": "new-password",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = Empresa.objects.order_by(
+            "nombre"
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+
+        password1 = cleaned.get("password1")
+        password2 = cleaned.get("password2")
+
+        rol = cleaned.get("rol")
+        empresa = cleaned.get("empresa")
+
+        if password1 or password2:
+            if password1 != password2:
+                self.add_error(
+                    "password2",
+                    "Las contraseñas no coinciden.",
+                )
+
+        if rol in ("cliente", "operador") and not empresa:
+            self.add_error(
+                "empresa",
+                "Selecciona una empresa para este rol.",
+            )
+
+        return cleaned
+
+
+# ============================================================
+# LICENCIAS
+# ============================================================
+
+from .models import Licencia
+
+
+class LicenciaForm(forms.ModelForm):
+
+    class Meta:
+        model = Licencia
+
+        fields = [
+            "empresa",
+            "nombre",
+            "estado",
+            "fecha_inicio",
+            "fecha_fin",
+        ]
+
+        widgets = {
+            "empresa": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre de la licencia",
+                }
+            ),
+
+            "estado": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "fecha_inicio": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+
+            "fecha_fin": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+        }
+
+        labels = {
+            "empresa": "Empresa",
+            "nombre": "Nombre",
+            "estado": "Estado",
+            "fecha_inicio": "Fecha de inicio",
+            "fecha_fin": "Fecha de vencimiento",
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = (
+            self.fields["empresa"]
+            .queryset
+            .order_by("nombre")
+        )
+
+
+    def clean(self):
+
+        cleaned = super().clean()
+
+        fecha_inicio = cleaned.get("fecha_inicio")
+        fecha_fin = cleaned.get("fecha_fin")
+
+        if (
+            fecha_inicio
+            and fecha_fin
+            and fecha_fin < fecha_inicio
+        ):
+            self.add_error(
+                "fecha_fin",
+                "La fecha de vencimiento no puede ser anterior a la fecha de inicio.",
+            )
+
+        return cleaned
+
+
+# ============================================================
+# BOTS
+# ============================================================
+
+from .models import Bot
+
+
+class BotForm(forms.ModelForm):
+
+    class Meta:
+        model = Bot
+
+        fields = [
+            "empresa",
+            "nombre",
+            "identificador_externo",
+            "activo",
+        ]
+
+        labels = {
+            "empresa": "Empresa",
+            "nombre": "Nombre",
+            "identificador_externo": "Identificador externo",
+            "activo": "Bot activo",
+        }
+
+        widgets = {
+            "empresa": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
+
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Nombre del bot",
+                }
+            ),
+
+            "identificador_externo": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Identificador externo",
+                }
+            ),
+
+            "activo": forms.CheckboxInput(),
+        }
+
+
+    def __init__(self, *args, **kwargs):
+
+        super().__init__(*args, **kwargs)
+
+        self.fields["empresa"].queryset = (
+            self.fields["empresa"]
+            .queryset
+            .order_by("nombre")
+        )

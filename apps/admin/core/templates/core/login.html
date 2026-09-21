@@ -1,0 +1,184 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Acceso | NegocioListo
+    </title>
+
+    <!-- NEGOCIOLISTO-THEME-INIT-V2 -->
+    <script>
+        (function () {
+            try {
+                var theme =
+                    localStorage.getItem(
+                        "negociolisto-theme"
+                    );
+
+                if (
+                    theme !== "light"
+                    &&
+                    theme !== "dark"
+                ) {
+                    theme = "dark";
+                }
+
+                document.documentElement
+                    .setAttribute(
+                        "data-theme",
+                        theme
+                    );
+            } catch (error) {
+                document.documentElement
+                    .setAttribute(
+                        "data-theme",
+                        "dark"
+                    );
+            }
+        })();
+    </script>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'core/css/app.css' %}?v=theme-v2"
+    >
+
+    <script
+        defer
+        src="{% static 'core/js/theme.js' %}?v=theme-v2"
+    ></script>
+</head>
+
+<body class="login-body">
+
+<button
+    type="button"
+    class="theme-toggle login-theme-toggle"
+    data-theme-toggle
+    aria-label="Cambiar tema"
+>
+    ☀️ Claro
+</button>
+
+<div class="login-wrapper">
+
+    <div class="login-brand">
+
+        <div class="login-logo">
+            N
+        </div>
+
+        <span class="eyebrow">
+            Plataforma empresarial
+        </span>
+
+        <h1>
+            NegocioListo
+        </h1>
+
+        <p>
+            Administración central de empresas,
+            usuarios, licencias y automatizaciones.
+        </p>
+
+    </div>
+
+
+    <div class="login-card">
+
+        <div class="login-heading">
+
+            <span class="eyebrow">
+                Administración
+            </span>
+
+            <h2>
+                Iniciar sesión
+            </h2>
+
+            <p>
+                Ingresa tus credenciales para continuar.
+            </p>
+
+        </div>
+
+
+        {% if form.errors %}
+
+        <div class="form-error">
+            Usuario o contraseña incorrectos.
+        </div>
+
+        {% endif %}
+
+
+        <form method="post">
+
+            {% csrf_token %}
+
+            <div class="field">
+
+                <label for="id_username">
+                    Usuario
+                </label>
+
+                <input
+                    type="text"
+                    name="username"
+                    id="id_username"
+                    autocomplete="username"
+                    required
+                    autofocus
+                >
+
+            </div>
+
+
+            <div class="field">
+
+                <label for="id_password">
+                    Contraseña
+                </label>
+
+                <input
+                    type="password"
+                    name="password"
+                    id="id_password"
+                    autocomplete="current-password"
+                    required
+                >
+
+            </div>
+
+
+            {% if next %}
+            <input
+                type="hidden"
+                name="next"
+                value="{{ next }}"
+            >
+            {% endif %}
+
+
+            <button
+                class="primary-button"
+                type="submit"
+            >
+                Ingresar
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
+
+</body>
+</html>
