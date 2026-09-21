@@ -52,6 +52,7 @@ jobs:
   deploy:
     name: Desplegar al VPS
     needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     steps:
       - name: Desplegar por SSH
