@@ -1,0 +1,328 @@
+{% extends "core/base.html" %}
+
+{% block title %}
+Modificadores de {{ producto.nombre }} | NegocioListo
+{% endblock %}
+
+{% block page_title %}
+Modificadores
+{% endblock %}
+
+{% block content %}
+
+{# TNL-MODIFICADORES-PANEL-V1 #}
+<style>
+    .tnl-mod-group {
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        background: #fff;
+        padding: 20px 22px;
+        margin-bottom: 18px;
+    }
+
+    .tnl-mod-group-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .tnl-mod-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+
+    .tnl-mod-tag {
+        border-radius: 999px;
+        padding: 3px 12px;
+        font-size: 12px;
+        background: #f1f5f9;
+        color: #334155;
+    }
+
+    .tnl-mod-tag.si {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .tnl-mod-tag.no {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .tnl-mod-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .tnl-mod-actions form {
+        margin: 0;
+    }
+
+    .tnl-mod-group .muted {
+        color: #64748b;
+        margin: 14px 0 0;
+    }
+
+    .tnl-mod-inline-button {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        font: inherit;
+        color: #2563eb;
+        text-decoration: underline;
+    }
+</style>
+
+<div class="page-actions">
+
+    <div>
+        <span class="eyebrow">
+            {{ producto.catalogo.empresa.nombre }} ·
+            {{ producto.catalogo.nombre }}
+        </span>
+
+        <h2>
+            {{ producto.nombre }}
+        </h2>
+
+        <p>
+            Precio base
+            {{ producto.catalogo.moneda }}
+            {{ producto.precio|floatformat:2 }}.
+            Los grupos se preguntan en WhatsApp en el orden que
+            ves aquí. Una opción agotada no se ofrece ni se
+            acepta en los pedidos.
+        </p>
+    </div>
+
+    <div class="tnl-mod-actions">
+        <a
+            href="{% url 'core:producto_editar' producto.pk %}"
+            class="secondary-link"
+        >
+            Editar producto
+        </a>
+
+        <a
+            href="{% url 'core:producto_modificador_grupo_crear' producto.pk %}"
+            class="primary-link"
+        >
+            Nuevo grupo
+        </a>
+    </div>
+
+</div>
+
+
+<div class="panel-card">
+
+    {% for grupo in grupos %}
+
+        <div class="tnl-mod-group">
+
+            <div class="tnl-mod-group-head">
+
+                <div>
+                    <strong>
+                        {{ grupo.nombre }}
+                    </strong>
+
+                    <div class="tnl-mod-tags">
+
+                        <span class="tnl-mod-tag">
+                            {{ grupo.get_tipo_display }}
+                        </span>
+
+                        <span class="tnl-mod-tag">
+                            {% if grupo.obligatorio %}
+                                Obligatorio
+                            {% else %}
+                                Opcional
+                            {% endif %}
+                        </span>
+
+                        <span class="tnl-mod-tag">
+                            Mínimo {{ grupo.minimo }} ·
+                            Máximo {{ grupo.maximo }}
+                        </span>
+
+                        <span
+                            class="tnl-mod-tag {% if grupo.activo %}si{% else %}no{% endif %}"
+                        >
+                            {% if grupo.activo %}
+                                Activo
+                            {% else %}
+                                Inactivo
+                            {% endif %}
+                        </span>
+
+                    </div>
+                </div>
+
+                <div class="tnl-mod-actions">
+
+                    <a
+                        href="{% url 'core:producto_modificador_grupo_editar' producto.pk grupo.pk %}"
+                        class="action-link"
+                    >
+                        Editar
+                    </a>
+
+                    <form
+                        method="post"
+                        action="{% url 'core:producto_modificador_grupo_estado' producto.pk grupo.pk %}"
+                        onsubmit="this.querySelector('button[type=submit]').disabled = true;"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="tnl-mod-inline-button"
+                        >
+                            {% if grupo.activo %}
+                                Desactivar
+                            {% else %}
+                                Activar
+                            {% endif %}
+                        </button>
+                    </form>
+
+                    <a
+                        href="{% url 'core:producto_modificador_opcion_crear' producto.pk grupo.pk %}"
+                        class="action-link"
+                    >
+                        Nueva opción
+                    </a>
+
+                </div>
+
+            </div>
+
+
+            {% if grupo.opciones.all %}
+
+                <table class="data-table">
+
+                    <thead>
+                        <tr>
+                            <th>OPCIÓN</th>
+                            <th>PRECIO ADICIONAL</th>
+                            <th>DISPONIBILIDAD</th>
+                            <th>ORDEN</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for opcion in grupo.opciones.all %}
+
+                            <tr>
+                                <td>
+                                    {{ opcion.nombre }}
+                                </td>
+
+                                <td>
+                                    {{ producto.catalogo.moneda }}
+                                    {{ opcion.precio_adicional|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {% if opcion.activa %}
+                                        Disponible
+                                    {% else %}
+                                        Agotada
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ opcion.orden }}
+                                </td>
+
+                                <td>
+                                    <div class="tnl-mod-actions">
+
+                                        <a
+                                            href="{% url 'core:producto_modificador_opcion_editar' producto.pk grupo.pk opcion.pk %}"
+                                            class="action-link"
+                                        >
+                                            Editar
+                                        </a>
+
+                                        <form
+                                            method="post"
+                                            action="{% url 'core:producto_modificador_opcion_estado' producto.pk grupo.pk opcion.pk %}"
+                                            onsubmit="this.querySelector('button[type=submit]').disabled = true;"
+                                        >
+                                            {% csrf_token %}
+
+                                            <button
+                                                type="submit"
+                                                class="tnl-mod-inline-button"
+                                            >
+                                                {% if opcion.activa %}
+                                                    Marcar agotada
+                                                {% else %}
+                                                    Marcar disponible
+                                                {% endif %}
+                                            </button>
+                                        </form>
+
+                                    </div>
+                                </td>
+                            </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            {% else %}
+
+                <p class="muted">
+                    Este grupo todavía no tiene opciones.
+                    {% if grupo.obligatorio %}
+                        Mientras siga obligatorio y sin opciones
+                        disponibles, el producto se muestra agotado.
+                    {% endif %}
+                </p>
+
+            {% endif %}
+
+        </div>
+
+    {% empty %}
+
+        <div class="empty-state">
+
+            <h3>
+                Este producto no tiene modificadores
+            </h3>
+
+            <p>
+                Crea un grupo para preguntar por ejemplo la salsa,
+                el tamaño o los extras.
+            </p>
+
+            <a
+                href="{% url 'core:producto_modificador_grupo_crear' producto.pk %}"
+                class="primary-link"
+            >
+                Nuevo grupo
+            </a>
+
+        </div>
+
+    {% endfor %}
+
+</div>
+
+{% endblock %}

@@ -2162,3 +2162,229 @@ CanalForm.__init__ = (
 )
 
 
+
+
+# ============================================================
+# TNL-MODIFICADORES-PANEL-V1
+#
+# Alta y edición de grupos de modificadores y sus opciones
+# desde el panel. Reutiliza los modelos y sus validaciones:
+# el precio con más de 2 decimales lo rechaza el modelo.
+# ============================================================
+
+from .models import (
+    GrupoModificadorProducto,
+    OpcionModificadorProducto,
+)
+
+
+class GrupoModificadorForm(forms.ModelForm):
+
+    class Meta:
+        model = GrupoModificadorProducto
+
+        fields = [
+            "nombre",
+            "tipo",
+            "obligatorio",
+            "minimo",
+            "maximo",
+            "orden",
+            "activo",
+        ]
+
+        labels = {
+            "nombre": "Nombre del grupo",
+            "tipo": "Tipo",
+            "obligatorio": "Obligatorio",
+            "minimo": "Mínimo de opciones",
+            "maximo": "Máximo de opciones",
+            "orden": "Orden",
+            "activo": "Activo",
+        }
+
+        help_texts = {
+            "tipo": (
+                "Modificador cambia el platillo, por ejemplo el "
+                "tamaño. Extra agrega algo aparte."
+            ),
+            "obligatorio": (
+                "El cliente debe elegir al menos el mínimo para "
+                "poder agregar el producto."
+            ),
+            "minimo": "Usa 0 si el cliente puede omitirlo.",
+            "maximo": "Cuántas opciones puede elegir como máximo.",
+            "orden": "El número menor aparece primero.",
+            "activo": (
+                "Sin marcar, el grupo no se ofrece en WhatsApp."
+            ),
+        }
+
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "maxlength": 150,
+                    "placeholder": "Ej. Salsa",
+                }
+            ),
+            "tipo": forms.Select(
+                attrs={"class": "form-control"}
+            ),
+            "minimo": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": 1}
+            ),
+            "maximo": forms.NumberInput(
+                attrs={"class": "form-control", "min": 1, "step": 1}
+            ),
+            "orden": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": 1}
+            ),
+        }
+
+    def clean_nombre(self):
+
+        nombre = (
+            self.cleaned_data.get("nombre") or ""
+        ).strip()
+
+        repetidos = (
+            GrupoModificadorProducto.objects
+            .filter(
+                producto_id=self.instance.producto_id,
+                nombre=nombre,
+            )
+            .exclude(pk=self.instance.pk)
+        )
+
+        if repetidos.exists():
+            raise forms.ValidationError(
+                "Este producto ya tiene un grupo con ese nombre."
+            )
+
+        return nombre
+
+    def clean(self):
+        """
+        Mismas reglas que ya exige la base de datos, con un
+        mensaje claro. add_error saca el valor inválido de
+        cleaned_data, así no se repite el error técnico.
+        """
+
+        cleaned = super().clean()
+
+        minimo = cleaned.get("minimo")
+        maximo = cleaned.get("maximo")
+        obligatorio = cleaned.get("obligatorio")
+
+        if maximo is not None and maximo < 1:
+            self.add_error(
+                "maximo",
+                "El máximo debe ser al menos 1.",
+            )
+            maximo = None
+
+        if (
+            minimo is not None
+            and maximo is not None
+            and maximo < minimo
+        ):
+            self.add_error(
+                "maximo",
+                "El máximo no puede ser menor que el mínimo.",
+            )
+
+        if obligatorio and (minimo or 0) < 1:
+            self.add_error(
+                "minimo",
+                "Un grupo obligatorio necesita un mínimo de 1 o más.",
+            )
+
+        return cleaned
+
+
+class OpcionModificadorForm(forms.ModelForm):
+
+    class Meta:
+        model = OpcionModificadorProducto
+
+        fields = [
+            "nombre",
+            "precio_adicional",
+            "orden",
+            "activa",
+        ]
+
+        labels = {
+            "nombre": "Nombre de la opción",
+            "precio_adicional": "Precio adicional",
+            "orden": "Orden",
+            "activa": "Disponible",
+        }
+
+        help_texts = {
+            "precio_adicional": (
+                "Cuánto se suma al precio del producto. "
+                "Máximo 2 decimales; 0 si no cambia el precio."
+            ),
+            "orden": "El número menor aparece primero.",
+            "activa": (
+                "Sin marcar, la opción queda agotada: no se "
+                "ofrece ni se acepta en los pedidos."
+            ),
+        }
+
+        widgets = {
+            "nombre": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "maxlength": 150,
+                    "placeholder": "Ej. Chipotle",
+                }
+            ),
+            "precio_adicional": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "min": 0,
+                    "step": "0.01",
+                    "inputmode": "decimal",
+                    "placeholder": "0.00",
+                }
+            ),
+            "orden": forms.NumberInput(
+                attrs={"class": "form-control", "min": 0, "step": 1}
+            ),
+        }
+
+    def clean_nombre(self):
+
+        nombre = (
+            self.cleaned_data.get("nombre") or ""
+        ).strip()
+
+        repetidos = (
+            OpcionModificadorProducto.objects
+            .filter(
+                grupo_id=self.instance.grupo_id,
+                nombre=nombre,
+            )
+            .exclude(pk=self.instance.pk)
+        )
+
+        if repetidos.exists():
+            raise forms.ValidationError(
+                "Este grupo ya tiene una opción con ese nombre."
+            )
+
+        return nombre
+
+    def clean_precio_adicional(self):
+
+        precio = self.cleaned_data.get("precio_adicional")
+
+        if precio is not None and precio < Decimal("0"):
+            raise forms.ValidationError(
+                "El precio adicional no puede ser negativo."
+            )
+
+        return precio

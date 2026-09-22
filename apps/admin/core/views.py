@@ -1529,6 +1529,390 @@ def producto_imagen_eliminar(
 
 
 # ============================================================
+# TNL-MODIFICADORES-PANEL-V1
+#
+# Administración de grupos de modificadores y sus opciones.
+# Usa los modelos y validaciones que ya existen: el menú, el
+# carrito y la confirmación no cambian.
+# ============================================================
+
+def _nl_producto_administrable(request, producto_id):
+    """
+    Producto que este usuario puede administrar
+    (Producto -> Catalogo -> Empresa). 404 si no es suyo.
+    """
+
+    from core.models import PerfilUsuario, Producto
+
+    productos = (
+        Producto.objects
+        .select_related(
+            "catalogo",
+            "catalogo__empresa",
+        )
+    )
+
+    perfil = getattr(
+        request.user,
+        "perfil_negociolisto",
+        None,
+    )
+
+    if (
+        perfil
+        and perfil.activo
+        and perfil.rol == PerfilUsuario.Rol.CLIENTE
+    ):
+        productos = (
+            productos.filter(
+                catalogo__empresa_id=perfil.empresa_id
+            )
+            if perfil.empresa_id
+            else productos.none()
+        )
+
+    return get_object_or_404(
+        productos,
+        pk=producto_id,
+    )
+
+
+def _nl_grupo_modificador(producto, grupo_id):
+
+    return get_object_or_404(
+        producto.grupos_modificadores,
+        pk=grupo_id,
+    )
+
+
+def _nl_volver_a_modificadores(producto):
+
+    return redirect(
+        "core:producto_modificadores",
+        producto_id=producto.pk,
+    )
+
+
+@login_required
+def producto_modificadores(request, producto_id):
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupos = (
+        producto.grupos_modificadores
+        .prefetch_related("opciones")
+        .order_by("orden", "id")
+    )
+
+    return render(
+        request,
+        "core/producto_modificadores.html",
+        {
+            "titulo": "Modificadores",
+            "producto": producto,
+            "grupos": grupos,
+        },
+    )
+
+
+@login_required
+def producto_modificador_grupo_crear(request, producto_id):
+
+    from core.forms import GrupoModificadorForm
+    from core.models import GrupoModificadorProducto
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupo = GrupoModificadorProducto(
+        producto=producto,
+    )
+
+    if request.method == "POST":
+
+        form = GrupoModificadorForm(
+            request.POST,
+            instance=grupo,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            messages.success(
+                request,
+                "Grupo de modificadores creado.",
+            )
+
+            return _nl_volver_a_modificadores(producto)
+
+    else:
+        form = GrupoModificadorForm(instance=grupo)
+
+    return render(
+        request,
+        "core/producto_modificador_form.html",
+        {
+            "titulo": "Nuevo grupo de modificadores",
+            "subtitulo": producto.nombre,
+            "boton": "Crear grupo",
+            "form": form,
+            "producto": producto,
+        },
+    )
+
+
+@login_required
+def producto_modificador_grupo_editar(
+    request,
+    producto_id,
+    grupo_id,
+):
+
+    from core.forms import GrupoModificadorForm
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupo = _nl_grupo_modificador(producto, grupo_id)
+
+    if request.method == "POST":
+
+        form = GrupoModificadorForm(
+            request.POST,
+            instance=grupo,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            messages.success(
+                request,
+                "Grupo de modificadores actualizado.",
+            )
+
+            return _nl_volver_a_modificadores(producto)
+
+    else:
+        form = GrupoModificadorForm(instance=grupo)
+
+    return render(
+        request,
+        "core/producto_modificador_form.html",
+        {
+            "titulo": "Editar grupo de modificadores",
+            "subtitulo": producto.nombre + " · " + grupo.nombre,
+            "boton": "Guardar cambios",
+            "form": form,
+            "producto": producto,
+        },
+    )
+
+
+@login_required
+def producto_modificador_grupo_estado(
+    request,
+    producto_id,
+    grupo_id,
+):
+    """Activa o desactiva el grupo completo."""
+
+    from django.http import HttpResponseNotAllowed
+
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupo = _nl_grupo_modificador(producto, grupo_id)
+
+    grupo.activo = not grupo.activo
+
+    grupo.save(
+        update_fields=[
+            "activo",
+            "actualizado_en",
+        ]
+    )
+
+    estado = "activo" if grupo.activo else "inactivo"
+
+    messages.success(
+        request,
+        "El grupo «" + grupo.nombre + "» quedó " + estado + ".",
+    )
+
+    return _nl_volver_a_modificadores(producto)
+
+
+@login_required
+def producto_modificador_opcion_crear(
+    request,
+    producto_id,
+    grupo_id,
+):
+
+    from core.forms import OpcionModificadorForm
+    from core.models import OpcionModificadorProducto
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupo = _nl_grupo_modificador(producto, grupo_id)
+
+    opcion = OpcionModificadorProducto(
+        grupo=grupo,
+    )
+
+    if request.method == "POST":
+
+        form = OpcionModificadorForm(
+            request.POST,
+            instance=opcion,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            messages.success(
+                request,
+                "Opción creada.",
+            )
+
+            return _nl_volver_a_modificadores(producto)
+
+    else:
+        form = OpcionModificadorForm(instance=opcion)
+
+    return render(
+        request,
+        "core/producto_modificador_form.html",
+        {
+            "titulo": "Nueva opción",
+            "subtitulo": producto.nombre + " · " + grupo.nombre,
+            "boton": "Crear opción",
+            "form": form,
+            "producto": producto,
+        },
+    )
+
+
+@login_required
+def producto_modificador_opcion_editar(
+    request,
+    producto_id,
+    grupo_id,
+    opcion_id,
+):
+
+    from core.forms import OpcionModificadorForm
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupo = _nl_grupo_modificador(producto, grupo_id)
+
+    opcion = get_object_or_404(
+        grupo.opciones,
+        pk=opcion_id,
+    )
+
+    if request.method == "POST":
+
+        form = OpcionModificadorForm(
+            request.POST,
+            instance=opcion,
+        )
+
+        if form.is_valid():
+
+            form.save()
+
+            messages.success(
+                request,
+                "Opción actualizada.",
+            )
+
+            return _nl_volver_a_modificadores(producto)
+
+    else:
+        form = OpcionModificadorForm(instance=opcion)
+
+    return render(
+        request,
+        "core/producto_modificador_form.html",
+        {
+            "titulo": "Editar opción",
+            "subtitulo": producto.nombre + " · " + grupo.nombre,
+            "boton": "Guardar cambios",
+            "form": form,
+            "producto": producto,
+        },
+    )
+
+
+@login_required
+def producto_modificador_opcion_estado(
+    request,
+    producto_id,
+    grupo_id,
+    opcion_id,
+):
+    """Marca la opción como Disponible o Agotada."""
+
+    from django.http import HttpResponseNotAllowed
+
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    producto = _nl_producto_administrable(
+        request,
+        producto_id,
+    )
+
+    grupo = _nl_grupo_modificador(producto, grupo_id)
+
+    opcion = get_object_or_404(
+        grupo.opciones,
+        pk=opcion_id,
+    )
+
+    opcion.activa = not opcion.activa
+
+    opcion.save(
+        update_fields=[
+            "activa",
+            "actualizado_en",
+        ]
+    )
+
+    estado = "disponible" if opcion.activa else "agotada"
+
+    messages.success(
+        request,
+        "La opción «" + opcion.nombre + "» quedó " + estado + ".",
+    )
+
+    return _nl_volver_a_modificadores(producto)
+
+
+# ============================================================
 # VISTAS PEDIDOS
 # ============================================================
 

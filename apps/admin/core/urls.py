@@ -339,6 +339,78 @@ urlpatterns = [
         name="producto_imagen_eliminar",
     ),
 
+    # TNL-MODIFICADORES-PANEL-V1
+    path(
+        "productos/<int:producto_id>/modificadores/",
+        views._nl_admin_required(views.producto_modificadores),
+        name="producto_modificadores",
+    ),
+
+    path(
+        "productos/<int:producto_id>/modificadores/nuevo/",
+        views._nl_admin_required(
+            views.producto_modificador_grupo_crear
+        ),
+        name="producto_modificador_grupo_crear",
+    ),
+
+    path(
+        (
+            "productos/<int:producto_id>/"
+            "modificadores/<int:grupo_id>/editar/"
+        ),
+        views._nl_admin_required(
+            views.producto_modificador_grupo_editar
+        ),
+        name="producto_modificador_grupo_editar",
+    ),
+
+    path(
+        (
+            "productos/<int:producto_id>/"
+            "modificadores/<int:grupo_id>/estado/"
+        ),
+        views._nl_admin_required(
+            views.producto_modificador_grupo_estado
+        ),
+        name="producto_modificador_grupo_estado",
+    ),
+
+    path(
+        (
+            "productos/<int:producto_id>/"
+            "modificadores/<int:grupo_id>/opciones/nueva/"
+        ),
+        views._nl_admin_required(
+            views.producto_modificador_opcion_crear
+        ),
+        name="producto_modificador_opcion_crear",
+    ),
+
+    path(
+        (
+            "productos/<int:producto_id>/"
+            "modificadores/<int:grupo_id>/"
+            "opciones/<int:opcion_id>/editar/"
+        ),
+        views._nl_admin_required(
+            views.producto_modificador_opcion_editar
+        ),
+        name="producto_modificador_opcion_editar",
+    ),
+
+    path(
+        (
+            "productos/<int:producto_id>/"
+            "modificadores/<int:grupo_id>/"
+            "opciones/<int:opcion_id>/estado/"
+        ),
+        views._nl_admin_required(
+            views.producto_modificador_opcion_estado
+        ),
+        name="producto_modificador_opcion_estado",
+    ),
+
 
     # TNL-IA-TYPEBOT-URL-V1
     path(
