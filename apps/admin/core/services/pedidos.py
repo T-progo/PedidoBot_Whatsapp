@@ -780,8 +780,282 @@ from collections import defaultdict
 from django.utils import timezone
 
 
+# =============================================================================
+# TNL-RESTAURANTE-CONFIRMACION-CATALOGO-V1
+#
+# Al confirmar un pedido de restaurante se revisa el catálogo vigente:
+# - un precio distinto se actualiza solo (siempre desde el servidor) y se
+#   avisa al cliente; la compra no se bloquea por eso;
+# - un producto u opción que ya no se puede vender, o una regla de grupo
+#   que ya no se cumple, detiene la confirmación con un mensaje para que
+#   el cliente revise su pedido.
+# =============================================================================
+
+CODIGO_PEDIDO_REQUIERE_REVISION = "pedido_requiere_revision"
+
+
+def _opcion_ids_de_snapshots(detalle):
+    """
+    IDs de opciones guardados en la línea. ValueError si el
+    snapshot no se puede leer.
+    """
+
+    opcion_ids = []
+
+    for grupo in (
+        list(detalle.modificadores_snapshot or [])
+        + list(detalle.extras_snapshot or [])
+    ):
+        if (
+            not isinstance(grupo, dict)
+            or not isinstance(grupo.get("opciones"), list)
+        ):
+            raise ValueError("snapshot inválido")
+
+        for opcion in grupo["opciones"]:
+            opcion_ids.append(int(opcion["opcion_id"]))
+
+    return opcion_ids
+
+
+def _mensaje_opciones_cliente(exc):
+
+    mensaje = (getattr(exc, "messages", None) or [str(exc)])[0]
+
+    if "no existen o están inactivas" in mensaje:
+        return "una opción que elegiste ya no está disponible."
+
+    return mensaje
+
+
+def _mensaje_revision(problemas):
+
+    detalle = " ".join(problemas[:3])
+
+    if len(problemas) > 3:
+        detalle += f" Y {len(problemas) - 3} producto(s) más."
+
+    return (
+        "No confirmamos tu pedido porque cambió el menú. "
+        f"{detalle} "
+        "Revisa tu pedido; si hace falta, cancélalo y "
+        "vuelve a armarlo."
+    )
+
+
+def _revalidar_lineas_restaurante_bajo_bloqueo(
+    *,
+    pedido,
+    plantilla_id,
+):
+    """
+    Revisa cada línea (pedido ya bloqueado) contra el catálogo
+    vigente con las mismas reglas del menú y del carrito.
+
+    Actualiza precios, desglose y snapshots de las líneas que
+    cambiaron y devuelve los ajustes de precio unitario. Si algo
+    ya no se puede vender, lanza ValidationError con
+    code=CODIGO_PEDIDO_REQUIERE_REVISION; la transacción de la
+    confirmación revierte cualquier cambio.
+    """
+
+    from core.services.catalogo import (
+        productos_vendibles,
+    )
+
+    detalles = list(
+        PedidoDetalle.objects
+        .select_for_update()
+        .filter(pedido_id=pedido.id)
+        .order_by("id")
+    )
+
+    if not detalles:
+        return []
+
+    vendibles = {
+        producto.id: producto
+        for producto in (
+            productos_vendibles(
+                empresa_id=pedido.empresa_id,
+                plantilla_id=plantilla_id,
+                restaurante=True,
+                queryset=(
+                    Producto.objects
+                    .select_for_update(of=("self",))
+                ),
+            )
+            .filter(
+                id__in={
+                    detalle.producto_id
+                    for detalle in detalles
+                    if detalle.producto_id is not None
+                },
+            )
+            .order_by("id")
+        )
+    }
+
+    problemas = []
+    ajustes = []
+
+    for detalle in detalles:
+
+        nombre = detalle.nombre_producto
+        producto = vendibles.get(detalle.producto_id)
+
+        if producto is None:
+            problemas.append(f"«{nombre}» ya no está disponible.")
+            continue
+
+        try:
+            opcion_ids = _opcion_ids_de_snapshots(detalle)
+        except (ValueError, KeyError, TypeError):
+            problemas.append(
+                f"«{nombre}»: no pudimos verificar "
+                "las opciones elegidas."
+            )
+            continue
+
+        try:
+            configuracion = (
+                _resolver_configuracion_producto_restaurante(
+                    producto=producto,
+                    seleccion_opciones=opcion_ids,
+                )
+            )
+        except ValidationError as exc:
+            problemas.append(
+                f"«{nombre}»: {_mensaje_opciones_cliente(exc)}"
+            )
+            continue
+
+        precio_base = validar_importe_cobrable_restaurante(
+            producto.precio,
+            etiqueta="El precio base del producto",
+        )
+
+        precio_modificadores = configuracion["precio_modificadores"]
+        precio_extras = configuracion["precio_extras"]
+
+        precio_unitario = validar_importe_cobrable_restaurante(
+            decimal_4(
+                precio_base
+                + precio_modificadores
+                + precio_extras
+            ),
+            etiqueta="El precio unitario configurado",
+        )
+
+        antes = decimal_4(detalle.precio_unitario)
+
+        sin_cambios = (
+            detalle.precio_base is not None
+            and decimal_4(detalle.precio_base) == precio_base
+            and decimal_4(detalle.precio_modificadores) == precio_modificadores
+            and decimal_4(detalle.precio_extras) == precio_extras
+            and antes == precio_unitario
+            and detalle.modificadores_snapshot == configuracion["modificadores_snapshot"]
+            and detalle.extras_snapshot == configuracion["extras_snapshot"]
+        )
+
+        if sin_cambios:
+            continue
+
+        descuento = decimal_4(detalle.descuento)
+
+        bruto = validar_importe_cobrable_restaurante(
+            decimal_4(
+                decimal_4(detalle.cantidad)
+                * precio_unitario
+            ),
+            etiqueta="El importe bruto de la línea",
+        )
+
+        if descuento > bruto:
+            problemas.append(
+                f"«{nombre}»: su descuento ya no es válido "
+                "con el precio actual."
+            )
+            continue
+
+        detalle.precio_base = precio_base
+        detalle.precio_modificadores = precio_modificadores
+        detalle.precio_extras = precio_extras
+        detalle.modificadores_snapshot = configuracion["modificadores_snapshot"]
+        detalle.extras_snapshot = configuracion["extras_snapshot"]
+        detalle.precio_unitario = precio_unitario
+        detalle.importe = validar_importe_cobrable_restaurante(
+            decimal_4(bruto - descuento),
+            etiqueta="El importe final de la línea",
+        )
+
+        detalle.save(
+            update_fields=[
+                "precio_base",
+                "precio_modificadores",
+                "precio_extras",
+                "modificadores_snapshot",
+                "extras_snapshot",
+                "precio_unitario",
+                "importe",
+            ]
+        )
+
+        if antes != precio_unitario:
+            ajustes.append(
+                {
+                    "producto": nombre,
+                    "cantidad": decimal_4(detalle.cantidad),
+                    "antes": antes,
+                    "despues": precio_unitario,
+                }
+            )
+
+    if problemas:
+        raise ValidationError(
+            _mensaje_revision(problemas),
+            code=CODIGO_PEDIDO_REQUIERE_REVISION,
+        )
+
+    return ajustes
+
+
+def texto_aviso_ajuste_precios(ajustes, *, total, moneda):
+    """
+    Aviso corto para el cliente cuando la confirmación tomó
+    precios más recientes del menú. Vacío si nada cambió.
+    """
+
+    if not ajustes:
+        return ""
+
+    partes = [
+        f"«{ajuste['producto']}» de ${ajuste['antes']:.2f} "
+        f"a ${ajuste['despues']:.2f}"
+        for ajuste in ajustes[:3]
+    ]
+
+    if len(ajustes) > 3:
+        partes.append(f"y {len(ajustes) - 3} más")
+
+    if len(ajustes) == 1:
+        cambio = f"Cambió el precio de {partes[0]}."
+    else:
+        cambio = "Cambiaron precios del menú: " + "; ".join(partes) + "."
+
+    return (
+        f"{cambio} Tu total ahora es "
+        f"${decimal_4(total):.2f} {moneda}."
+    )
+
+
 @transaction.atomic
-def confirmar_pedido(*, pedido_id):
+def confirmar_pedido(
+    *,
+    pedido_id,
+    revalidar_catalogo_plantilla_id=None,
+):
     """
     Confirma un carrito de forma transaccional.
 
@@ -791,10 +1065,16 @@ def confirmar_pedido(*, pedido_id):
     - recalcula totales antes de confirmar;
     - bloquea productos involucrados;
     - agrupa cantidades por producto;
-    - valida existencias;
-    - descuenta stock una sola vez;
+    - valida existencias y descuenta stock una sola vez, salvo en
+      productos de restaurante (Disponible / Agotado, sin
+      inventario numérico);
     - registra confirmado_en;
     - ante cualquier error, toda la operacion hace rollback.
+
+    Con revalidar_catalogo_plantilla_id (pedido de restaurante del
+    bot), antes de recalcular revisa el catálogo vigente: actualiza
+    precios y deja los ajustes en pedido.ajustes_precio, o se detiene
+    si algo ya no se puede vender.
     """
 
     pedido = (
@@ -811,6 +1091,19 @@ def confirmar_pedido(*, pedido_id):
     if pedido.estado != "carrito":
         raise ValidationError(
             "El pedido ya no está en estado Carrito y no puede confirmarse nuevamente."
+        )
+
+    # --------------------------------------------------------
+    # TNL-RESTAURANTE-CONFIRMACION-CATALOGO-V1
+    # CATALOGO VIGENTE (sólo pedidos de restaurante del bot)
+    # --------------------------------------------------------
+
+    ajustes_precio = []
+
+    if revalidar_catalogo_plantilla_id is not None:
+        ajustes_precio = _revalidar_lineas_restaurante_bajo_bloqueo(
+            pedido=pedido,
+            plantilla_id=revalidar_catalogo_plantilla_id,
         )
 
     # --------------------------------------------------------
@@ -899,6 +1192,23 @@ def confirmar_pedido(*, pedido_id):
             "Uno o más productos del pedido ya no existen."
         )
 
+    # TNL-RESTAURANTE-DISPONIBILIDAD-V1
+    # Los restaurantes no usan inventario numérico: sus
+    # productos no validan ni descuentan stock.
+    from core.models import Catalogo, Plantilla
+
+    catalogos_restaurante = set(
+        Catalogo.objects
+        .filter(
+            id__in={
+                producto.catalogo_id
+                for producto in productos
+            },
+            plantilla__tipo=Plantilla.TIPO_RESTAURANTE,
+        )
+        .values_list("id", flat=True)
+    )
+
     # --------------------------------------------------------
     # VALIDAR TODO ANTES DE DESCONTAR NADA
     # --------------------------------------------------------
@@ -943,6 +1253,9 @@ def confirmar_pedido(*, pedido_id):
                 "no coincide con la moneda del pedido."
             )
 
+        if producto.catalogo_id in catalogos_restaurante:
+            continue
+
         stock_actual = decimal_4(
             producto.stock
         )
@@ -966,6 +1279,9 @@ def confirmar_pedido(*, pedido_id):
         producto = productos_por_id[
             producto_id
         ]
+
+        if producto.catalogo_id in catalogos_restaurante:
+            continue
 
         cantidad_requerida = decimal_4(
             cantidades_por_producto[
@@ -1001,6 +1317,8 @@ def confirmar_pedido(*, pedido_id):
     )
 
     pedido.refresh_from_db()
+
+    pedido.ajustes_precio = ajustes_precio
 
     return pedido
 

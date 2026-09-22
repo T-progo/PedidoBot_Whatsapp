@@ -552,7 +552,10 @@ class RestauranteApiPedidoTests(TestCase):
 
 
 
-    def test_cross_sell_sin_stock_no_se_ofrece(
+    # TNL-RESTAURANTE-DISPONIBILIDAD-V1
+    # Restaurante sin inventario numérico: stock 0 no agota; un
+    # producto agotado (inactivo) lo cubre test_cross_sell_inactivo_no_se_ofrece.
+    def test_cross_sell_stock_cero_si_se_ofrece(
         self,
     ):
 
@@ -607,8 +610,8 @@ class RestauranteApiPedidoTests(TestCase):
                 recomendado,
 
             texto_promocional=(
-                "No debe ofrecerse "
-                "porque no hay stock."
+                "Se ofrece aunque su "
+                "stock numérico sea 0."
             ),
 
             activa=True,
@@ -628,17 +631,15 @@ class RestauranteApiPedidoTests(TestCase):
         data = response.json()
 
 
-        self.assertFalse(
+        self.assertTrue(
             data[
                 "cross_sell_disponible"
             ]
         )
 
-
-        self.assertIsNone(
-            data[
-                "cross_sell_producto_id"
-            ]
+        self.assertEqual(
+            data["cross_sell_producto_id"],
+            recomendado.id,
         )
 
 
@@ -1316,11 +1317,11 @@ class RestauranteApiPedidoTests(TestCase):
 
         self.producto.refresh_from_db()
 
+        # TNL-RESTAURANTE-DISPONIBILIDAD-V1
+        # Restaurante: la confirmación no toca el stock numérico.
         self.assertEqual(
             self.producto.stock,
-            stock_before
-            -
-            Decimal("1.0000"),
+            stock_before,
         )
 
     def test_12_confirmar_sin_logistica_rechazado(self):

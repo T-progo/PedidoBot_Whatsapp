@@ -5,14 +5,20 @@ TNL-CATALOGO-REGLAS-V1
 
 - Precisión de precios: máximo 2 decimales (centavos).
 - Producto vendible: una sola definición para el menú del
-  restaurante, el detalle, el carrito y el catálogo de la IA.
+  restaurante, el detalle, el carrito, la confirmación y el
+  catálogo de la IA.
+
+TNL-RESTAURANTE-DISPONIBILIDAD-V1
+Los restaurantes no usan inventario numérico: un producto
+está Disponible (activo) o Agotado (inactivo), y una opción
+de modificador está disponible si está activa.
 """
 
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import F, Q
+from django.db.models import Count, Exists, F, OuterRef, Q
 
 
 DECIMALES_PRECIO = 2
@@ -49,6 +55,34 @@ def es_bot_restaurante(bot) -> bool:
     ).strip().casefold() == "restaurante"
 
 
+def _grupos_obligatorios_sin_opciones_suficientes():
+    """
+    Grupos obligatorios activos del producto (OuterRef) que ya
+    no tienen suficientes opciones disponibles para cumplir su
+    mínimo: el platillo no se puede armar, está agotado.
+    """
+
+    from core.models import GrupoModificadorProducto
+
+    return (
+        GrupoModificadorProducto.objects
+        .filter(
+            producto_id=OuterRef("pk"),
+            activo=True,
+            obligatorio=True,
+        )
+        .annotate(
+            opciones_disponibles=Count(
+                "opciones",
+                filter=Q(opciones__activa=True),
+            ),
+        )
+        .filter(
+            opciones_disponibles__lt=F("minimo"),
+        )
+    )
+
+
 def filtro_producto_vendible(*, restaurante: bool) -> Q:
     """
     Condiciones para que un producto se pueda vender ahora.
@@ -56,21 +90,26 @@ def filtro_producto_vendible(*, restaurante: bool) -> Q:
     Siempre: producto activo, catálogo activo y, si tiene
     categoría, que esté activa.
 
-    Restaurante: además categoría obligatoria, activa y del
-    mismo catálogo que el producto, y stock mayor que cero
-    (el flujo actual descuenta stock al confirmar).
+    Restaurante (Disponible / Agotado, sin inventario
+    numérico): además categoría obligatoria, activa y del
+    mismo catálogo, y que sus grupos obligatorios tengan
+    opciones disponibles. El stock numérico no cuenta.
     """
 
     if restaurante:
         # Sin OR: la categoría queda en INNER JOIN y el
         # filtro se puede combinar con select_for_update().
         return Q(
-            activo=True,
-            catalogo__activo=True,
-            categoria__isnull=False,
-            categoria__activa=True,
-            categoria__catalogo_id=F("catalogo_id"),
-            stock__gt=0,
+            Q(
+                activo=True,
+                catalogo__activo=True,
+                categoria__isnull=False,
+                categoria__activa=True,
+                categoria__catalogo_id=F("catalogo_id"),
+            ),
+            ~Exists(
+                _grupos_obligatorios_sin_opciones_suficientes()
+            ),
         )
 
     return Q(

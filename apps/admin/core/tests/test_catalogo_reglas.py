@@ -130,9 +130,17 @@ class ProductoVendibleTests(_CatalogoBase):
         self.cat_off = CategoriaProducto.objects.create(catalogo=self.catalogo_off, nombre="Viejo", orden=5, activa=True)
 
         self.vendible = self.producto("Taco Pastor")
-        self.agotado = self.producto("Taco Suadero", stock="0")
-        self.solo_agotado = self.producto("Taco Lengua", categoria=self.cat_agotados, stock="0")
+        # TNL-RESTAURANTE-DISPONIBILIDAD-V1: restaurante sin inventario
+        # numérico; Agotado = inactivo.
+        self.sin_stock = self.producto("Taco Suadero", stock="0")
+        self.agotado = self.producto("Taco Lengua", categoria=self.cat_agotados, stock="0", activo=False)
         self.inactivo = self.producto("Taco Tripa", activo=False)
+        # Grupo obligatorio sin opciones disponibles: el platillo no se puede armar.
+        self.sin_opciones = self.producto("Taco Campechano")
+        grupo = GrupoModificadorProducto.objects.create(
+            producto=self.sin_opciones, nombre="Tortilla", obligatorio=True, minimo=1, maximo=1,
+        )
+        OpcionModificadorProducto.objects.create(grupo=grupo, nombre="Maíz", activa=False)
         self.en_cat_inactiva = self.producto("Taco Oculto", categoria=self.cat_inactiva)
         self.sin_categoria = self.producto("Taco Suelto", categoria=None)
         self.cat_otro_catalogo = self.producto("Taco Cruzado", categoria=self.cat_b)
@@ -145,7 +153,7 @@ class ProductoVendibleTests(_CatalogoBase):
             categoria=CategoriaProducto.objects.create(catalogo=catalogo_ajeno, nombre="Tacos", activa=True),
         )
         self.no_vendibles = [
-            self.agotado, self.solo_agotado, self.inactivo, self.en_cat_inactiva,
+            self.agotado, self.inactivo, self.sin_opciones, self.en_cat_inactiva,
             self.sin_categoria, self.cat_otro_catalogo, self.en_catalogo_off, self.ajeno,
         ]
 
@@ -160,7 +168,7 @@ class ProductoVendibleTests(_CatalogoBase):
                 empresa_id=self.empresa.id, plantilla_id=self.plantilla.id, restaurante=True,
             ).values_list("id", flat=True)
         )
-        self.assertEqual(ids, {self.vendible.id})
+        self.assertEqual(ids, {self.vendible.id, self.sin_stock.id})
 
     def test_regla_otros_giros_no_exige_categoria_ni_stock(self):
         ids = set(
@@ -168,8 +176,17 @@ class ProductoVendibleTests(_CatalogoBase):
         )
         self.assertEqual(
             ids,
-            {self.vendible.id, self.agotado.id, self.solo_agotado.id, self.sin_categoria.id, self.cat_otro_catalogo.id},
+            {self.vendible.id, self.sin_stock.id, self.sin_categoria.id, self.cat_otro_catalogo.id, self.sin_opciones.id},
         )
+
+    def test_platillo_disponible_de_nuevo_al_reactivar_su_opcion(self):
+        OpcionModificadorProducto.objects.filter(grupo__producto=self.sin_opciones).update(activa=True)
+        ids = set(
+            productos_vendibles(
+                empresa_id=self.empresa.id, plantilla_id=self.plantilla.id, restaurante=True,
+            ).values_list("id", flat=True)
+        )
+        self.assertIn(self.sin_opciones.id, ids)
 
     # --- menú ----------------------------------------------------------------
 
@@ -177,7 +194,7 @@ class ProductoVendibleTests(_CatalogoBase):
         response = self.get("api_typebot_restaurante_categorias", {"bot_id": self.bot.id})
         self.assertEqual(response.status_code, 200)
         nombres = [c["nombre"] for c in response.json()["categorias"]]
-        # "Agotados" sólo tiene un producto sin stock; "Refrescos" sólo el
+        # "Agotados" sólo tiene un producto agotado; "Refrescos" sólo el
         # producto cuya categoría es de otro catálogo.
         self.assertEqual(nombres, ["Tacos"])
 
@@ -186,7 +203,10 @@ class ProductoVendibleTests(_CatalogoBase):
             "api_typebot_restaurante_productos", {"bot_id": self.bot.id, "categoria_id": self.categoria.id},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual([str(i) for i in response.json()["producto_ids"]], [str(self.vendible.id)])
+        self.assertEqual(
+            [str(i) for i in response.json()["producto_ids"]],
+            [str(self.vendible.id), str(self.sin_stock.id)],
+        )
 
     # --- detalle y carrito ---------------------------------------------------
 
@@ -222,6 +242,7 @@ class ProductoVendibleTests(_CatalogoBase):
     def test_contexto_ia_restaurante_usa_la_regla(self):
         contexto = construir_contexto_catalogo_ia(bot=self.bot)
         self.assertIn("Taco Pastor", contexto)
+        self.assertIn("Taco Suadero", contexto)
         for producto in self.no_vendibles:
             with self.subTest(producto=producto.nombre):
                 self.assertNotIn(producto.nombre, contexto)
@@ -239,10 +260,13 @@ class ProductoVendibleTests(_CatalogoBase):
         self.assertNotIn("Azucar Oculta", contexto)
 
     def test_tarjetas_ia_solo_vendibles(self):
-        todos = [self.vendible] + self.no_vendibles
+        todos = [self.vendible, self.sin_stock] + self.no_vendibles
         respuesta = "Te recomiendo: " + ", ".join(p.nombre for p in todos) + "."
         resultado = _ia_productos_visuales_respuesta(bot=self.bot, respuesta=respuesta)
-        self.assertEqual([str(i) for i in resultado["producto_ids"]], [str(self.vendible.id)])
+        self.assertEqual(
+            sorted(str(i) for i in resultado["producto_ids"]),
+            sorted([str(self.vendible.id), str(self.sin_stock.id)]),
+        )
 
 
 class ValidacionPrecioCatalogoTests(_CatalogoBase):

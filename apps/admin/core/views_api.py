@@ -12780,9 +12780,6 @@ def _restaurante_api_cross_sell_payload(
         "producto_recomendado__activo":
             True,
 
-        "producto_recomendado__stock__gt":
-            0,
-
         "producto_recomendado__catalogo__activo":
             True,
 
@@ -12794,10 +12791,26 @@ def _restaurante_api_cross_sell_payload(
     }
 
 
+    from core.services.catalogo import (
+        productos_vendibles,
+    )
+
+    # TNL-RESTAURANTE-DISPONIBILIDAD-V1
+    # Sólo se sugiere lo que el menú vendería (Disponible /
+    # Agotado); el stock numérico ya no cuenta.
     reglas = (
         ReglaVentaCruzadaIA.objects
         .filter(
             **filtros
+        )
+        .filter(
+            producto_recomendado__in=(
+                productos_vendibles(
+                    empresa_id=bot.empresa_id,
+                    plantilla_id=bot.plantilla_id,
+                    restaurante=True,
+                ).values("id")
+            ),
         )
         .select_related(
             "producto_recomendado",
@@ -14353,11 +14366,21 @@ def restaurante_pedido_confirmar(
             status=400,
         )
 
+    from core.services.pedidos import (
+        CODIGO_PEDIDO_REQUIERE_REVISION,
+        texto_aviso_ajuste_precios,
+    )
+
     try:
 
+        # TNL-RESTAURANTE-CONFIRMACION-CATALOGO-V1
+        # Revisa el catálogo vigente del bot: precios del
+        # servidor y disponibilidad actual.
         pedido = confirmar_pedido(
             pedido_id=
-                pedido.id
+                pedido.id,
+            revalidar_catalogo_plantilla_id=
+                bot.plantilla_id,
         )
 
     except ValidationError as exc:
@@ -14374,6 +14397,11 @@ def restaurante_pedido_confirmar(
             ]
         )
 
+        requiere_revision = (
+            getattr(exc, "code", None)
+            == CODIGO_PEDIDO_REQUIERE_REVISION
+        )
+
         return JsonResponse(
             {
                 "ok": False,
@@ -14381,10 +14409,20 @@ def restaurante_pedido_confirmar(
                     mensajes[0],
                 "errores":
                     mensajes,
+                "mensaje":
+                    mensajes[0],
+                "codigo": (
+                    "PEDIDO_REQUIERE_REVISION"
+                    if requiere_revision
+                    else "PEDIDO_NO_CONFIRMADO"
+                ),
                 "pedido_numero":
                     pedido.numero,
             },
             status=409,
+            json_dumps_params={
+                "ensure_ascii": False,
+            },
         )
 
     payload = (
@@ -14394,6 +14432,23 @@ def restaurante_pedido_confirmar(
                 carrito_token,
         )
     )
+
+    ajustes = getattr(pedido, "ajustes_precio", [])
+
+    aviso_precios = texto_aviso_ajuste_precios(
+        ajustes,
+        total=pedido.total,
+        moneda=pedido.moneda,
+    )
+
+    mensaje = (
+        f"Pedido {pedido.numero} "
+        "confirmado correctamente."
+    )
+
+    # Typebot muestra "mensaje" antes de elegir el pago.
+    if aviso_precios:
+        mensaje = f"{mensaje} {aviso_precios}"
 
     return JsonResponse(
         {
@@ -14407,11 +14462,21 @@ def restaurante_pedido_confirmar(
                 if pedido.confirmado_en
                 else None
             ),
+            "precios_actualizados":
+                bool(ajustes),
+            "aviso_precios":
+                aviso_precios,
+            "ajustes_precio": [
+                {
+                    "producto": ajuste["producto"],
+                    "cantidad": f"{ajuste['cantidad']:.2f}",
+                    "precio_anterior": f"{ajuste['antes']:.2f}",
+                    "precio_actual": f"{ajuste['despues']:.2f}",
+                }
+                for ajuste in ajustes
+            ],
             "mensaje":
-                (
-                    f"Pedido {pedido.numero} "
-                    "confirmado correctamente."
-                ),
+                mensaje,
         },
         json_dumps_params={
             "ensure_ascii": False,

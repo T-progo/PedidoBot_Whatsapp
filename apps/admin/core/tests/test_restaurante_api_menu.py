@@ -148,6 +148,8 @@ class RestauranteApiMenuTests(TestCase):
             )
         )
 
+        # TNL-RESTAURANTE-DISPONIBILIDAD-V1
+        # Agotado = producto inactivo; el stock numérico no cuenta.
         Producto.objects.create(
             catalogo=self.catalogo,
             categoria=
@@ -155,7 +157,7 @@ class RestauranteApiMenuTests(TestCase):
             nombre="Producto agotado",
             precio=Decimal("50.0000"),
             stock=Decimal("0.0000"),
-            activo=True,
+            activo=False,
         )
 
         self.empresa2 = Empresa.objects.create(
@@ -513,6 +515,31 @@ class RestauranteApiMenuTests(TestCase):
         self.assertEqual(
             response.json()["cantidad"],
             0,
+        )
+
+    def test_08b_stock_cero_no_agota_en_restaurante(self):
+
+        # TNL-RESTAURANTE-DISPONIBILIDAD-V1
+        Producto.objects.filter(
+            nombre="Producto agotado",
+        ).update(
+            activo=True,
+        )
+
+        response = self.get(
+            "api_typebot_restaurante_productos",
+            {
+                "bot_id":
+                    self.bot.id,
+
+                "categoria_id":
+                    self.categoria_vacia.id,
+            },
+        )
+
+        self.assertEqual(
+            response.json()["cantidad"],
+            1,
         )
 
     def test_09_precio_base_incompatible_rechazado(self):
