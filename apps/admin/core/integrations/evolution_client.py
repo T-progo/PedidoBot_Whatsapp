@@ -319,6 +319,34 @@ class EvolutionClient:
         )
 
 
+        # TNL-WHATSAPP-WATCHDOG-V1
+        # Sólo el código numérico; disconnectionObject
+        # puede contener JIDs y nunca se expone.
+        reason = (
+            instance.get(
+                "disconnectionReasonCode"
+            )
+            if instance.get(
+                "disconnectionReasonCode"
+            ) is not None
+            else item.get(
+                "disconnectionReasonCode"
+            )
+        )
+
+        try:
+            reason = (
+                int(reason)
+                if reason is not None
+                else None
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            reason = None
+
+
         return {
             "name": str(name),
             "state": str(state),
@@ -328,6 +356,7 @@ class EvolutionClient:
             "integration": str(
                 integration
             ),
+            "disconnection_reason": reason,
         }
 
 
@@ -435,6 +464,152 @@ class EvolutionClient:
             ),
             timeout=30,
         )
+
+
+    # --------------------------------------------------------
+    # TNL-WHATSAPP-WATCHDOG-V1
+    #
+    # Sólo lectura de estado vivo y reinicio de la conexión.
+    # No hay logout ni delete aquí.
+    # --------------------------------------------------------
+
+    @staticmethod
+    def _instancia_administrada(
+        instance_name,
+    ):
+
+        import re
+
+        instance_name = str(
+            instance_name
+            or ""
+        ).strip()
+
+
+        if not re.fullmatch(
+            r"tnl-e[0-9]+-i[0-9]+",
+            instance_name,
+        ):
+
+            raise EvolutionClientError(
+                "Instancia Evolution inválida."
+            )
+
+
+        return instance_name
+
+
+    def connection_state(
+        self,
+        instance_name,
+    ):
+        """
+        Estado VIVO de la instancia (open/connecting/close).
+
+        fetchInstances devuelve el estado guardado, que puede
+        quedarse en "connecting" aunque la sesión esté cerrada.
+        """
+
+        instance_name = (
+            self._instancia_administrada(
+                instance_name
+            )
+        )
+
+        data = self._request(
+            "GET",
+            (
+                "/instance/connectionState/"
+                + quote(
+                    instance_name,
+                    safe="",
+                )
+            ),
+            timeout=15,
+        )
+
+        instance = (
+            data.get("instance")
+            if isinstance(data, dict)
+            else None
+        )
+
+        state = (
+            instance.get("state")
+            if isinstance(instance, dict)
+            else None
+        )
+
+        return {
+            "name": instance_name,
+            "state": (
+                str(state).strip().lower()
+                if state
+                else "desconocido"
+            ),
+        }
+
+
+    def restart_instance(
+        self,
+        instance_name,
+    ):
+        """
+        Reinicia la conexión de una instancia open/connecting.
+
+        Evolution puede responder HTTP 200 con {"error": true};
+        eso se trata como fallo, igual que un HTTP de error.
+        """
+
+        instance_name = (
+            self._instancia_administrada(
+                instance_name
+            )
+        )
+
+        data = self._request(
+            "POST",
+            (
+                "/instance/restart/"
+                + quote(
+                    instance_name,
+                    safe="",
+                )
+            ),
+            timeout=30,
+        )
+
+        instance = (
+            data.get("instance")
+            if isinstance(data, dict)
+            else None
+        )
+
+        if (
+            not isinstance(data, dict)
+            or data.get("error") is True
+            or not isinstance(instance, dict)
+        ):
+
+            raise EvolutionClientError(
+                "Evolution no confirmó el reinicio "
+                "de la instancia."
+            )
+
+        state = (
+            instance.get("status")
+            or
+            instance.get("state")
+        )
+
+        return {
+            "name": instance_name,
+            "state": (
+                str(state).strip().lower()
+                if state
+                else "desconocido"
+            ),
+        }
 
 
     # --------------------------------------------------------
