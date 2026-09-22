@@ -17,6 +17,7 @@ import json
 import os
 import re
 import tempfile
+import time
 
 from datetime import (
     datetime,
@@ -24,6 +25,12 @@ from datetime import (
     timezone as dt_timezone,
 )
 from pathlib import Path
+
+try:
+    import fcntl
+except ImportError:  # Windows: solo desarrollo local
+    fcntl = None
+    import msvcrt
 
 from core.integrations.evolution_client import (
     EvolutionClient,
@@ -51,6 +58,15 @@ OBSERVACIONES_MINIMAS = 3
 ENFRIAMIENTO = timedelta(minutes=10)
 VENTANA_INTENTOS = timedelta(hours=1)
 MAX_INTENTOS_VENTANA = 3
+
+# TNL-WHATSAPP-MANUAL-RECONNECT-V1
+# Reconexión desde el panel: basta con que haya pasado este tiempo
+# desde el último intento, manual o automático.
+ENFRIAMIENTO_MANUAL = timedelta(seconds=60)
+
+# Segundos que se espera el candado del estado.
+ESPERA_CANDADO_PASADA = 90
+ESPERA_CANDADO_MANUAL = 3
 
 ENV_RUTA_ESTADO = "TNL_WHATSAPP_WATCHDOG_STATE"
 RUTA_ESTADO_PREDETERMINADA = (
@@ -232,14 +248,48 @@ def _validar_entrada(entrada) -> dict:
     return limpia
 
 
+def _intentar_candado(descriptor) -> bool:
+
+    if fcntl is None:
+        try:
+            msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+        except OSError:
+            return False
+        return True
+
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        return False
+
+    return True
+
+
+def _soltar_candado(descriptor):
+
+    if fcntl is None:
+        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+    else:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+
 class EstadoWatchdogMemoria:
     """Almacén en memoria (pruebas)."""
 
-    def __init__(self, instancias=None):
+    def __init__(self, instancias=None, *, ocupado=False):
 
         self.instancias = json.loads(
             json.dumps(instancias or {})
         )
+
+        self.ocupado = ocupado
+
+    def bloquear(self, *, espera):
+
+        if self.ocupado:
+            return None
+
+        return lambda: None
 
     def cargar(self):
 
@@ -264,6 +314,49 @@ class EstadoWatchdogArchivo:
     def __init__(self, ruta):
 
         self.ruta = Path(ruta)
+
+    def bloquear(self, *, espera):
+        """
+        Candado exclusivo entre la pasada del timer y la reconexión
+        manual del panel (varios workers de gunicorn), para que ninguna
+        escritura pise a la otra. Devuelve la función que lo libera, o
+        None si sigue ocupado tras `espera` segundos. El sistema lo
+        libera solo si el proceso muere.
+        """
+
+        self.ruta.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        descriptor = os.open(
+            f"{self.ruta}.lock",
+            os.O_RDWR | os.O_CREAT,
+            0o600,
+        )
+
+        limite = time.monotonic() + espera
+
+        try:
+            while not _intentar_candado(descriptor):
+
+                if time.monotonic() >= limite:
+                    os.close(descriptor)
+                    return None
+
+                time.sleep(0.2)
+
+        except BaseException:
+            os.close(descriptor)
+            raise
+
+        def liberar():
+            try:
+                _soltar_candado(descriptor)
+            finally:
+                os.close(descriptor)
+
+        return liberar
 
     def cargar(self):
         """
@@ -343,15 +436,14 @@ class EstadoWatchdogArchivo:
 # Canales elegibles
 # =============================================================================
 
-def canales_elegibles() -> list:
+def instancia_administrada(canal):
     """
-    Canales WhatsApp activos, con Bot activo, de empresas operativas
-    y con un identificador administrado y consistente.
+    Nombre de la instancia Evolution de un canal WhatsApp activo, con
+    Bot activo, de una empresa operativa y con un identificador
+    administrado y consistente; None si no cumple.
 
-    El nombre de instancia sale sólo de la configuración validada.
+    El nombre sale sólo de la configuración validada del Canal.
     """
-
-    from core.models import Canal
 
     from core.services.client_connection_reset import (
         ConnectionResetError as CanalWhatsappInvalido,
@@ -361,6 +453,44 @@ def canales_elegibles() -> list:
     from core.services.client_lifecycle import (
         empresa_operativa,
     )
+
+    empresa = canal.bot.empresa
+
+    if (
+        canal.tipo != "whatsapp"
+        or not canal.activo
+        or not canal.bot.activo
+        or not empresa_operativa(empresa)
+    ):
+        return None
+
+    try:
+        nombre = _resolver_instance_channel(canal)
+    except CanalWhatsappInvalido:
+        return None
+
+    if (
+        not nombre
+        or nombre != str(canal.identificador).strip()
+        or not re.fullmatch(
+            rf"tnl-e{empresa.id}-i[0-9]+",
+            nombre,
+        )
+    ):
+        return None
+
+    return nombre
+
+
+def canales_elegibles() -> list:
+    """
+    Canales WhatsApp activos, con Bot activo, de empresas operativas
+    y con un identificador administrado y consistente.
+
+    El nombre de instancia sale sólo de la configuración validada.
+    """
+
+    from core.models import Canal
 
     elegibles = []
     vistos = set()
@@ -384,25 +514,9 @@ def canales_elegibles() -> list:
 
     for canal in canales:
 
-        empresa = canal.bot.empresa
+        nombre = instancia_administrada(canal)
 
-        if not empresa_operativa(empresa):
-            continue
-
-        try:
-            nombre = _resolver_instance_channel(canal)
-        except CanalWhatsappInvalido:
-            continue
-
-        if (
-            not nombre
-            or nombre != str(canal.identificador).strip()
-            or not re.fullmatch(
-                rf"tnl-e{empresa.id}-i[0-9]+",
-                nombre,
-            )
-            or nombre in vistos
-        ):
+        if not nombre or nombre in vistos:
             continue
 
         vistos.add(nombre)
@@ -466,6 +580,64 @@ def ejecutar_pasada(
 
     almacen = almacen or EstadoWatchdogArchivo(ruta_estado())
 
+    # TNL-WHATSAPP-MANUAL-RECONNECT-V1
+    # El panel también escribe este estado; sin el candado la pasada
+    # sólo observa y no escribe nada.
+    liberar = None
+
+    if not dry_run:
+
+        try:
+            liberar = almacen.bloquear(espera=ESPERA_CANDADO_PASADA)
+        except Exception:
+            liberar = None
+
+        if liberar is None:
+            resumen["errors"] += 1
+
+    try:
+        return _revisar_canales(
+            canales=canales,
+            dry_run=dry_run,
+            sin_candado=not dry_run and liberar is None,
+            cliente=cliente,
+            almacen=almacen,
+            ahora=ahora,
+            resumen=resumen,
+        )
+    finally:
+        if liberar is not None:
+            liberar()
+
+
+def _metadatos_evolution(cliente) -> dict:
+    """Resumen de fetchInstances por nombre (sin JIDs ni tokens)."""
+
+    metadatos = {}
+
+    for item in EvolutionClient._items(cliente.fetch_instances()):
+
+        resumen_item = EvolutionClient._summary(item)
+
+        if resumen_item:
+            metadatos[resumen_item["name"]] = resumen_item
+
+    return metadatos
+
+
+def _revisar_canales(
+    *,
+    canales,
+    dry_run,
+    sin_candado,
+    cliente,
+    almacen,
+    ahora,
+    resumen,
+) -> dict:
+
+    resultados = []
+
     estado_instancias, corrupto = almacen.cargar()
 
     # Con estado corrupto no se sabe cuándo fue el último intento:
@@ -484,15 +656,8 @@ def ejecutar_pasada(
     if cliente is not None:
 
         try:
-            for item in EvolutionClient._items(cliente.fetch_instances()):
-
-                resumen_item = EvolutionClient._summary(item)
-
-                if resumen_item:
-                    metadatos[resumen_item["name"]] = resumen_item
-
+            metadatos = _metadatos_evolution(cliente)
             evolution_disponible = True
-
         except Exception:
             resumen["errors"] += 1
 
@@ -559,6 +724,8 @@ def ejecutar_pasada(
                 accion = "dry_run"
             elif corrupto:
                 accion = "state_corrupt"
+            elif sin_candado:
+                accion = "state_locked"
             else:
                 accion, clasificacion = _recuperar(
                     cliente=cliente,
@@ -600,7 +767,7 @@ def ejecutar_pasada(
             }
         )
 
-    if not dry_run:
+    if not dry_run and not sin_candado:
 
         nombres = {canal["instancia"] for canal in canales}
 
@@ -661,3 +828,207 @@ def _recuperar(
 
     except Exception:
         return "error", clasificacion
+
+
+# =============================================================================
+# Panel: reconexión manual y estado visible
+# TNL-WHATSAPP-MANUAL-RECONNECT-V1
+# =============================================================================
+
+def reconectar_instancia_manual(
+    *,
+    canal,
+    cliente=None,
+    almacen=None,
+    ahora=None,
+) -> dict:
+    """
+    Reconexión pedida desde el panel para un Canal ya cargado por la
+    vista. Reutiliza la clasificación, el estado anti-bucle y
+    _recuperar() del watchdog.
+
+    Frente a la pasada automática no espera 3 observaciones, ni los
+    10 minutos, ni el límite por hora (la pide una persona), pero exige
+    ENFRIAMIENTO_MANUAL desde el último intento, manual o automático, y
+    registra el suyo en el mismo estado: el timer no actúa encima
+    durante su enfriamiento normal.
+
+    Devuelve {"resultado", "clasificacion"} y nunca datos de Evolution.
+    Resultados: canal_no_configurado, canal_inactivo, en_curso,
+    estado_no_disponible, evolution_no_disponible, conectado,
+    requiere_vinculacion, estado_desconocido, enfriamiento,
+    reinicio_solicitado, reconexion_solicitada, error_evolution.
+    """
+
+    from core.services.client_lifecycle import (
+        empresa_operativa,
+    )
+
+    ahora = ahora or datetime.now(dt_timezone.utc)
+
+    def resultado(codigo, clasificacion=None):
+        return {
+            "resultado": codigo,
+            "clasificacion": clasificacion,
+        }
+
+    if canal.tipo != "whatsapp":
+        return resultado("canal_no_configurado")
+
+    if not (
+        canal.activo
+        and canal.bot.activo
+        and empresa_operativa(canal.bot.empresa)
+    ):
+        return resultado("canal_inactivo")
+
+    nombre = instancia_administrada(canal)
+
+    if not nombre:
+        return resultado("canal_no_configurado")
+
+    almacen = almacen or EstadoWatchdogArchivo(ruta_estado())
+
+    try:
+        liberar = almacen.bloquear(espera=ESPERA_CANDADO_MANUAL)
+    except Exception:
+        return resultado("estado_no_disponible")
+
+    # Otra reconexión (doble clic, otro worker) o la pasada del timer.
+    if liberar is None:
+        return resultado("en_curso")
+
+    try:
+
+        estado_instancias, corrupto = almacen.cargar()
+
+        if corrupto:
+            return resultado("estado_no_disponible")
+
+        entrada = estado_instancias.get(nombre) or _entrada_vacia()
+
+        try:
+            cliente = cliente or _crear_cliente()
+            metadatos = _metadatos_evolution(cliente).get(nombre)
+            estado_vivo = cliente.connection_state(nombre)["state"]
+        except Exception:
+            return resultado("evolution_no_disponible", UNKNOWN)
+
+        clasificacion = clasificar_instancia(
+            estado_vivo=estado_vivo,
+            metadatos=metadatos,
+        )
+
+        if (
+            clasificacion in RECUPERABLES
+            and entrada["requiere_humano"]
+        ):
+            clasificacion = REQUIRES_HUMAN
+
+        if clasificacion == HEALTHY:
+            return resultado("conectado", clasificacion)
+
+        if clasificacion == REQUIRES_HUMAN:
+            return resultado("requiere_vinculacion", clasificacion)
+
+        if clasificacion == UNKNOWN:
+            return resultado("estado_desconocido", clasificacion)
+
+        ultimo_intento = _desde_iso(entrada["ultimo_intento"])
+
+        if ultimo_intento and ahora - ultimo_intento < ENFRIAMIENTO_MANUAL:
+            return resultado("enfriamiento", clasificacion)
+
+        entrada["intentos"] = [
+            momento
+            for momento in entrada["intentos"]
+            if ahora - _desde_iso(momento) < VENTANA_INTENTOS
+        ]
+
+        accion, clasificacion = _recuperar(
+            cliente=cliente,
+            almacen=almacen,
+            estado_instancias=estado_instancias,
+            nombre=nombre,
+            entrada=entrada,
+            clasificacion=clasificacion,
+            ahora=ahora,
+        )
+
+        if accion == "pairing_required":
+
+            entrada["actualizado"] = _iso(ahora)
+
+            try:
+                almacen.guardar(estado_instancias)
+            except Exception:
+                # El intento ya quedó guardado; el timer volverá a
+                # marcar la vinculación pendiente en su pasada.
+                pass
+
+            return resultado("requiere_vinculacion", clasificacion)
+
+        return resultado(
+            {
+                "restart": "reinicio_solicitado",
+                "connect": "reconexion_solicitada",
+                "state_not_saved": "estado_no_disponible",
+            }.get(accion, "error_evolution"),
+            clasificacion,
+        )
+
+    finally:
+        liberar()
+
+
+ESTADOS_PANEL = {
+    HEALTHY: ("conectado", "Conectado"),
+    RECOVERABLE_CONNECTING: ("conectando", "Conectando"),
+    RECOVERABLE_CLOSE: ("desconectado", "Desconectado"),
+    REQUIRES_HUMAN: ("requiere_vinculacion", "Requiere vinculación"),
+    UNKNOWN: ("no_disponible", "Estado no disponible"),
+}
+
+
+def estado_panel(
+    *,
+    cliente,
+    nombre,
+    metadatos,
+    almacen=None,
+) -> dict:
+    """
+    Estado VIVO de una instancia en palabras simples para el panel.
+    Sólo lectura: consulta connectionState y lee el estado del watchdog.
+    """
+
+    try:
+        estado_vivo = cliente.connection_state(nombre)["state"]
+    except Exception:
+        estado_vivo = None
+
+    clasificacion = (
+        clasificar_instancia(
+            estado_vivo=estado_vivo,
+            metadatos=metadatos,
+        )
+        if estado_vivo
+        else UNKNOWN
+    )
+
+    # Vinculación pendiente ya detectada por el watchdog (QR).
+    if clasificacion in RECUPERABLES:
+
+        instancias, _ = (
+            almacen or EstadoWatchdogArchivo(ruta_estado())
+        ).cargar()
+
+        if (instancias.get(nombre) or {}).get("requiere_humano"):
+            clasificacion = REQUIRES_HUMAN
+
+    codigo, texto = ESTADOS_PANEL[clasificacion]
+
+    return {
+        "codigo": codigo,
+        "texto": texto,
+    }

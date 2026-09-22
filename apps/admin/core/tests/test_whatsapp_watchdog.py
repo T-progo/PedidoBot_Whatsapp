@@ -429,7 +429,42 @@ class WhatsappWatchdogTests(TestCase):
     def test_r2_escritura_atomica_sin_temporales(self):
         cliente = self.cliente("open")
         self.pasada(cliente, 0)
-        self.assertEqual(sorted(p.name for p in Path(self.tmp.name).iterdir()), ["estado.json"])
+        self.assertEqual(
+            sorted(p.name for p in Path(self.tmp.name).iterdir()),
+            ["estado.json", "estado.json.lock"],
+        )
+
+    # --- S: candado compartido con la reconexión manual -----------------------
+
+    def test_s_pasada_sin_candado_no_actua_ni_escribe(self):
+        entrada = wd._entrada_vacia()
+        entrada["consecutivos"] = 5
+        almacen = wd.EstadoWatchdogMemoria({self.nombre: entrada}, ocupado=True)
+        cliente = self.cliente("connecting")
+        salida = self.pasada(cliente, 0, almacen=almacen)
+        self.assertEqual(self.resultado(salida)["accion"], "state_locked")
+        self.assertEqual(cliente.acciones(), [])
+        self.assertGreaterEqual(salida["resumen"]["errors"], 1)
+        self.assertEqual(almacen.instancias[self.nombre]["consecutivos"], 5)
+
+    def test_s2_candado_de_archivo_es_exclusivo(self):
+        liberar = self.almacen.bloquear(espera=0)
+        self.assertIsNotNone(liberar)
+        try:
+            self.assertIsNone(wd.EstadoWatchdogArchivo(self.ruta).bloquear(espera=0))
+        finally:
+            liberar()
+        otra = wd.EstadoWatchdogArchivo(self.ruta).bloquear(espera=0)
+        self.assertIsNotNone(otra)
+        otra()
+
+    def test_s3_dry_run_no_usa_candado(self):
+        cliente = self.cliente("connecting")
+        salida = self.pasada(
+            cliente, 0, almacen=wd.EstadoWatchdogMemoria(ocupado=True), dry_run=True
+        )
+        self.assertEqual(salida["resumen"]["errors"], 0)
+        self.assertEqual(cliente.acciones(), [])
 
 
 # TNL-WHATSAPP-WATCHDOG-V1

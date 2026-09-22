@@ -606,6 +606,17 @@ urlpatterns += [
         name="empresa_whatsapp_activar",
     ),
 
+    # TNL-WHATSAPP-MANUAL-RECONNECT-V1
+    path(
+        (
+            "empresas/<int:pk>/"
+            "canales/<int:canal_id>/"
+            "whatsapp/reconectar/"
+        ),
+        views._nl_admin_required(views.empresa_whatsapp_reconectar),
+        name="empresa_whatsapp_reconectar",
+    ),
+
 ]
 
 

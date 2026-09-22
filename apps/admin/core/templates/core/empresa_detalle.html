@@ -1720,7 +1720,7 @@
 
 
         <!-- NEGOCIOLISTO-WHATSAPP-UI-V2 -->
-    <section class="cliente-section">
+    <section id="whatsapp" class="cliente-section">
 
         <h2 class="cliente-section-title">
             WhatsApp
@@ -1849,6 +1849,9 @@
                                 El canal está habilitado en NegocioListo.
                                 El estado de conexión mostrado arriba
                                 se consulta directamente en Evolution.
+                                «Reconectar WhatsApp» intenta recuperar
+                                la sesión sin borrarla; si hace falta
+                                un QR nuevo, se indicará aquí.
                             </p>
 
                         {% else %}
@@ -1880,6 +1883,35 @@
                                 >
                                     Conectar WhatsApp
                                 </button>
+
+                            {% endif %}
+
+
+                            {% if item.canal.activo and item.canal.identificador %}
+
+                                <!-- TNL-WHATSAPP-MANUAL-RECONNECT-V1 -->
+                                <form
+                                    method="post"
+                                    action="{% url 'core:empresa_whatsapp_reconectar' empresa.pk item.canal.pk %}"
+                                    style="margin:0;"
+                                    onsubmit="this.querySelector('button[type=submit]').disabled = true;"
+                                >
+
+                                    {% csrf_token %}
+
+                                    <button
+                                        type="submit"
+                                        class="
+                                            cliente-btn
+                                            primary
+                                            whatsapp-connect-button
+                                        "
+                                        data-whatsapp-reconectar
+                                    >
+                                        Reconectar WhatsApp
+                                    </button>
+
+                                </form>
 
                             {% endif %}
 
@@ -3160,9 +3192,12 @@ document.addEventListener(
 
         try {
 
+            // TNL-WHATSAPP-MANUAL-RECONNECT-V1: estado VIVO
             const response =
                 await fetch(
-                    url,
+                    url
+                    + (url.indexOf("?") === -1 ? "?" : "&")
+                    + "vivo=1",
                     {
                         method:
                             "GET",
@@ -3220,6 +3255,22 @@ document.addEventListener(
 
                 label.dataset.state =
                     "missing";
+
+                return;
+            }
+
+
+            if (data.estado_panel) {
+
+                label.textContent =
+                    "● " + data.estado_panel.texto;
+
+                label.dataset.state =
+                    data.estado_panel.codigo === "conectado"
+                    ? "connected"
+                    : data.estado_panel.codigo === "no_disponible"
+                    ? "error"
+                    : "disconnected";
 
                 return;
             }

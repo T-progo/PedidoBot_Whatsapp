@@ -4322,21 +4322,40 @@ def empresa_whatsapp_estado(
         )
 
 
+        payload = {
+            "ok": True,
+            "exists": True,
+            "connected":
+                connected,
+
+            "state":
+                summary.get(
+                    "state"
+                ),
+
+            "channel_active":
+                canal.activo,
+        }
+
+
+        # TNL-WHATSAPP-MANUAL-RECONNECT-V1
+        # La tarjeta del panel pide ?vivo=1: estado VIVO en palabras
+        # simples. El flujo del QR no lo pide y queda igual.
+        if request.GET.get("vivo") == "1":
+
+            from core.services.whatsapp_watchdog import (
+                estado_panel,
+            )
+
+            payload["estado_panel"] = estado_panel(
+                cliente=client,
+                nombre=instance_name,
+                metadatos=summary,
+            )
+
+
         return _nl_whatsapp_json(
-            {
-                "ok": True,
-                "exists": True,
-                "connected":
-                    connected,
-
-                "state":
-                    summary.get(
-                        "state"
-                    ),
-
-                "channel_active":
-                    canal.activo,
-            }
+            payload
         )
 
 
@@ -4580,6 +4599,142 @@ def empresa_whatsapp_activar(
             },
             status=502,
         )
+
+
+# ============================================================
+# TNL-WHATSAPP-MANUAL-RECONNECT-V1
+# ============================================================
+
+_NL_WHATSAPP_RECONECTAR_MENSAJES = {
+    "conectado": (
+        messages.INFO,
+        "WhatsApp ya está conectado.",
+    ),
+    "reinicio_solicitado": (
+        messages.SUCCESS,
+        "Se solicitó la reconexión de WhatsApp.",
+    ),
+    "reconexion_solicitada": (
+        messages.SUCCESS,
+        "Se solicitó la reconexión de WhatsApp.",
+    ),
+    "requiere_vinculacion": (
+        messages.WARNING,
+        "La sesión necesita volver a vincularse mediante QR.",
+    ),
+    "enfriamiento": (
+        messages.WARNING,
+        "Ya se solicitó una reconexión recientemente. "
+        "Espera unos segundos e intenta nuevamente.",
+    ),
+    "en_curso": (
+        messages.WARNING,
+        "Hay una revisión de WhatsApp en curso. "
+        "Espera unos segundos e intenta nuevamente.",
+    ),
+    "canal_inactivo": (
+        messages.ERROR,
+        "El canal o el cliente no están activos; "
+        "WhatsApp no se reconectó.",
+    ),
+    "canal_no_configurado": (
+        messages.ERROR,
+        "Este canal de WhatsApp no tiene una instancia configurada.",
+    ),
+    "error_evolution": (
+        messages.ERROR,
+        "No fue posible solicitar la reconexión de WhatsApp "
+        "en este momento.",
+    ),
+}
+
+_NL_WHATSAPP_RECONECTAR_NO_DISPONIBLE = (
+    messages.ERROR,
+    "No fue posible consultar WhatsApp en este momento.",
+)
+
+
+@_nl_login_required
+def empresa_whatsapp_reconectar(
+    request,
+    pk,
+    canal_id,
+):
+    """
+    Reconexión manual segura desde el panel (POST).
+
+    La instancia sale del Canal validado (empresa + tipo WhatsApp),
+    nunca del navegador. La decisión y el enfriamiento son los del
+    watchdog: nunca hace logout, delete ni recrea la instancia.
+    """
+
+    from django.http import (
+        HttpResponseNotAllowed,
+    )
+
+    from core.models import (
+        Canal,
+        Empresa,
+    )
+
+    from core.services.whatsapp_watchdog import (
+        reconectar_instancia_manual,
+    )
+
+
+    if request.method != "POST":
+
+        return HttpResponseNotAllowed(
+            [
+                "POST",
+            ]
+        )
+
+
+    empresa = get_object_or_404(
+        Empresa,
+        pk=pk,
+    )
+
+
+    canal = get_object_or_404(
+        Canal.objects.select_related(
+            "bot",
+            "bot__empresa",
+        ),
+        pk=canal_id,
+        bot__empresa=empresa,
+        tipo="whatsapp",
+    )
+
+
+    resultado = reconectar_instancia_manual(
+        canal=canal,
+    )["resultado"]
+
+
+    nivel, texto = _NL_WHATSAPP_RECONECTAR_MENSAJES.get(
+        resultado,
+        _NL_WHATSAPP_RECONECTAR_NO_DISPONIBLE,
+    )
+
+    messages.add_message(
+        request,
+        nivel,
+        texto,
+    )
+
+
+    return redirect(
+        reverse(
+            "core:empresa_detalle",
+            args=[
+                empresa.pk,
+            ],
+        )
+        +
+        "#whatsapp"
+    )
 
 
 
