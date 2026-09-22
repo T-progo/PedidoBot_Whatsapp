@@ -233,6 +233,20 @@ class ConfirmacionCatalogoRestauranteTests(TestCase):
         token = self.armar_carrito(cantidad="2")
         self.assertTrue(self.confirmar(token).json()["pedido_confirmado"])
 
+    def test_todo_error_de_confirmacion_trae_mensaje(self):
+        # Sin tipo de orden: error temprano (400). Typebot muestra data.mensaje.
+        response = self.post("api_typebot_restaurante_pedido_producto_agregar", {
+            "bot_id": self.bot.id, "producto_id": self.producto.id, "cantidad": "1",
+            "opcion_ids": [self.grande.id], "suprimir_cross_sell": True,
+        })
+        token = response.json()["carrito_token"]
+        response = self.confirmar(token)
+        self.assertGreaterEqual(response.status_code, 400)
+        data = response.json()
+        self.assertTrue(data["mensaje"])
+        self.assertEqual(data["mensaje"], data["error"])
+        self.assertEqual(self.pedido().estado, "carrito")
+
     def test_aviso_varios_productos(self):
         texto = texto_aviso_ajuste_precios(
             [

@@ -14229,8 +14229,7 @@ def restaurante_pedido_resumen(
     )
 
 
-@csrf_exempt
-def restaurante_pedido_confirmar(
+def _restaurante_pedido_confirmar(
     request,
 ):
 
@@ -14478,6 +14477,50 @@ def restaurante_pedido_confirmar(
             "mensaje":
                 mensaje,
         },
+        json_dumps_params={
+            "ensure_ascii": False,
+        },
+    )
+
+
+@csrf_exempt
+def restaurante_pedido_confirmar(
+    request,
+):
+    """
+    TNL-RESTAURANTE-CONFIRMACION-CATALOGO-V1
+
+    Typebot muestra data.mensaje cuando no se pudo confirmar: toda
+    respuesta de error lleva "mensaje" para no dejar a la vista el
+    de un intento anterior.
+    """
+
+    import json
+
+    response = _restaurante_pedido_confirmar(request)
+
+    if (
+        response.status_code < 400
+        or not response.get("Content-Type", "").startswith("application/json")
+    ):
+        return response
+
+    try:
+        data = json.loads(response.content)
+    except ValueError:
+        return response
+
+    if not isinstance(data, dict) or data.get("mensaje"):
+        return response
+
+    data["mensaje"] = (
+        data.get("error")
+        or "No pudimos confirmar el pedido."
+    )
+
+    return JsonResponse(
+        data,
+        status=response.status_code,
         json_dumps_params={
             "ensure_ascii": False,
         },
