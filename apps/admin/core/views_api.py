@@ -13911,11 +13911,14 @@ def _restaurante_api_construir_resumen_texto(
     NO recalcula precios, descuentos ni totales.
     Todos los importes provienen del payload ya
     serializado y validado por Django.
+
+    Los modificadores y extras de cada línea se muestran
+    desde el snapshot guardado (TNL-LINEAS-PEDIDO-V1).
     """
 
-    from decimal import (
-        Decimal,
-        InvalidOperation,
+    from core.services.lineas_pedido import (
+        describir_linea,
+        texto_lineas,
     )
 
     def texto_una_linea(valor):
@@ -13926,43 +13929,6 @@ def _restaurante_api_construir_resumen_texto(
                 if valor is not None
                 else ""
             ).split()
-        )
-
-    def cantidad_legible(valor):
-
-        texto = texto_una_linea(
-            valor
-        )
-
-        if not texto:
-            return "0"
-
-        try:
-
-            numero = Decimal(
-                texto
-            )
-
-        except (
-            InvalidOperation,
-            ValueError,
-        ):
-
-            return texto
-
-        if (
-            numero
-            ==
-            numero.to_integral_value()
-        ):
-
-            return str(
-                int(numero)
-            )
-
-        return format(
-            numero.normalize(),
-            "f",
         )
 
     numero_pedido = (
@@ -14021,59 +13987,45 @@ def _restaurante_api_construir_resumen_texto(
         "",
     ]
 
-    lineas_validas = 0
-
-    for indice, linea in enumerate(
-        lineas,
-        start=1,
-    ):
-
-        if not isinstance(
+    descripciones = [
+        describir_linea(
+            nombre=(
+                linea.get("nombre")
+                or
+                f"Producto {indice}"
+            ),
+            cantidad=linea.get("cantidad"),
+            importe=(
+                linea.get("importe")
+                or
+                "0.00"
+            ),
+            modificadores=linea.get(
+                "modificadores"
+            ),
+            extras=linea.get(
+                "extras"
+            ),
+        )
+        for indice, linea in enumerate(
+            lineas,
+            start=1,
+        )
+        if isinstance(
             linea,
             dict,
-        ):
-            continue
-
-        lineas_validas += 1
-
-        nombre = (
-            texto_una_linea(
-                linea.get(
-                    "nombre"
-                )
-            )
-            or
-            f"Producto {indice}"
         )
+    ]
 
-        cantidad = (
-            cantidad_legible(
-                linea.get(
-                    "cantidad"
-                )
-            )
-        )
-
-        importe = (
-            texto_una_linea(
-                linea.get(
-                    "importe"
-                )
-            )
-            or
-            "0.00"
-        )
+    if descripciones:
 
         resumen.append(
-            (
-                f"{indice}. "
-                f"{nombre} "
-                f"x{cantidad} "
-                f"— ${importe}"
+            texto_lineas(
+                descripciones
             )
         )
 
-    if lineas_validas == 0:
+    else:
 
         resumen.append(
             "Sin productos."
@@ -15070,6 +15022,11 @@ def restaurante_pedido_consultar(
     request,
 ):
 
+    from core.services.lineas_pedido import (
+        describir_detalle,
+        texto_lineas,
+    )
+
     if request.method != "GET":
 
         return JsonResponse(
@@ -15208,6 +15165,20 @@ def restaurante_pedido_consultar(
             },
         )
 
+    detalles = list(
+        pedido.detalles.all()
+    )
+
+    # Mismos snapshots que el resumen del cliente
+    # (TNL-LINEAS-PEDIDO-V1): aqui no se recalcula nada.
+    descripciones = [
+        describir_detalle(
+            detalle
+        )
+        for detalle
+        in detalles
+    ]
+
     lineas = [
         {
             "sku":
@@ -15230,18 +15201,29 @@ def restaurante_pedido_consultar(
                 str(
                     detalle.importe
                 ),
+
+            "modificadores":
+                detalle
+                .modificadores_snapshot,
+
+            "extras":
+                detalle
+                .extras_snapshot,
+
+            "opciones":
+                descripcion["grupos"],
         }
-        for detalle
-        in pedido.detalles.all()
+        for detalle, descripcion
+        in zip(
+            detalles,
+            descripciones,
+        )
     ]
 
-    productos_resumen = "\n".join(
-        (
-            f"• {linea['nombre']} "
-            f"— {linea['cantidad']}"
-        )
-        for linea
-        in lineas
+    productos_resumen = texto_lineas(
+        descripciones,
+        numerar=False,
+        con_importe=False,
     )
 
     return JsonResponse(
