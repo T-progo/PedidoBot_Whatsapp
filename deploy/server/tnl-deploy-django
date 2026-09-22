@@ -22,6 +22,9 @@ VENV="$LIVE/.venv"
 APP_USER="tnl"
 SERVICE="negociolisto-django.service"
 TIMER="negociolisto-client-lifecycle.timer"
+WATCHDOG_TIMER="tnl-whatsapp-watchdog.timer"
+WATCHDOG_SERVICE="tnl-whatsapp-watchdog.service"
+WATCHDOG_WAS_ACTIVE=0
 HEALTH_URL="http://127.0.0.1:8000/login/"
 HEALTH_HOST="admin.negociolisto.com.mx"
 KEEP=10
@@ -78,6 +81,26 @@ reload_app() {
     done
     log "los workers no se renovaron con reload; reiniciando el servicio"
     systemctl restart "$SERVICE"
+}
+
+# El watchdog de WhatsApp se pausa solo si su timer estaba activo, y se espera a que termine
+# una revisión en curso (TimeoutStartSec=120 la corta antes). Al salir se reanuda solo si
+# estaba activo: nunca se arranca ni se habilita un watchdog que estaba detenido.
+pause_watchdog() {
+    if systemctl is-active -q "$WATCHDOG_TIMER"; then
+        WATCHDOG_WAS_ACTIVE=1
+        systemctl stop "$WATCHDOG_TIMER"
+    fi
+    for _ in $(seq 1 130); do
+        [ "$(systemctl show -p ActiveState --value "$WATCHDOG_SERVICE")" = "activating" ] || return 0
+        sleep 1
+    done
+    log "ATENCION: una revisión del watchdog sigue en curso; se continúa"
+}
+
+resume_watchdog() {
+    [ "$WATCHDOG_WAS_ACTIVE" = 1 ] || return 0
+    systemctl start "$WATCHDOG_TIMER" || log "ATENCION: no se pudo reanudar $WATCHDOG_TIMER"
 }
 
 rollback() {
@@ -152,9 +175,10 @@ log "Respaldando código y base de datos"
 tar -czf "$CODE_BACKUP" -C "$LIVE" --exclude=./.venv --exclude=__pycache__ --exclude='*.log' .
 docker exec tnl-postgresql pg_dump -U tnl_admin -Fc -d tnl_admin_db > "$DB_BACKUP"
 
-# 6. Publicar (el timer de ciclo de vida se pausa para que no corra con código a medias)
+# 6. Publicar (los timers de ciclo de vida y del watchdog se pausan para que no corran con código a medias)
 systemctl stop "$TIMER"
-trap 'systemctl start "$TIMER" || true' EXIT
+trap 'systemctl start "$TIMER" || true; resume_watchdog' EXIT
+pause_watchdog
 log "Publicando, migrando y recargando gunicorn"
 if ! { sync_code "$REL" \
         && (cd "$LIVE" && as_app python manage.py migrate --noinput) \

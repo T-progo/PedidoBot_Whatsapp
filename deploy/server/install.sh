@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Instala o actualiza el despliegue automático en el VPS. Ejecutar como root:
+# Instala o actualiza el despliegue automático y el watchdog de WhatsApp en el VPS.
+# Ejecutar como root desde el repositorio (usa deploy/server y server-config):
 #   bash install.sh <llave pública de GitHub Actions (.pub)>
 # Es idempotente: se puede volver a correr para actualizar los scripts.
 set -euo pipefail
@@ -9,9 +10,14 @@ ACTIONS_PUBKEY_FILE="${1:?uso: install.sh <llave pública de GitHub Actions>}"
 GITHUB_ED25519_FP="SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"
 STATE="/var/lib/tnl-deploy"
 SECRET_KEY_FILE="/opt/tunegociolisto/configs/django-secrets/secret_key"
+UNITS="../../server-config/etc/systemd/system"
+WATCHDOG_UNITS="tnl-whatsapp-watchdog.service tnl-whatsapp-watchdog.timer"
 
 [ "$(id -u)" = 0 ] || { echo "Ejecutar como root"; exit 1; }
 grep -q '^ssh-ed25519 ' "$ACTIONS_PUBKEY_FILE" || { echo "Llave pública inválida"; exit 1; }
+for unit in $WATCHDOG_UNITS; do
+    [ -f "$UNITS/$unit" ] || { echo "Falta $UNITS/$unit (ejecutar desde el repositorio completo)"; exit 1; }
+done
 
 # 1. Scripts, propiedad de root y fuera de /opt/tunegociolisto (la app no puede modificarlos)
 install -o root -g root -m 0755 tnl-deploy-django /usr/local/sbin/tnl-deploy-django
@@ -67,6 +73,21 @@ PY
     chmod 0640 "$SECRET_KEY_FILE"
     echo "SECRET_KEY guardada en $SECRET_KEY_FILE"
 fi
+
+# 7. Watchdog de WhatsApp: servicio (usuario tnl) y timer cada 60 s.
+#    El timer se habilita solo en la primera instalación: volver a correr este script
+#    no reactiva un watchdog que se detuvo o deshabilitó a propósito.
+WATCHDOG_NUEVO=0
+[ -f /etc/systemd/system/tnl-whatsapp-watchdog.timer ] || WATCHDOG_NUEVO=1
+for unit in $WATCHDOG_UNITS; do
+    install -o root -g root -m 0644 "$UNITS/$unit" "/etc/systemd/system/$unit"
+done
+systemctl daemon-reload
+if [ "$WATCHDOG_NUEVO" = 1 ]; then
+    systemctl enable --now tnl-whatsapp-watchdog.timer
+fi
+echo "Watchdog WhatsApp: $(systemctl is-enabled tnl-whatsapp-watchdog.timer || true)," \
+    "$(systemctl is-active tnl-whatsapp-watchdog.timer || true)"
 
 echo
 echo "Listo. Llave para GitHub -> Settings -> Deploy keys (solo lectura, sin 'Allow write access'):"

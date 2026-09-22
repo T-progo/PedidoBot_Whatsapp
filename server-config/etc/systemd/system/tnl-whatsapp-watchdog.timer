@@ -1,0 +1,11 @@
+[Unit]
+Description=NegocioListo - Revisar instancias WhatsApp cada 60 segundos
+
+[Timer]
+OnActiveSec=60s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=tnl-whatsapp-watchdog.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=NegocioListo - Watchdog de instancias WhatsApp (Evolution)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=tnl
+Group=tnl
+WorkingDirectory=/opt/tunegociolisto/apps/admin
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=/opt/tunegociolisto
+ExecStart=/opt/tunegociolisto/apps/admin/.venv/bin/python manage.py check_whatsapp_instances
+TimeoutStartSec=120
+StateDirectory=tnl-whatsapp-watchdog
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tnl-whatsapp-watchdog
