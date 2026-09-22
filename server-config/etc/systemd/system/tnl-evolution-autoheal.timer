@@ -1,0 +1,11 @@
+[Unit]
+Description=NegocioListo - Revisar la API de Evolution cada 60 segundos
+
+[Timer]
+OnActiveSec=60s
+OnUnitActiveSec=60s
+AccuracySec=5s
+Unit=tnl-evolution-autoheal.service
+
+[Install]
+WantedBy=timers.target

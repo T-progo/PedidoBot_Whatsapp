@@ -1,0 +1,19 @@
+[Unit]
+Description=NegocioListo - Auto-heal del contenedor Evolution API
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/tnl-evolution-autoheal
+TimeoutStartSec=420
+StateDirectory=tnl-evolution-autoheal
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tnl-evolution-autoheal

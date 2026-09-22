@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+# Auto-heal del CONTENEDOR de Evolution API; nunca de sesiones WhatsApp.
+# Lo ejecuta tnl-evolution-autoheal.service (root) cada 60 s.
+# Instalado por deploy/server/install.sh en /usr/local/sbin/tnl-evolution-autoheal.
+#
+# Salud: GET / de la API local responde 200 con su mensaje de bienvenida. El estado
+# de cada instancia WhatsApp no cuenta; de eso se ocupa el watchdog de Django.
+#
+# Reinicia con "docker restart" (nunca "docker compose up": no cambia imagen ni
+# configuración) solo si el contenedor está corriendo pero la API no respondió en
+# 3 revisiones seguidas, pasaron 15 min desde el último reinicio y hubo menos de 3
+# reinicios en la última hora. Un contenedor detenido, pausado o reiniciándose se deja
+# a Docker o a quien lo detuvo. Para mantenimiento: systemctl stop tnl-evolution-autoheal.timer
+set -uo pipefail
+umask 077
+
+CONTAINER="tnl-evolution"
+HEALTH_URL="http://127.0.0.1:8082/"
+HEALTH_TEXT="Welcome to the Evolution API"
+STATE_DIR="${TNL_AUTOHEAL_STATE_DIR:-/var/lib/tnl-evolution-autoheal}"
+STATE="$STATE_DIR/state"
+THRESHOLD=3           # revisiones fallidas seguidas antes de reiniciar
+COOLDOWN=900          # segundos mínimos entre reinicios
+WINDOW=3600           # ventana del límite de reinicios
+MAX_RESTARTS=3        # reinicios por ventana
+STARTUP_GRACE=180     # segundos tras un arranque en que los fallos no cuentan
+RECOVERY_POLLS=24     # tras reiniciar: hasta 24 x 5 s esperando que responda
+RECOVERY_INTERVAL=5
+
+log() { printf '%s\n' "$*"; }
+
+# TNL_AUTOHEAL_NOW y TNL_AUTOHEAL_STATE_DIR solo los usan las pruebas.
+now() { printf '%s\n' "${TNL_AUTOHEAL_NOW:-$(date +%s)}"; }
+
+api_healthy() {
+    local out
+    out="$(curl -s -m 5 --connect-timeout 3 -w '\n%{http_code}' "$HEALTH_URL" 2>/dev/null)" || return 1
+    [ "${out##*$'\n'}" = "200" ] && [[ "$out" == *"$HEALTH_TEXT"* ]]
+}
+
+FAILS=0
+LAST_RESTART=0
+RESTARTS=()
+CORRUPT=0
+
+# Formato estricto clave=valor; cualquier otra cosa invalida el archivo completo.
+load_state() {
+    local line key value version=""
+    [ -e "$STATE" ] || return 0
+    while IFS= read -r line || [ -n "$line" ]; do
+        key="${line%%=*}"
+        value="${line#*=}"
+        if [ "$key" = "$line" ]; then
+            CORRUPT=1
+            break
+        fi
+        case "$key" in
+            version) version="$value" ;;
+            consecutive_failures)
+                if [[ "$value" =~ ^(0|[1-9][0-9]{0,5})$ ]]; then FAILS="$value"; else CORRUPT=1; fi ;;
+            last_restart)
+                if [[ "$value" =~ ^(0|[1-9][0-9]{0,11})$ ]]; then LAST_RESTART="$value"; else CORRUPT=1; fi ;;
+            restarts)
+                if [[ "$value" =~ ^([1-9][0-9]{0,11}( [1-9][0-9]{0,11}){0,99})?$ ]]; then
+                    read -r -a RESTARTS <<< "$value"
+                else
+                    CORRUPT=1
+                fi ;;
+            last_status) [[ "$value" =~ ^[a-z_]{1,32}$ ]] || CORRUPT=1 ;;
+            last_check) [[ "$value" =~ ^(0|[1-9][0-9]{0,11})$ ]] || CORRUPT=1 ;;
+            *) CORRUPT=1 ;;
+        esac
+    done < "$STATE" || CORRUPT=1
+    [ "$version" = "1" ] || CORRUPT=1
+    if [ "$CORRUPT" = 1 ]; then
+        # Sin historial fiable se asume un reinicio reciente: nada de reinicios durante $COOLDOWN s.
+        FAILS=0
+        RESTARTS=()
+        LAST_RESTART="$NOW"
+    fi
+}
+
+# Escritura atómica: archivo temporal en el mismo directorio, fsync y rename.
+save_state() {
+    local tmp
+    tmp="$(mktemp "$STATE_DIR/.state.XXXXXX")" || return 1
+    if printf 'version=1\nconsecutive_failures=%s\nlast_status=%s\nlast_check=%s\nlast_restart=%s\nrestarts=%s\n' \
+            "$FAILS" "$STATUS" "$NOW" "$LAST_RESTART" "${RESTARTS[*]}" > "$tmp" \
+        && sync "$tmp" && mv -f "$tmp" "$STATE"; then
+        return 0
+    fi
+    rm -f "$tmp"
+    return 1
+}
+
+mkdir -p "$STATE_DIR" || { log "health=unknown action=none restart=0 errors=1 reason=state_dir"; exit 1; }
+exec 9>"$STATE_DIR/lock" || { log "health=unknown action=none restart=0 errors=1 reason=lock_file"; exit 1; }
+if ! flock -n 9; then
+    log "health=skipped action=busy restart=0 errors=0"
+    exit 0
+fi
+
+NOW="$(now)"
+STATUS=unknown
+ACTION=none
+RESTARTED=0
+ERRORS=0
+
+load_state
+if [ "$CORRUPT" = 1 ]; then
+    log "estado ilegible o inválido: se descarta y no se reinicia durante ${COOLDOWN}s"
+    ERRORS=1
+fi
+
+kept=()
+for t in "${RESTARTS[@]}"; do
+    if (( NOW - t < WINDOW )); then kept+=("$t"); fi
+done
+RESTARTS=("${kept[@]}")
+
+if api_healthy; then API=ok; else API=fail; fi
+
+DOCKER_RESTARTS="?"
+DOCKER_HEALTH="?"
+STARTED_EPOCH=0
+if info="$(timeout 20 docker inspect -f '{{.State.Status}} {{.State.StartedAt}} {{.RestartCount}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CONTAINER" 2>/dev/null)"; then
+    read -r CONTAINER_STATUS started DOCKER_RESTARTS DOCKER_HEALTH <<< "$info"
+    STARTED_EPOCH="$(date -d "$started" +%s 2>/dev/null || echo 0)"
+else
+    CONTAINER_STATUS=docker_error
+fi
+
+if [ "$API" = ok ]; then
+    STATUS=healthy
+    FAILS=0
+    if [ "$CONTAINER_STATUS" = docker_error ]; then ERRORS=1; fi
+elif [ "$CONTAINER_STATUS" = docker_error ]; then
+    # Sin respuesta de Docker no hay nada seguro que hacer.
+    STATUS=docker_error
+    ERRORS=1
+elif [ "$CONTAINER_STATUS" != running ]; then
+    # Detenido, pausado o reiniciándose: lo maneja Docker o quien lo detuvo.
+    STATUS=not_running
+    FAILS=0
+elif (( NOW - STARTED_EPOCH < STARTUP_GRACE )); then
+    # Recién arrancado: sus fallos todavía no cuentan.
+    STATUS=starting
+else
+    STATUS=unhealthy
+    FAILS=$((FAILS + 1))
+    if (( FAILS < THRESHOLD )); then
+        ACTION=observing
+    elif (( LAST_RESTART > 0 && NOW - LAST_RESTART < COOLDOWN )); then
+        ACTION=cooldown
+    elif (( ${#RESTARTS[@]} >= MAX_RESTARTS )); then
+        ACTION=hourly_limit
+        ERRORS=1
+        log "límite de $MAX_RESTARTS reinicios por hora alcanzado: requiere atención manual"
+    else
+        ACTION=restart
+    fi
+fi
+
+if [ "$ACTION" = restart ]; then
+    # El intento se guarda ANTES de reiniciar; si no se puede guardar, no se reinicia.
+    LAST_RESTART="$NOW"
+    RESTARTS+=("$NOW")
+    if ! save_state; then
+        ACTION=state_not_saved
+        ERRORS=1
+        log "no se pudo guardar el estado: no se reinicia"
+    else
+        log "reiniciando $CONTAINER: la API no respondió en $FAILS revisiones seguidas"
+        RESTARTED=1
+        if ! timeout 90 docker restart -t 20 "$CONTAINER" >/dev/null 2>&1; then
+            ACTION=restart_failed
+            ERRORS=1
+            log "docker restart falló; próximo intento posible en ${COOLDOWN}s"
+        else
+            ACTION=restart_not_recovered
+            for ((i = 0; i < RECOVERY_POLLS; i++)); do
+                sleep "$RECOVERY_INTERVAL"
+                if api_healthy; then
+                    ACTION=restarted
+                    break
+                fi
+            done
+            if [ "$ACTION" = restarted ]; then
+                STATUS=healthy
+                FAILS=0
+                log "Evolution respondió tras el reinicio"
+            else
+                ERRORS=1
+                log "Evolution no respondió en $((RECOVERY_POLLS * RECOVERY_INTERVAL))s tras el reinicio"
+            fi
+        fi
+    fi
+fi
+
+if [ "$ACTION" != state_not_saved ] && ! save_state; then
+    ERRORS=1
+    log "no se pudo guardar el estado"
+fi
+
+log "health=$STATUS consecutive_failures=$FAILS container=$CONTAINER_STATUS docker_health=$DOCKER_HEALTH docker_restarts=$DOCKER_RESTARTS action=$ACTION restart=$RESTARTED errors=$ERRORS"
+[ "$ERRORS" = 0 ]

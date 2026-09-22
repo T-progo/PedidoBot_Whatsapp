@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Instala o actualiza el despliegue automático y el watchdog de WhatsApp en el VPS.
+# Instala o actualiza el despliegue automático, el watchdog de WhatsApp y el auto-heal
+# del contenedor Evolution en el VPS.
 # Ejecutar como root desde el repositorio (usa deploy/server y server-config):
 #   bash install.sh <llave pública de GitHub Actions (.pub)>
 # Es idempotente: se puede volver a correr para actualizar los scripts.
@@ -12,10 +13,11 @@ STATE="/var/lib/tnl-deploy"
 SECRET_KEY_FILE="/opt/tunegociolisto/configs/django-secrets/secret_key"
 UNITS="../../server-config/etc/systemd/system"
 WATCHDOG_UNITS="tnl-whatsapp-watchdog.service tnl-whatsapp-watchdog.timer"
+AUTOHEAL_UNITS="tnl-evolution-autoheal.service tnl-evolution-autoheal.timer"
 
 [ "$(id -u)" = 0 ] || { echo "Ejecutar como root"; exit 1; }
 grep -q '^ssh-ed25519 ' "$ACTIONS_PUBKEY_FILE" || { echo "Llave pública inválida"; exit 1; }
-for unit in $WATCHDOG_UNITS; do
+for unit in $WATCHDOG_UNITS $AUTOHEAL_UNITS; do
     [ -f "$UNITS/$unit" ] || { echo "Falta $UNITS/$unit (ejecutar desde el repositorio completo)"; exit 1; }
 done
 
@@ -88,6 +90,21 @@ if [ "$WATCHDOG_NUEVO" = 1 ]; then
 fi
 echo "Watchdog WhatsApp: $(systemctl is-enabled tnl-whatsapp-watchdog.timer || true)," \
     "$(systemctl is-active tnl-whatsapp-watchdog.timer || true)"
+
+# 8. Auto-heal del contenedor Evolution (root, por el acceso a Docker) con timer cada 60 s.
+#    Igual que el watchdog: el timer se habilita solo en la primera instalación.
+AUTOHEAL_NUEVO=0
+[ -f /etc/systemd/system/tnl-evolution-autoheal.timer ] || AUTOHEAL_NUEVO=1
+install -o root -g root -m 0755 tnl-evolution-autoheal /usr/local/sbin/tnl-evolution-autoheal
+for unit in $AUTOHEAL_UNITS; do
+    install -o root -g root -m 0644 "$UNITS/$unit" "/etc/systemd/system/$unit"
+done
+systemctl daemon-reload
+if [ "$AUTOHEAL_NUEVO" = 1 ]; then
+    systemctl enable --now tnl-evolution-autoheal.timer
+fi
+echo "Auto-heal Evolution: $(systemctl is-enabled tnl-evolution-autoheal.timer || true)," \
+    "$(systemctl is-active tnl-evolution-autoheal.timer || true)"
 
 echo
 echo "Listo. Llave para GitHub -> Settings -> Deploy keys (solo lectura, sin 'Allow write access'):"
