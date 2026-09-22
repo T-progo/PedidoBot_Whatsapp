@@ -1245,3 +1245,30 @@ urlpatterns += [
     ),
 ]
 
+
+
+# ============================================================
+# TNL-COCINA-TABLERO-V1
+# ============================================================
+
+urlpatterns += [
+
+    path(
+        "cocina/",
+        views._nl_pedido_required(
+            views.cocina_tablero
+        ),
+        name=
+            "cocina_tablero",
+    ),
+
+    path(
+        "mi-negocio/cocina/",
+        views._nl_pedido_required(
+            views.cocina_tablero
+        ),
+        name=
+            "cliente_cocina_tablero",
+    ),
+
+]

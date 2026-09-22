@@ -12160,6 +12160,16 @@ def pedido_estado_rapido(
                 ),
             )
 
+    if origen == "cocina":
+
+        return redirect(
+            (
+                "core:cliente_cocina_tablero"
+                if pedido_modo_cliente
+                else "core:cocina_tablero"
+            )
+        )
+
     if origen == "lista":
 
         return redirect(
@@ -12180,3 +12190,250 @@ def pedido_estado_rapido(
     )
 
 
+
+
+# ============================================================
+# TNL-COCINA-TABLERO-V1
+#
+# Tablero de cocina: sólo lectura + las acciones de estado que
+# ya existen (cambiar_estado_pedido). No hay un segundo motor
+# de estados, ni notificaciones, pagos o inventario aquí.
+# ============================================================
+
+ESTADOS_COCINA_ACTIVOS = (
+    "confirmado",
+    "pagado",
+    "preparando",
+    "listo",
+)
+
+
+ESTADOS_COCINA_ACCIONABLES = (
+    "preparando",
+    "listo",
+)
+
+
+TIPOS_ORDEN_COCINA = (
+    "comedor",
+    "para_llevar",
+    "domicilio",
+)
+
+
+def _nl_cocina_ticket(
+    pedido,
+    *,
+    labels_estado,
+):
+    """
+    Arma un ticket de cocina con lo que ya está guardado en el
+    pedido. Los modificadores y extras salen del mismo
+    renderizador que el resumen del cliente.
+    """
+
+    from core.services.lineas_pedido import (
+        describir_detalle,
+    )
+
+    from core.services.pedidos import (
+        evaluar_inicio_preparacion_pedido,
+        siguiente_estado_operativo_pedido,
+    )
+
+    siguiente = (
+        siguiente_estado_operativo_pedido(
+            pedido.estado,
+            tipo_orden=
+                pedido.tipo_orden,
+        )
+    )
+
+    bloqueo = ""
+
+    if siguiente == "preparando":
+
+        gate = (
+            evaluar_inicio_preparacion_pedido(
+                pedido
+            )
+        )
+
+        if (
+            gate["aplica"]
+            and
+            not gate["permitido"]
+        ):
+
+            siguiente = ""
+
+            bloqueo = str(
+                gate.get(
+                    "mensaje"
+                )
+                or ""
+            )
+
+    # La cocina sólo mueve lo suyo: preparar y marcar listo.
+    # La entrega o el reparto siguen en la pantalla de pedidos.
+    if (
+        siguiente
+        not in
+        ESTADOS_COCINA_ACCIONABLES
+    ):
+        siguiente = ""
+
+    return {
+        "pedido":
+            pedido,
+
+        "lineas": [
+            describir_detalle(
+                detalle
+            )
+            for detalle
+            in pedido.detalles.all()
+        ],
+
+        "siguiente_estado":
+            siguiente,
+
+        "siguiente_label":
+            labels_estado.get(
+                siguiente,
+                siguiente,
+            ),
+
+        "bloqueo":
+            bloqueo,
+    }
+
+
+def cocina_tablero(
+    request,
+):
+    """
+    Pedidos activos de restaurante, del más antiguo al más
+    reciente, con su detalle de preparación.
+    """
+
+    from core.models import (
+        Pedido,
+    )
+
+    empresa_scope, modo_cliente = (
+        _nl_pedido_scope(
+            request
+        )
+    )
+
+    pedidos_qs = (
+        Pedido.objects
+        .filter(
+            estado__in=
+                ESTADOS_COCINA_ACTIVOS,
+            tipo_orden__in=
+                TIPOS_ORDEN_COCINA,
+        )
+        .select_related(
+            "empresa",
+        )
+        .prefetch_related(
+            "detalles",
+        )
+        .order_by(
+            "creado_en",
+            "id",
+        )
+    )
+
+    if empresa_scope is not None:
+
+        pedidos_qs = (
+            pedidos_qs
+            .filter(
+                empresa_id=
+                    empresa_scope,
+            )
+        )
+
+    labels_estado = dict(
+        Pedido.ESTADOS
+    )
+
+    tickets = [
+        _nl_cocina_ticket(
+            pedido,
+            labels_estado=
+                labels_estado,
+        )
+        for pedido
+        in pedidos_qs
+    ]
+
+    en_preparacion = [
+        ticket
+        for ticket in tickets
+        if ticket["pedido"].estado
+        == "preparando"
+    ]
+
+    por_preparar = [
+        ticket
+        for ticket in tickets
+        if ticket["pedido"].estado
+        in ("confirmado", "pagado")
+    ]
+
+    listos = [
+        ticket
+        for ticket in tickets
+        if ticket["pedido"].estado
+        == "listo"
+    ]
+
+    return render(
+        request,
+        (
+            "core/cocina_tablero.html"
+            if modo_cliente
+            else "core/cocina_tablero_admin.html"
+        ),
+        {
+            "grupos_cocina": [
+                {
+                    "titulo":
+                        "Por preparar",
+                    "tickets":
+                        por_preparar,
+                },
+                {
+                    "titulo":
+                        "En preparación",
+                    "tickets":
+                        en_preparacion,
+                },
+                {
+                    "titulo":
+                        "Listos",
+                    "tickets":
+                        listos,
+                },
+            ],
+
+            "por_preparar":
+                por_preparar,
+
+            "en_preparacion":
+                en_preparacion,
+
+            "listos":
+                listos,
+
+            "total_tickets":
+                len(tickets),
+
+            "modo_cliente":
+                modo_cliente,
+        },
+    )
