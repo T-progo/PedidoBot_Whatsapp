@@ -672,3 +672,84 @@ class RestaurantePedidoServiceTests(TestCase):
                 pedido_id=pedido.id,
                 tipo_orden="comedor",
             )
+
+    def test_16_varios_extras_una_sola_vez(self):
+        """
+        Varios extras en una línea: cada opción se guarda y
+        se cobra una sola vez (bucle de extras de Typebot).
+        """
+
+
+        pedido = self.crear_carrito()
+
+        detalle = (
+            agregar_producto_configurado_a_pedido(
+                pedido_id=pedido.id,
+                producto_id=self.producto.id,
+                cantidad="1.0000",
+                seleccion_opciones=[
+                    self.op_grande.id,
+                    self.op_queso.id,
+                    self.op_tocino.id,
+                ],
+            )
+        )
+
+        opcion_ids = [
+            opcion["opcion_id"]
+            for grupo in (
+                list(detalle.modificadores_snapshot)
+                + list(detalle.extras_snapshot)
+            )
+            for opcion in grupo["opciones"]
+        ]
+
+        self.assertEqual(
+            sorted(opcion_ids),
+            sorted(
+                [
+                    self.op_grande.id,
+                    self.op_queso.id,
+                    self.op_tocino.id,
+                ]
+            ),
+        )
+
+        self.assertEqual(
+            len(opcion_ids),
+            len(set(opcion_ids)),
+        )
+
+        self.assertEqual(
+            detalle.precio_extras,
+            Decimal("25.7500"),
+        )
+
+        self.assertEqual(
+            detalle.precio_unitario,
+            Decimal("145.7500"),
+        )
+
+    def test_17_extra_repetido_no_cobra_doble(self):
+
+        pedido = self.crear_carrito()
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "dos veces la misma opción",
+        ):
+            agregar_producto_configurado_a_pedido(
+                pedido_id=pedido.id,
+                producto_id=self.producto.id,
+                cantidad="1.0000",
+                seleccion_opciones=[
+                    self.op_grande.id,
+                    self.op_queso.id,
+                    self.op_queso.id,
+                ],
+            )
+
+        self.assertEqual(
+            PedidoDetalle.objects.count(),
+            0,
+        )
