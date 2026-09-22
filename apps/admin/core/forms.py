@@ -1411,12 +1411,20 @@ class ProductoForm(forms.ModelForm):
                     return ""
 
                 try:
-                    number = Decimal(str(value)).quantize(
+                    exacto = Decimal(str(value))
+                    number = exacto.quantize(
                         Decimal("0.01"),
                         rounding=ROUND_HALF_UP,
                     )
                 except Exception:
                     return super().format_value(value)
+
+                # TNL-CATALOGO-REGLAS-V1
+                # Un valor con más de 2 decimales se muestra
+                # completo: redondearlo aquí lo cambiaría en
+                # silencio al guardar.
+                if number != exacto:
+                    return format(exacto.normalize(), "f")
 
                 return f"{number:.2f}"
 

@@ -7,6 +7,7 @@ from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 import os
+import re
 import tempfile
 import time
 import uuid
@@ -300,7 +301,7 @@ def _texto(
     return text
 
 
-def _decimal(value, *, field):
+def _decimal(value, *, field, max_decimales=4):
 
     if value is None or value == "":
         raise ValueError(
@@ -311,6 +312,10 @@ def _decimal(value, *, field):
         raise ValueError(
             f"{field}: debe ser numérico."
         )
+
+    # Decimales tal como se escribieron: "1.500" o
+    # "12.5000" tienen 3 y 4, aunque valgan 1.5 y 12.5.
+    decimales_escritos = 0
 
     if isinstance(value, Decimal):
         number = value
@@ -324,6 +329,17 @@ def _decimal(value, *, field):
     else:
 
         text = str(value).strip()
+
+        # TNL-CATALOGO-REGLAS-V1
+        # "1,500" puede ser mil quinientos o uno punto
+        # cinco: se rechaza en lugar de adivinar.
+        if re.fullmatch(r"\d{1,3}(,\d{3})+", text):
+            raise ValueError(
+                f'{field}: "{text}" es ambiguo '
+                "(¿miles o decimales?). Escríbelo sin "
+                "separador de miles y con punto "
+                "decimal, por ejemplo 1500 o 1.50."
+            )
 
         if (
             "," in text
@@ -339,6 +355,11 @@ def _decimal(value, *, field):
             and "." not in text
         ):
             text = text.replace(",", ".")
+
+        if "." in text and not re.search(r"[eE]", text):
+            decimales_escritos = len(
+                text.split(".", 1)[1]
+            )
 
         try:
             number = Decimal(text)
@@ -367,12 +388,14 @@ def _decimal(value, *, field):
 
     decimals = max(
         -normalized.as_tuple().exponent,
+        decimales_escritos,
         0,
     )
 
-    if decimals > 4:
+    if decimals > max_decimales:
         raise ValueError(
-            f"{field}: máximo 4 decimales."
+            f"{field}: máximo "
+            f"{max_decimales} decimales."
         )
 
     integer_digits = (
@@ -695,9 +718,11 @@ def validar_archivo_productos(
                     field="descripcion",
                 )
 
+                # TNL-CATALOGO-REGLAS-V1: centavos.
                 precio = _decimal(
                     values[index["precio"]],
                     field="precio",
+                    max_decimales=2,
                 )
 
                 stock = _decimal(
@@ -1258,13 +1283,17 @@ def generar_plantilla_productos_xlsx():
             "precio",
             "Sí",
             "Mayor o igual a cero. "
-            "Máximo 4 decimales.",
+            "Máximo 2 decimales. Usa punto "
+            "decimal y no uses separador de "
+            "miles (ej. 1500 o 85.50).",
         ),
         (
             "stock",
             "Sí",
             "Mayor o igual a cero. "
-            "Máximo 4 decimales.",
+            "Máximo 4 decimales. Usa punto "
+            "decimal y no uses separador de "
+            "miles.",
         ),
         (
             "unidad",

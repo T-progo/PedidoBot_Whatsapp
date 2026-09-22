@@ -1043,6 +1043,26 @@ class Producto(models.Model):
         auto_now=True,
     )
 
+    # TNL-CATALOGO-REGLAS-V1
+    # Los formularios (ModelForm) validan aquí: el precio
+    # admite máximo 2 decimales y nunca se redondea solo.
+    def clean(self):
+
+        super().clean()
+
+        from core.services.catalogo import (
+            MENSAJE_PRECIO_CENTAVOS,
+            precio_en_centavos,
+        )
+
+        if (
+            self.precio is not None
+            and not precio_en_centavos(self.precio)
+        ):
+            raise ValidationError(
+                {"precio": MENSAJE_PRECIO_CENTAVOS}
+            )
+
     # TNL-PRODUCT-MAIN-IMAGE-SAVE-V1
     def save(self, *args, **kwargs):
 
@@ -1556,6 +1576,24 @@ class OpcionModificadorProducto(models.Model):
 
         verbose_name = "Opción de modificador"
         verbose_name_plural = "Opciones de modificador"
+
+    # TNL-CATALOGO-REGLAS-V1
+    def clean(self):
+
+        super().clean()
+
+        from core.services.catalogo import (
+            MENSAJE_PRECIO_CENTAVOS,
+            precio_en_centavos,
+        )
+
+        if (
+            self.precio_adicional is not None
+            and not precio_en_centavos(self.precio_adicional)
+        ):
+            raise ValidationError(
+                {"precio_adicional": MENSAJE_PRECIO_CENTAVOS}
+            )
 
     def __str__(self):
         return f"{self.grupo} - {self.nombre}"

@@ -5729,17 +5729,24 @@ def _ia_productos_visuales_respuesta(
 
     try:
         from core.models import Producto
+        from core.services.catalogo import (
+            productos_vendibles,
+        )
 
+        # TNL-CATALOGO-REGLAS-V1
+        # Mismas reglas que el menú: sólo lo que el
+        # carrito aceptaría.
         productos = list(
-            Producto.objects
-            .select_related(
-                "catalogo",
-            )
-            .filter(
-                catalogo__empresa_id=
-                    bot.empresa_id,
-                catalogo__activo=True,
-                activo=True,
+            productos_vendibles(
+                empresa_id=bot.empresa_id,
+                plantilla_id=bot.plantilla_id,
+                restaurante=True,
+                queryset=(
+                    Producto.objects
+                    .select_related(
+                        "catalogo",
+                    )
+                ),
             )
             .exclude(
                 imagen_principal=""
@@ -7565,27 +7572,20 @@ def _ia_prehandoff_producto_mensaje_chango(
 
             if producto_id_directo_int > 0:
 
-                from core.models import (
-                    Producto,
+                from core.services.catalogo import (
+                    productos_vendibles,
                 )
 
+                # TNL-CATALOGO-REGLAS-V1
                 producto_directo = (
-                    Producto.objects
+                    productos_vendibles(
+                        empresa_id=bot.empresa_id,
+                        plantilla_id=bot.plantilla_id,
+                        restaurante=True,
+                    )
                     .filter(
                         id=
                             producto_id_directo_int,
-
-                        activo=True,
-
-                        stock__gt=0,
-
-                        catalogo__activo=True,
-
-                        catalogo__empresa_id=
-                            bot.empresa_id,
-
-                        catalogo__plantilla_id=
-                            bot.plantilla_id,
                     )
                     .only(
                         "id",
@@ -10986,8 +10986,17 @@ def restaurante_categorias(
     Categorías dinámicas del menú del restaurante.
     """
 
+    from django.db.models import (
+        Exists,
+        OuterRef,
+    )
+
     from core.models import (
         CategoriaProducto,
+    )
+
+    from core.services.catalogo import (
+        productos_vendibles,
     )
 
     if request.method != "GET":
@@ -11024,6 +11033,8 @@ def restaurante_categorias(
 
         return bot_error
 
+    # TNL-CATALOGO-REGLAS-V1
+    # Sólo categorías con al menos un producto vendible.
     categorias = list(
         CategoriaProducto.objects
         .filter(
@@ -11035,11 +11046,18 @@ def restaurante_categorias(
 
             catalogo__activo=True,
             activa=True,
-
-            productos__activo=True,
-            productos__stock__gt=0,
         )
-        .distinct()
+        .filter(
+            Exists(
+                productos_vendibles(
+                    empresa_id=bot.empresa_id,
+                    plantilla_id=bot.plantilla_id,
+                    restaurante=True,
+                ).filter(
+                    categoria_id=OuterRef("pk"),
+                )
+            )
+        )
         .order_by(
             "orden",
             "nombre",
@@ -11138,6 +11156,10 @@ def restaurante_productos(
         CategoriaProducto,
         GrupoModificadorProducto,
         Producto,
+    )
+
+    from core.services.catalogo import (
+        productos_vendibles,
     )
 
     if request.method != "GET":
@@ -11249,39 +11271,31 @@ def restaurante_productos(
         )
     )
 
+    # TNL-CATALOGO-REGLAS-V1
     productos = list(
-        Producto.objects
-        .select_related(
-            "catalogo",
-            "categoria",
-        )
-        .prefetch_related(
-            Prefetch(
-                "grupos_modificadores",
-                queryset=grupos_qs,
-                to_attr=
-                    "restaurante_grupos_activos",
-            )
+        productos_vendibles(
+            empresa_id=bot.empresa_id,
+            plantilla_id=bot.plantilla_id,
+            restaurante=True,
+            queryset=(
+                Producto.objects
+                .select_related(
+                    "catalogo",
+                    "categoria",
+                )
+                .prefetch_related(
+                    Prefetch(
+                        "grupos_modificadores",
+                        queryset=grupos_qs,
+                        to_attr=
+                            "restaurante_grupos_activos",
+                    )
+                )
+            ),
         )
         .filter(
             categoria_id=
                 categoria.id,
-
-            categoria__activa=True,
-
-            catalogo_id=
-                categoria.catalogo_id,
-
-            catalogo__activo=True,
-
-            catalogo__empresa_id=
-                bot.empresa_id,
-
-            catalogo__plantilla_id=
-                bot.plantilla_id,
-
-            activo=True,
-            stock__gt=0,
         )
         .order_by(
             "nombre",
@@ -11398,6 +11412,10 @@ def restaurante_producto_detalle(
         Producto,
     )
 
+    from core.services.catalogo import (
+        productos_vendibles,
+    )
+
     if request.method != "GET":
 
         return JsonResponse(
@@ -11492,40 +11510,34 @@ def restaurante_producto_detalle(
         )
     )
 
+    # TNL-CATALOGO-REGLAS-V1
     producto = (
-        Producto.objects
-        .select_related(
-            "catalogo",
-            "categoria",
-        )
-        .prefetch_related(
-            "galeria",
+        productos_vendibles(
+            empresa_id=bot.empresa_id,
+            plantilla_id=bot.plantilla_id,
+            restaurante=True,
+            queryset=(
+                Producto.objects
+                .select_related(
+                    "catalogo",
+                    "categoria",
+                )
+                .prefetch_related(
+                    "galeria",
 
-            Prefetch(
-                "grupos_modificadores",
-                queryset=
-                    grupos_qs,
+                    Prefetch(
+                        "grupos_modificadores",
+                        queryset=
+                            grupos_qs,
 
-                to_attr=
-                    "restaurante_grupos_activos",
+                        to_attr=
+                            "restaurante_grupos_activos",
+                    ),
+                )
             ),
         )
         .filter(
             id=producto_id,
-
-            activo=True,
-            stock__gt=0,
-
-            categoria__isnull=False,
-            categoria__activa=True,
-
-            catalogo__activo=True,
-
-            catalogo__empresa_id=
-                bot.empresa_id,
-
-            catalogo__plantilla_id=
-                bot.plantilla_id,
         )
         .first()
     )
@@ -12995,6 +13007,10 @@ def restaurante_pedido_producto_agregar(
         Producto,
     )
 
+    from core.services.catalogo import (
+        productos_vendibles,
+    )
+
     from core.services.pedidos import (
         agregar_producto_configurado_a_pedido,
         crear_pedido,
@@ -13183,30 +13199,26 @@ def restaurante_pedido_producto_agregar(
 
         with transaction.atomic():
 
+            # TNL-CATALOGO-REGLAS-V1
+            # La regla compartida ya exige que la categoría
+            # pertenezca al catálogo del producto.
             producto = (
-                Producto.objects
-                .select_for_update()
-                .select_related(
-                    "catalogo",
-                    "categoria",
-                    "categoria__catalogo",
+                productos_vendibles(
+                    empresa_id=bot.empresa_id,
+                    plantilla_id=bot.plantilla_id,
+                    restaurante=True,
+                    queryset=(
+                        Producto.objects
+                        .select_for_update()
+                        .select_related(
+                            "catalogo",
+                            "categoria",
+                            "categoria__catalogo",
+                        )
+                    ),
                 )
                 .filter(
                     id=producto_id,
-
-                    activo=True,
-                    stock__gt=0,
-
-                    catalogo__activo=True,
-
-                    catalogo__empresa_id=
-                        bot.empresa_id,
-
-                    catalogo__plantilla_id=
-                        bot.plantilla_id,
-
-                    categoria__isnull=False,
-                    categoria__activa=True,
                 )
                 .first()
             )
@@ -13221,28 +13233,6 @@ def restaurante_pedido_producto_agregar(
                             "para este bot.",
                     },
                     status=404,
-                )
-
-            if (
-                producto
-                .categoria
-                .catalogo_id
-                !=
-                producto.catalogo_id
-            ):
-
-                return JsonResponse(
-                    {
-                        "ok": False,
-
-                        "error":
-                            "La categoría del producto "
-                            "no pertenece a su catálogo.",
-
-                        "codigo":
-                            "CATEGORIA_CATALOGO_INCONSISTENTE",
-                    },
-                    status=409,
                 )
 
             carrito_creado = False

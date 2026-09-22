@@ -417,19 +417,35 @@ def construir_contexto_catalogo_ia(
 
     from core.models import Producto
 
+    from core.services.catalogo import (
+        es_bot_restaurante,
+        productos_vendibles,
+    )
+
+
+    # TNL-CATALOGO-REGLAS-V1
+    # Restaurante: las mismas reglas que el menú (plantilla,
+    # categoría activa, stock). Otros giros: producto y
+    # catálogo activos, y categoría activa si tiene una.
+    restaurante = es_bot_restaurante(bot)
 
     queryset = (
-        Producto.objects
-        .select_related(
-            "catalogo",
-        )
-        .filter(
-            catalogo__empresa_id=
-                int(
-                    empresa_id
-                ),
-            catalogo__activo=True,
-            activo=True,
+        productos_vendibles(
+            empresa_id=int(
+                empresa_id
+            ),
+            plantilla_id=(
+                getattr(bot, "plantilla_id", None)
+                if restaurante
+                else None
+            ),
+            restaurante=restaurante,
+            queryset=(
+                Producto.objects
+                .select_related(
+                    "catalogo",
+                )
+            ),
         )
         .order_by(
             "nombre",
