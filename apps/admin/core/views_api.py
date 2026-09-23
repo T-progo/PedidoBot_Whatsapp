@@ -7069,6 +7069,15 @@ def _ia_guardrail_salida_pago_chango(
     Si existe un carrito ACTUAL y la salida IA intenta
     preguntar, sugerir o describir pagos, el control
     regresa al flujo canónico de finalización.
+
+    TNL-IA-SIN-CARRITO-GUARD-V1
+
+    Si NO existe carrito y la salida IA habla de pagos, de
+    métodos que el negocio no tiene (transferencia, enlaces
+    de pago) o da por tomado un pedido, esa salida se
+    descarta: se responde con un texto corto y se manda al
+    menú real (ia_accion=mostrar_categorias). La IA no toma
+    pedidos.
     """
 
     plantilla_tipo = str(
@@ -7092,9 +7101,6 @@ def _ia_guardrail_salida_pago_chango(
         or
         ""
     ).strip()
-
-    if not token:
-        return None
 
     import re
     import unicodedata
@@ -7145,32 +7151,81 @@ def _ia_guardrail_salida_pago_chango(
         "transferencia",
     )
 
-    if not any(
+    # Sin carrito no basta con vigilar el pago: también hay
+    # que impedir que la IA dé por tomado un pedido u ofrezca
+    # métodos que el negocio no tiene.
+    senales_sin_carrito = senales_pago_salida + (
+        "enlace de pago",
+        "link de pago",
+        "liga de pago",
+        "deposito",
+        "clabe",
+        "spei",
+        "paypal",
+        "pedido registrado",
+        "pedido confirmado",
+        "pedido quedo",
+        "quedo registrado",
+        "orden registrada",
+        "tomar tu pedido",
+        "tomo tu pedido",
+        "anoto tu pedido",
+        "tu pedido",
+        "subtotal",
+    )
+
+    hay_senal_pago = any(
         senal in texto
         for senal
         in senales_pago_salida
-    ):
-        return None
-
-    pedido, pedido_error = (
-        _restaurante_api_resolver_pedido(
-            bot=bot,
-            carrito_token=
-                token,
-            solo_carrito=True,
-        )
     )
 
-    if (
-        pedido_error is not None
-        or
-        pedido is None
+    pedido = None
+
+    if token:
+
+        pedido, pedido_error = (
+            _restaurante_api_resolver_pedido(
+                bot=bot,
+                carrito_token=
+                    token,
+                solo_carrito=True,
+            )
+        )
+
+        if pedido_error is not None:
+            pedido = None
+
+    if pedido is not None:
+
+        # Comportamiento vigente: con carrito real el control
+        # vuelve al cierre canónico.
+        if not hay_senal_pago:
+            return None
+
+        return {
+            "ia_accion":
+                "finalizar_pedido_actual",
+        }
+
+    if not any(
+        senal in texto
+        for senal
+        in senales_sin_carrito
     ):
         return None
 
     return {
         "ia_accion":
-            "finalizar_pedido_actual",
+            "mostrar_categorias",
+
+        "respuesta":
+            (
+                "Para tomar tu pedido y cobrarlo necesito "
+                "que lo hagas desde el menú: ahí eliges "
+                "productos y el pago disponible. Te muestro "
+                "las categorías."
+            ),
     }
 
 
@@ -9216,12 +9271,20 @@ def typebot_ia_responder(request):
                 ""
             ).strip()
 
+            texto_post_pago = str(
+                post_handoff_pago.get(
+                    "respuesta"
+                )
+                or
+                ""
+            ).strip()
+
             respuesta_post_pago = {
                 "ia_disponible":
                     "true",
 
                 "respuesta":
-                    "",
+                    texto_post_pago,
 
                 "ia_mensaje":
                     "",

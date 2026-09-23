@@ -47,15 +47,16 @@ class CocinaTableroTests(TestCase):
 
         for empresa in (self.empresa, self.otra_empresa):
 
+            # La licencia se evalúa con la fecha local de la
+            # app, no con la UTC: se ancla un día antes.
+            hoy = timezone.localdate()
+
             Licencia.objects.create(
                 empresa=empresa,
                 nombre=f"Licencia {empresa.nombre}",
                 estado="activa",
-                fecha_inicio=timezone.now().date(),
-                fecha_fin=(
-                    timezone.now().date()
-                    + timedelta(days=30)
-                ),
+                fecha_inicio=hoy - timedelta(days=1),
+                fecha_fin=hoy + timedelta(days=30),
             )
 
             ConfiguracionRestaurante.objects.create(
