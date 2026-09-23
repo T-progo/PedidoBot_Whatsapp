@@ -240,3 +240,115 @@ def resolver_texto_opciones(
         "mensaje": "",
         "motivo": "",
     }
+
+
+# ------------------------------------------------------------------
+# TNL-MODIFICADOR-TEXTO-V1 · paso "¿Otro extra?"
+# ------------------------------------------------------------------
+
+FRASES_OTRO = {
+    "agregar otro",
+    "agregar",
+    "otro",
+    "otra",
+    "mas",
+    "mas extras",
+    "otro extra",
+    "otra opcion",
+    "si",
+    "si porfa",
+    "si por favor",
+    "claro",
+    "sip",
+    "agregar mas",
+}
+
+FRASES_LISTO = {
+    "listo",
+    "no",
+    "no gracias",
+    "nada mas",
+    "nada",
+    "terminar",
+    "termina",
+    "continuar",
+    "continua",
+    "seguir",
+    "ya",
+    "ya esta",
+    "es todo",
+    "eso es todo",
+    "asi esta bien",
+    "finalizar",
+}
+
+MENSAJE_OTRO_EXTRA = (
+    "Responde «Agregar otro» si quieres otro extra, "
+    "o «Listo» para continuar."
+)
+
+
+def interpretar_respuesta_otro_extra(texto) -> dict:
+    """
+    Traduce la respuesta escrita del paso "¿Otro extra?" a una
+    intención: seguir agregando o continuar con el pedido.
+
+    Sin acentos ni mayúsculas, y tolerando emojis o signos que
+    el cliente copie del botón. Lo que no se reconoce se
+    devuelve como desconocido: nunca se adivina.
+    """
+
+    normalizado = normalizar(texto)
+
+    # Los botones llevan emoji; al normalizar quedan restos.
+    limpio = re.sub(r"[^a-z0-9\s]", " ", normalizado)
+    limpio = " ".join(limpio.split())
+
+    if not limpio:
+        return {
+            "intencion": "desconocido",
+            "mensaje": MENSAJE_OTRO_EXTRA,
+        }
+
+    if limpio in FRASES_OTRO:
+        return {
+            "intencion": "otro",
+            "mensaje": "",
+        }
+
+    if limpio in FRASES_LISTO:
+        return {
+            "intencion": "listo",
+            "mensaje": "",
+        }
+
+    # "listo, continuar" o "agregar otro extra" siguen siendo
+    # claros mientras sólo encajen en un lado.
+    encaja_otro = any(
+        frase in limpio
+        for frase in FRASES_OTRO
+        if len(frase) > 2
+    )
+
+    encaja_listo = any(
+        frase in limpio
+        for frase in FRASES_LISTO
+        if len(frase) > 2
+    )
+
+    if encaja_otro and not encaja_listo:
+        return {
+            "intencion": "otro",
+            "mensaje": "",
+        }
+
+    if encaja_listo and not encaja_otro:
+        return {
+            "intencion": "listo",
+            "mensaje": "",
+        }
+
+    return {
+        "intencion": "desconocido",
+        "mensaje": MENSAJE_OTRO_EXTRA,
+    }

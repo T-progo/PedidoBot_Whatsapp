@@ -596,3 +596,231 @@ class ResolverEndpointTests(TestCase):
             respuesta.status_code,
             200,
         )
+
+
+class IntencionOtroExtraTests(TestCase):
+    """Respuestas escritas del paso "¿Otro extra?"."""
+
+    def intencion(self, texto):
+        from core.services.seleccion_modificadores import (
+            interpretar_respuesta_otro_extra,
+        )
+
+        return interpretar_respuesta_otro_extra(
+            texto
+        )["intencion"]
+
+    def test_01_variantes_para_seguir(self):
+
+        for texto in (
+            "agregar otro",
+            "Agregar otro",
+            "otro",
+            "OTRO",
+            "sí",
+            "si",
+            "Sí",
+            "más",
+            "mas",
+            "➕ Agregar otro",
+        ):
+            self.assertEqual(
+                self.intencion(texto),
+                "otro",
+                texto,
+            )
+
+    def test_02_variantes_para_terminar(self):
+
+        for texto in (
+            "listo",
+            "Listo",
+            "no",
+            "No",
+            "terminar",
+            "continuar",
+            "✅ Listo, continuar",
+            "ya está",
+            "no gracias",
+        ):
+            self.assertEqual(
+                self.intencion(texto),
+                "listo",
+                texto,
+            )
+
+    def test_03_texto_desconocido(self):
+
+        for texto in (
+            "",
+            "   ",
+            "quiero una pizza",
+            "cuánto cuesta el envío",
+            "12345",
+        ):
+            self.assertEqual(
+                self.intencion(texto),
+                "desconocido",
+                texto,
+            )
+
+    def test_04_mensaje_orienta_sin_ia(self):
+        from core.services.seleccion_modificadores import (
+            interpretar_respuesta_otro_extra,
+        )
+
+        resultado = interpretar_respuesta_otro_extra(
+            "no entiendo"
+        )
+
+        self.assertEqual(
+            resultado["intencion"],
+            "desconocido",
+        )
+
+        self.assertIn(
+            "Agregar otro",
+            resultado["mensaje"],
+        )
+
+        self.assertIn(
+            "Listo",
+            resultado["mensaje"],
+        )
+
+
+class IntencionEndpointTests(TestCase):
+
+    CLAVE = "intencion-otro-extra-key"
+
+    def setUp(self):
+
+        hoy = timezone.localdate()
+
+        clave_patch = patch(
+            "core.views_api._leer_clave_api",
+            return_value=self.CLAVE,
+        )
+
+        lifecycle_patch = patch(
+            (
+                "core.views_api."
+                "_nl_api_empresa_operativa_error"
+            ),
+            return_value=None,
+        )
+
+        clave_patch.start()
+        lifecycle_patch.start()
+
+        self.addCleanup(clave_patch.stop)
+        self.addCleanup(lifecycle_patch.stop)
+
+        self.empresa = Empresa.objects.create(
+            nombre="Restaurante INTENCION",
+            rfc="RIN010101AA1",
+        )
+
+        Licencia.objects.create(
+            empresa=self.empresa,
+            nombre="Licencia INTENCION",
+            estado="activa",
+            fecha_inicio=hoy - timedelta(days=1),
+            fecha_fin=hoy + timedelta(days=30),
+        )
+
+        self.plantilla = Plantilla.objects.create(
+            empresa=self.empresa,
+            nombre="Plantilla INTENCION",
+            tipo="restaurante",
+            activa=True,
+        )
+
+        self.bot = Bot.objects.create(
+            empresa=self.empresa,
+            plantilla=self.plantilla,
+            nombre="Bot INTENCION",
+            activo=True,
+        )
+
+        self.url = reverse(
+            "core:api_typebot_restaurante_"
+            "configurador_intencion"
+        )
+
+    def pedir(self, texto, *, autorizado=True):
+
+        cabeceras = (
+            {
+                "HTTP_AUTHORIZATION":
+                    "Bearer " + self.CLAVE,
+            }
+            if autorizado
+            else {}
+        )
+
+        return self.client.get(
+            self.url,
+            {
+                "bot_id": self.bot.id,
+                "texto": texto,
+            },
+            **cabeceras,
+        )
+
+    def test_01_devuelve_intencion(self):
+
+        datos = json.loads(
+            self.pedir("sí").content.decode("utf-8")
+        )
+
+        self.assertEqual(
+            datos["intencion"],
+            "otro",
+        )
+
+        datos = json.loads(
+            self.pedir("listo").content.decode("utf-8")
+        )
+
+        self.assertEqual(
+            datos["intencion"],
+            "listo",
+        )
+
+    def test_02_desconocido_trae_mensaje(self):
+
+        datos = json.loads(
+            self.pedir("quiero una pizza").content.decode("utf-8")
+        )
+
+        self.assertEqual(
+            datos["intencion"],
+            "desconocido",
+        )
+
+        self.assertTrue(
+            datos["mensaje"]
+        )
+
+    def test_03_sin_autorizacion(self):
+
+        self.assertEqual(
+            self.pedir(
+                "listo",
+                autorizado=False,
+            ).status_code,
+            401,
+        )
+
+    def test_04_metodo_no_permitido(self):
+
+        respuesta = self.client.post(
+            self.url,
+            HTTP_AUTHORIZATION="Bearer " + self.CLAVE,
+        )
+
+        self.assertEqual(
+            respuesta.status_code,
+            405,
+        )

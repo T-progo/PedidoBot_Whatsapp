@@ -11802,6 +11802,81 @@ def restaurante_producto_detalle(
 # TNL-RESTAURANTE-TYPEBOT-CONFIGURADOR-R5-V1
 # =============================================================================
 
+def restaurante_configurador_intencion(
+    request,
+):
+    """
+    TNL-MODIFICADOR-TEXTO-V1
+
+    Interpreta la respuesta ESCRITA del paso "¿Otro extra?":
+    seguir agregando o continuar con el pedido.
+
+    Sólo normaliza texto: no toca catálogo, precios ni pedido.
+    Lo que no se reconoce se devuelve como desconocido para que
+    el flujo vuelva a preguntar sin recurrir a la IA.
+    """
+
+    from core.services.seleccion_modificadores import (
+        interpretar_respuesta_otro_extra,
+    )
+
+    if request.method != "GET":
+
+        return JsonResponse(
+            {
+                "ok": False,
+                "error":
+                    "Método no permitido.",
+            },
+            status=405,
+        )
+
+    auth_error = (
+        _restaurante_api_auth_error(
+            request
+        )
+    )
+
+    if auth_error is not None:
+        return auth_error
+
+    bot, bot_error = (
+        _restaurante_api_resolver_bot(
+            request.GET.get(
+                "bot_id",
+                "",
+            )
+        )
+    )
+
+    if bot_error is not None:
+        return bot_error
+
+    resultado = (
+        interpretar_respuesta_otro_extra(
+            request.GET.get(
+                "texto",
+                "",
+            )
+        )
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+
+            "intencion":
+                resultado["intencion"],
+
+            "mensaje":
+                resultado["mensaje"],
+        },
+        json_dumps_params={
+            "ensure_ascii": False,
+        },
+    )
+
+
 def restaurante_producto_configurador_resolver(
     request,
 ):

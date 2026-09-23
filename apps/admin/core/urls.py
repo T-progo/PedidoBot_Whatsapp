@@ -1293,3 +1293,19 @@ urlpatterns += [
     ),
 
 ]
+
+urlpatterns += [
+
+    path(
+        (
+            "api/typebot/restaurante/"
+            "configurador/intencion/"
+        ),
+        views_api
+        .restaurante_configurador_intencion,
+        name=
+            "api_typebot_restaurante_"
+            "configurador_intencion",
+    ),
+
+]
