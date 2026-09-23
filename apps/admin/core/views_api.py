@@ -11802,6 +11802,189 @@ def restaurante_producto_detalle(
 # TNL-RESTAURANTE-TYPEBOT-CONFIGURADOR-R5-V1
 # =============================================================================
 
+def restaurante_producto_configurador_resolver(
+    request,
+):
+    """
+    TNL-MODIFICADOR-TEXTO-V1
+
+    Traduce la respuesta ESCRITA del cliente ("1", "BBQ",
+    "1 y 9") a IDs reales del grupo que el configurador está
+    mostrando ahora mismo.
+
+    Reutiliza restaurante_producto_configurador() para no
+    duplicar auth, aislamiento por bot, catálogo ni reglas de
+    disponibilidad: aquí sólo se resuelve el texto.
+
+    Nunca acepta precios del cliente ni opciones de otro
+    grupo; si el texto es inválido o ambiguo, devuelve
+    resuelto=false con un mensaje corto.
+    """
+
+    import json
+    import re
+
+    from core.services.seleccion_modificadores import (
+        resolver_texto_opciones,
+    )
+
+    if request.method != "GET":
+
+        return JsonResponse(
+            {
+                "ok": False,
+                "error":
+                    "Método no permitido.",
+            },
+            status=405,
+        )
+
+    configurador_response = (
+        restaurante_producto_configurador(
+            request
+        )
+    )
+
+    if (
+        configurador_response.status_code
+        != 200
+    ):
+        return configurador_response
+
+    try:
+
+        grupo = json.loads(
+            configurador_response.content.decode(
+                "utf-8"
+            )
+        )
+
+    except (
+        ValueError,
+        UnicodeDecodeError,
+    ):
+
+        return JsonResponse(
+            {
+                "ok": False,
+                "error":
+                    "Respuesta interna de "
+                    "configurador inválida.",
+            },
+            status=500,
+        )
+
+    seleccionadas_crudo = str(
+        request.GET.get(
+            "seleccionadas",
+            "",
+        )
+        or ""
+    )
+
+    seleccionadas = [
+        parte.strip()
+        for parte
+        in re.split(
+            r"[,;\s]+",
+            seleccionadas_crudo.replace(
+                "[",
+                " ",
+            ).replace(
+                "]",
+                " ",
+            ).replace(
+                '"',
+                " ",
+            ).replace(
+                "'",
+                " ",
+            ),
+        )
+        if parte.strip().isdigit()
+    ]
+
+    if grupo.get("terminado"):
+
+        return JsonResponse(
+            {
+                "ok": True,
+                "resuelto": False,
+                "opcion_ids": [],
+                "opcion_ids_acumuladas":
+                    seleccionadas,
+                "mensaje":
+                    "Este paso ya no espera opciones.",
+                "motivo":
+                    "terminado",
+            },
+            json_dumps_params={
+                "ensure_ascii": False,
+            },
+        )
+
+    resultado = resolver_texto_opciones(
+        texto=request.GET.get(
+            "texto",
+            "",
+        ),
+
+        opcion_ids=grupo.get(
+            "opcion_ids"
+        ),
+
+        opcion_nombres=grupo.get(
+            "opcion_nombres"
+        ),
+
+        opcion_etiquetas=grupo.get(
+            "opcion_etiquetas"
+        ),
+
+        maximo=grupo.get(
+            "grupo_maximo",
+            0,
+        ),
+
+        seleccionadas=seleccionadas,
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+
+            "resuelto":
+                "true"
+                if resultado["resuelto"]
+                else "false",
+
+            "grupo_id":
+                grupo.get("grupo_id"),
+
+            "grupo_nombre":
+                grupo.get("grupo_nombre"),
+
+            "grupo_maximo":
+                grupo.get("grupo_maximo"),
+
+            "opcion_ids":
+                resultado["opcion_ids"],
+
+            "opcion_ids_acumuladas":
+                resultado["acumuladas"],
+
+            "mensaje":
+                resultado["mensaje"],
+
+            "motivo":
+                resultado["motivo"],
+        },
+        json_dumps_params={
+            "ensure_ascii": False,
+        },
+    )
+
+
 def restaurante_producto_configurador(
     request,
 ):

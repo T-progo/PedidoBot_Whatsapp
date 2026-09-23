@@ -1272,3 +1272,24 @@ urlpatterns += [
     ),
 
 ]
+
+
+# ============================================================
+# TNL-MODIFICADOR-TEXTO-V1
+# ============================================================
+
+urlpatterns += [
+
+    path(
+        (
+            "api/typebot/restaurante/"
+            "producto/configurador/resolver/"
+        ),
+        views_api
+        .restaurante_producto_configurador_resolver,
+        name=
+            "api_typebot_restaurante_"
+            "producto_configurador_resolver",
+    ),
+
+]
